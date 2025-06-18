@@ -40,6 +40,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     });
 
     try {
+      // Firebase 초기화 확인
+      final isInitialized = await _firebaseService.ensureInitialized();
+      if (!isInitialized) {
+        throw Exception('Firebase가 초기화되지 않았습니다.');
+      }
+
       await _firebaseService.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -52,6 +58,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       setState(() {
         _errorMessage = e.toString();
       });
+      
+      // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공
+      if (e.toString().contains('Firebase가 초기화되지 않았습니다') ||
+          e.toString().contains('Firebase가 설정되지 않았습니다')) {
+        _showFirebaseErrorDialog();
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -71,6 +83,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     });
 
     try {
+      // Firebase 초기화 확인
+      final isInitialized = await _firebaseService.ensureInitialized();
+      if (!isInitialized) {
+        throw Exception('Firebase가 초기화되지 않았습니다.');
+      }
+
       await _firebaseService.signUpWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -84,6 +102,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       setState(() {
         _errorMessage = e.toString();
       });
+      
+      // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공
+      if (e.toString().contains('Firebase가 초기화되지 않았습니다') ||
+          e.toString().contains('Firebase가 설정되지 않았습니다')) {
+        _showFirebaseErrorDialog();
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -136,6 +160,44 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         });
       }
     }
+  }
+
+  /// Firebase 오류 다이얼로그 표시
+  void _showFirebaseErrorDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Firebase 연결 오류'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('온라인 모드를 사용할 수 없습니다.'),
+            SizedBox(height: 8),
+            Text('가능한 원인:'),
+            Text('• Firebase 설정이 완료되지 않음'),
+            Text('• 네트워크 연결 문제'),
+            Text('• Firebase 프로젝트 설정 오류'),
+            SizedBox(height: 8),
+            Text('로컬 모드로 전환하여 게임을 즐기실 수 있습니다.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.of(context).pushReplacementNamed('/main');
+            },
+            child: const Text('로컬 모드로 이동'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

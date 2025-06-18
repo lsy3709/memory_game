@@ -51,8 +51,27 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   /// 온라인 게임 시작
-  void _startOnlineGame() {
-    Navigator.of(context).pushNamed('/online-login');
+  void _startOnlineGame() async {
+    try {
+      // Firebase 초기화 확인
+      final isInitialized = await _firebaseService.ensureInitialized();
+      
+      if (!isInitialized) {
+        _showFirebaseErrorDialog();
+        return;
+      }
+
+      // 로그인 상태 확인
+      final currentUser = _firebaseService.currentUser;
+      if (currentUser != null) {
+        Navigator.of(context).pushNamed('/online-main');
+      } else {
+        Navigator.of(context).pushNamed('/online-login');
+      }
+    } catch (e) {
+      print('온라인 게임 시작 오류: $e');
+      _showFirebaseErrorDialog();
+    }
   }
 
   /// 랭킹 보드 열기
@@ -233,6 +252,37 @@ class _MainScreenState extends State<MainScreen> {
     } catch (e) {
       print('데이터 초기화 오류: $e');
     }
+  }
+
+  /// Firebase 오류 다이얼로그 표시
+  void _showFirebaseErrorDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('온라인 모드 사용 불가'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('온라인 모드를 사용할 수 없습니다.'),
+            SizedBox(height: 8),
+            Text('가능한 원인:'),
+            Text('• Firebase 설정이 완료되지 않음'),
+            Text('• 네트워크 연결 문제'),
+            Text('• Firebase 프로젝트 설정 오류'),
+            SizedBox(height: 8),
+            Text('로컬 모드로 게임을 즐기실 수 있습니다.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

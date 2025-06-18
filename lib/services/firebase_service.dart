@@ -28,10 +28,41 @@ class FirebaseService {
     try {
       _auth = FirebaseAuth.instance;
       _firestore = FirebaseFirestore.instance;
+      
+      // Firebase 연결 테스트
+      await _firestore!.collection('connection_test').doc('test').get();
+      
       _isInitialized = true;
+      print('Firebase 서비스 초기화 성공');
     } catch (e) {
       print('Firebase 서비스 초기화 실패: $e');
       _isInitialized = false;
+      _auth = null;
+      _firestore = null;
+      
+      // Firebase 초기화 실패 시 상세한 오류 정보 제공
+      if (e.toString().contains('firebase_core')) {
+        throw Exception('Firebase가 설정되지 않았습니다. firebase_options.dart 파일을 확인해주세요.');
+      } else if (e.toString().contains('network')) {
+        throw Exception('네트워크 연결을 확인해주세요.');
+      } else if (e.toString().contains('permission')) {
+        throw Exception('Firebase 권한 설정을 확인해주세요.');
+      } else {
+        throw Exception('Firebase 초기화에 실패했습니다: $e');
+      }
+    }
+  }
+
+  /// Firebase 초기화 상태 확인 및 재시도
+  Future<bool> ensureInitialized() async {
+    if (_isInitialized) return true;
+    
+    try {
+      await _initialize();
+      return _isInitialized;
+    } catch (e) {
+      print('Firebase 초기화 재시도 실패: $e');
+      return false;
     }
   }
 
