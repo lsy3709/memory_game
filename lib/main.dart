@@ -7,6 +7,8 @@ import 'screens/game_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/player_registration_screen.dart';
+import 'screens/multiplayer_setup_screen.dart';
+import 'screens/multiplayer_game_screen.dart';
 import 'models/card_model.dart';
 import 'services/sound_service.dart';
 
@@ -47,6 +49,21 @@ class MemoryGameApp extends StatelessWidget {
         '/ranking': (context) => const RankingScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const PlayerRegistrationScreen(),
+        '/multiplayer-setup': (context) => const MultiplayerSetupScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/multiplayer-game') {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => MultiplayerGameScreen(
+              player1Name: args['player1Name'],
+              player2Name: args['player2Name'],
+              player1Email: args['player1Email'],
+              player2Email: args['player2Email'],
+            ),
+          );
+        }
+        return null;
       },
     );
   }

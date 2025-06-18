@@ -43,6 +43,11 @@ class _MainScreenState extends State<MainScreen> {
     Navigator.of(context).pushNamed('/game');
   }
 
+  /// 멀티플레이어 게임 시작
+  void _startMultiplayerGame() {
+    Navigator.of(context).pushNamed('/multiplayer-setup');
+  }
+
   /// 랭킹 보드 열기
   void _openRanking() {
     Navigator.of(context).pushNamed('/ranking');
@@ -179,6 +184,7 @@ class _MainScreenState extends State<MainScreen> {
             SizedBox(height: 16),
             Text('특징:'),
             Text('• 48장의 카드로 구성된 메모리 게임'),
+            Text('• 싱글플레이어 및 멀티플레이어 모드'),
             Text('• 최고 점수, 최단 시간, 최고 콤보 기록'),
             Text('• 랭킹 보드 시스템'),
             Text('• 사운드 효과 및 배경음악'),
@@ -316,13 +322,23 @@ class _MainScreenState extends State<MainScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // 게임 시작 버튼
+                      // 싱글플레이어 게임 시작 버튼
                       _buildMenuButton(
                         icon: Icons.play_arrow,
-                        title: '게임 시작',
-                        subtitle: '메모리 카드 게임을 시작합니다',
+                        title: '싱글플레이어',
+                        subtitle: '혼자서 메모리 카드 게임을 즐깁니다',
                         color: Colors.green,
                         onTap: _startGame,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 멀티플레이어 게임 시작 버튼
+                      _buildMenuButton(
+                        icon: Icons.people,
+                        title: '멀티플레이어',
+                        subtitle: '2명이서 함께하는 대결 게임',
+                        color: Colors.orange,
+                        onTap: _startMultiplayerGame,
                       ),
                       const SizedBox(height: 20),
 
@@ -331,7 +347,7 @@ class _MainScreenState extends State<MainScreen> {
                         icon: Icons.leaderboard,
                         title: '랭킹 보드',
                         subtitle: '최고 기록들을 확인합니다',
-                        color: Colors.orange,
+                        color: Colors.purple,
                         onTap: _openRanking,
                       ),
                       const SizedBox(height: 20),
