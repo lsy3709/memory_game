@@ -247,170 +247,180 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              // 상단 영역
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
                   children: [
-                    // 앱 제목
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '메모리 카드 게임',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                    // 상단 영역
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // 앱 제목
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '메모리 카드 게임',
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  'Memory Card Game',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Memory Card Game',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white70,
+                          // 설정 버튼
+                          IconButton(
+                            onPressed: _openSettings,
+                            icon: const Icon(
+                              Icons.settings,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    // 설정 버튼
-                    IconButton(
-                      onPressed: _openSettings,
-                      icon: const Icon(
-                        Icons.settings,
-                        color: Colors.white,
-                        size: 28,
+
+                    // 플레이어 정보 카드
+                    if (_playerStats != null)
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 24.0),
+                        padding: const EdgeInsets.all(16.0),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              '환영합니다, ${_playerStats!.playerName}님!',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildStatItem('최고 점수', '${_playerStats!.bestScore}'),
+                                _buildStatItem('최단 시간', _playerStats!.formattedBestTime),
+                                _buildStatItem('최고 콤보', '${_playerStats!.maxCombo}'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    const SizedBox(height: 40),
+
+                    // 메인 메뉴 버튼들
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Column(
+                        children: [
+                          // 싱글플레이어 게임 시작 버튼
+                          _buildMenuButton(
+                            icon: Icons.play_arrow,
+                            title: '싱글플레이어',
+                            subtitle: '혼자서 메모리 카드 게임을 즐깁니다',
+                            color: Colors.green,
+                            onTap: _startGame,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 멀티플레이어 게임 시작 버튼
+                          _buildMenuButton(
+                            icon: Icons.people,
+                            title: '멀티플레이어',
+                            subtitle: '2명이서 함께하는 대결 게임',
+                            color: Colors.orange,
+                            onTap: _startMultiplayerGame,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 온라인 게임 버튼
+                          _buildMenuButton(
+                            icon: Icons.wifi,
+                            title: '온라인 게임',
+                            subtitle: '전 세계 플레이어와 경쟁',
+                            color: Colors.red,
+                            onTap: _startOnlineGame,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 랭킹 보드 버튼
+                          _buildMenuButton(
+                            icon: Icons.leaderboard,
+                            title: '랭킹 보드',
+                            subtitle: '최고 기록들을 확인합니다',
+                            color: Colors.purple,
+                            onTap: _openRanking,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 계정 관리 버튼
+                          if (_playerStats == null)
+                            _buildMenuButton(
+                              icon: Icons.person_add,
+                              title: '계정 등록',
+                              subtitle: '새로운 계정을 만듭니다',
+                              color: Colors.blue,
+                              onTap: () => Navigator.of(context).pushNamed('/player-registration'),
+                            )
+                          else
+                            _buildMenuButton(
+                              icon: Icons.login,
+                              title: '다른 계정으로 로그인',
+                              subtitle: '기존 계정으로 로그인합니다',
+                              color: Colors.blue,
+                              onTap: () => Navigator.of(context).pushNamed('/login'),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    // 하단 정보
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Text(
+                        '게임을 즐기고 최고 기록에 도전해보세요!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.8),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-
-              // 플레이어 정보 카드
-              if (_playerStats != null)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24.0),
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        '환영합니다, ${_playerStats!.playerName}님!',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatItem('최고 점수', '${_playerStats!.bestScore}'),
-                          _buildStatItem('최단 시간', _playerStats!.formattedBestTime),
-                          _buildStatItem('최고 콤보', '${_playerStats!.maxCombo}'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 40),
-
-              // 메인 메뉴 버튼들
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // 싱글플레이어 게임 시작 버튼
-                      _buildMenuButton(
-                        icon: Icons.play_arrow,
-                        title: '싱글플레이어',
-                        subtitle: '혼자서 메모리 카드 게임을 즐깁니다',
-                        color: Colors.green,
-                        onTap: _startGame,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // 멀티플레이어 게임 시작 버튼
-                      _buildMenuButton(
-                        icon: Icons.people,
-                        title: '멀티플레이어',
-                        subtitle: '2명이서 함께하는 대결 게임',
-                        color: Colors.orange,
-                        onTap: _startMultiplayerGame,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // 온라인 게임 버튼
-                      _buildMenuButton(
-                        icon: Icons.wifi,
-                        title: '온라인 게임',
-                        subtitle: '전 세계 플레이어와 경쟁',
-                        color: Colors.red,
-                        onTap: _startOnlineGame,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // 랭킹 보드 버튼
-                      _buildMenuButton(
-                        icon: Icons.leaderboard,
-                        title: '랭킹 보드',
-                        subtitle: '최고 기록들을 확인합니다',
-                        color: Colors.purple,
-                        onTap: _openRanking,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // 계정 관리 버튼
-                      if (_playerStats == null)
-                        _buildMenuButton(
-                          icon: Icons.person_add,
-                          title: '계정 등록',
-                          subtitle: '새로운 계정을 만듭니다',
-                          color: Colors.blue,
-                          onTap: () => Navigator.of(context).pushNamed('/register'),
-                        )
-                      else
-                        _buildMenuButton(
-                          icon: Icons.login,
-                          title: '다른 계정으로 로그인',
-                          subtitle: '기존 계정으로 로그인합니다',
-                          color: Colors.blue,
-                          onTap: () => Navigator.of(context).pushNamed('/login'),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 하단 정보
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Text(
-                  '게임을 즐기고 최고 기록에 도전해보세요!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// 메뉴 버튼 위젯 생성
+  /// 메뉴 버튼 위젯
   Widget _buildMenuButton({
     required IconData icon,
     required String title,
@@ -420,76 +430,105 @@ class _MainScreenState extends State<MainScreen> {
   }) {
     return Container(
       width: double.infinity,
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white.withOpacity(0.9),
-          foregroundColor: Colors.black87,
-          padding: const EdgeInsets.all(20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(20.0),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // 아이콘
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // 텍스트
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 화살표 아이콘
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey[400],
+                  size: 16,
+                ),
+              ],
+            ),
           ),
-          elevation: 4,
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios, color: Colors.grey),
-          ],
         ),
       ),
     );
   }
 
-  /// 통계 아이템 위젯 생성
+  /// 통계 아이템 위젯
   Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 } 
