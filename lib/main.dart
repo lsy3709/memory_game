@@ -98,9 +98,7 @@ class MemoryGameApp extends StatelessWidget {
               builder: (context) => MultiplayerComparisonScreen(
                 player1: args['player1'],
                 player2: args['player2'],
-                gameTitle: args['gameTitle'] ?? '',
-                totalTime: args['totalTime'] ?? 0,
-                timeLeft: args['timeLeft'] ?? 0,
+                gameTime: args['totalTime'] ?? 0,
               ),
             );
           }
