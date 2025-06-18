@@ -1,4 +1,6 @@
 /// 플레이어의 통계 정보를 저장하는 모델 클래스
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class PlayerStats {
   final String id;              // 고유 식별자
   final String playerName;      // 플레이어 이름
@@ -49,6 +51,34 @@ class PlayerStats {
       totalFailCount: json['totalFailCount'] as int? ?? 0,
       lastPlayed: DateTime.parse(json['lastPlayed'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+
+  /// Map으로부터 PlayerStats 객체 생성 (Firestore용)
+  factory PlayerStats.fromMap(Map<String, dynamic> map) {
+    return PlayerStats(
+      id: map['id'] as String? ?? '',
+      playerName: map['playerName'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      bestScore: map['bestScore'] as int? ?? 0,
+      bestTime: map['bestTime'] as int? ?? 0,
+      maxCombo: map['maxCombo'] as int? ?? 0,
+      totalGames: map['totalGames'] as int? ?? 0,
+      totalWins: map['totalWins'] as int? ?? 0,
+      totalMatches: map['totalMatches'] as int? ?? 0,
+      totalFails: map['totalFails'] as int? ?? 0,
+      totalMatchCount: map['totalMatchCount'] as int? ?? 0,
+      totalFailCount: map['totalFailCount'] as int? ?? 0,
+      lastPlayed: map['lastPlayed'] != null 
+          ? (map['lastPlayed'] is Timestamp 
+              ? (map['lastPlayed'] as Timestamp).toDate()
+              : DateTime.parse(map['lastPlayed'] as String))
+          : DateTime.now(),
+      createdAt: map['createdAt'] != null 
+          ? (map['createdAt'] is Timestamp 
+              ? (map['createdAt'] as Timestamp).toDate()
+              : DateTime.parse(map['createdAt'] as String))
+          : DateTime.now(),
     );
   }
 
