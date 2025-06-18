@@ -76,6 +76,10 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       }
     } catch (e) {
       print('플레이어 정보 로드 오류: $e');
+      // Firebase 오류 시 로컬 메인 화면으로 이동
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/main');
+      }
     }
   }
 

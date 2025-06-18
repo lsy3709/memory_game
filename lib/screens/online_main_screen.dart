@@ -36,6 +36,10 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
       }
     } catch (e) {
       print('사용자 정보 로드 오류: $e');
+      // Firebase 오류 시 로컬 메인 화면으로 이동
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/main');
+      }
     } finally {
       setState(() {
         _isLoading = false;

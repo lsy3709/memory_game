@@ -50,6 +50,11 @@ class _MainScreenState extends State<MainScreen> {
     Navigator.of(context).pushNamed('/multiplayer-setup');
   }
 
+  /// 온라인 게임 시작
+  void _startOnlineGame() {
+    Navigator.of(context).pushNamed('/online-login');
+  }
+
   /// 랭킹 보드 열기
   void _openRanking() {
     Navigator.of(context).pushNamed('/ranking');
@@ -341,6 +346,16 @@ class _MainScreenState extends State<MainScreen> {
                         subtitle: '2명이서 함께하는 대결 게임',
                         color: Colors.orange,
                         onTap: _startMultiplayerGame,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 온라인 게임 버튼
+                      _buildMenuButton(
+                        icon: Icons.wifi,
+                        title: '온라인 게임',
+                        subtitle: '전 세계 플레이어와 경쟁',
+                        color: Colors.red,
+                        onTap: _startOnlineGame,
                       ),
                       const SizedBox(height: 20),
 
