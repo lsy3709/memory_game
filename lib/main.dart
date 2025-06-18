@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 
+import 'screens/main_screen.dart';
 import 'screens/game_screen.dart';
+import 'screens/ranking_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/player_registration_screen.dart';
 import 'models/card_model.dart';
 import 'services/sound_service.dart';
 
@@ -23,8 +27,27 @@ class MemoryGameApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          elevation: 2,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
       ),
-      home: const GameScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const MainScreen(),
+        '/game': (context) => const GameScreen(),
+        '/ranking': (context) => const RankingScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const PlayerRegistrationScreen(),
+      },
     );
   }
 }

@@ -5,7 +5,10 @@ import 'dart:math';
 import '../widgets/memory_card.dart';
 import '../models/card_model.dart';
 import '../models/score_model.dart';
+import '../models/game_record.dart';
+import '../models/player_stats.dart';
 import '../services/sound_service.dart';
+import '../services/storage_service.dart';
 
 /// 메모리 카드 게임의 메인 화면을 담당하는 StatefulWidget
 class GameScreen extends StatefulWidget {
@@ -34,11 +37,19 @@ class _GameScreenState extends State<GameScreen> {
   late Timer gameTimer;                   // 게임 타이머
   final SoundService soundService = SoundService(); // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
+  final StorageService storageService = StorageService(); // 저장소 관리
+  
+  // 기록 관련 변수
+  int maxCombo = 0;                       // 최고 연속 매칭 기록
+  String currentPlayerName = '게스트';     // 현재 플레이어 이름
+  String currentPlayerEmail = '';         // 현재 플레이어 이메일
+  DateTime gameStartTime = DateTime.now(); // 게임 시작 시간
 
   @override
   void initState() {
     super.initState();
     scoreModel = ScoreModel();
+    _loadPlayerInfo();
     _initGame();
   }
 
@@ -47,6 +58,21 @@ class _GameScreenState extends State<GameScreen> {
     if (gameTimer.isActive) gameTimer.cancel(); // 타이머 해제
     soundService.dispose(); // 사운드 리소스 해제
     super.dispose();
+  }
+
+  /// 플레이어 정보 로드
+  Future<void> _loadPlayerInfo() async {
+    try {
+      final playerInfo = await storageService.loadCurrentPlayer();
+      if (playerInfo != null) {
+        setState(() {
+          currentPlayerName = playerInfo['playerName'] ?? '게스트';
+          currentPlayerEmail = playerInfo['email'] ?? '';
+        });
+      }
+    } catch (e) {
+      print('플레이어 정보 로드 오류: $e');
+    }
   }
 
   /// 게임 시작 시 카드 생성 및 타이머 설정
@@ -131,6 +157,12 @@ class _GameScreenState extends State<GameScreen> {
           cards[a] = cards[a].copyWith(isMatched: true);
           cards[b] = cards[b].copyWith(isMatched: true);
           scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
+          
+          // 최고 연속 매칭 기록 업데이트
+          if (scoreModel.comboCount > maxCombo) {
+            maxCombo = scoreModel.comboCount;
+          }
+          
           _checkGameEnd();
         } else {
           soundService.playCardMismatch();
@@ -149,6 +181,10 @@ class _GameScreenState extends State<GameScreen> {
       gameTimer.cancel(); // 타이머 중지
       soundService.stopBackgroundMusic(); // 배경음악 중지
       soundService.playGameWin(); // 승리 사운드
+      
+      // 게임 기록 저장
+      _saveGameRecord(true);
+      
       // 0.5초 후 축하 다이얼로그 표시
       Future.delayed(const Duration(milliseconds: 500), () {
         showDialog(
@@ -156,7 +192,17 @@ class _GameScreenState extends State<GameScreen> {
           barrierDismissible: false,
           builder: (_) => AlertDialog(
             title: const Text('축하합니다!'),
-            content: const Text('모든 카드를 맞췄어요!'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('모든 카드를 맞췄어요!'),
+                const SizedBox(height: 8),
+                Text('최종 점수: ${scoreModel.currentScore}점'),
+                Text('최고 연속 매칭: ${maxCombo}회'),
+                Text('완료 시간: ${_formatTime()}'),
+              ],
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -169,6 +215,46 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// 게임 기록 저장
+  Future<void> _saveGameRecord(bool isCompleted) async {
+    try {
+      final gameRecord = GameRecord(
+        id: storageService.generateId(),
+        playerName: currentPlayerName,
+        email: currentPlayerEmail,
+        score: scoreModel.currentScore,
+        matchCount: scoreModel.matchCount,
+        failCount: scoreModel.failCount,
+        maxCombo: maxCombo,
+        timeLeft: timeLeft,
+        totalTime: gameTimeSec,
+        createdAt: DateTime.now(),
+        isCompleted: isCompleted,
+      );
+
+      // 게임 기록 저장
+      await storageService.saveGameRecord(gameRecord);
+
+      // 플레이어 통계 업데이트 (등록된 플레이어인 경우)
+      if (currentPlayerEmail.isNotEmpty) {
+        final playerStats = await storageService.loadPlayerStats();
+        if (playerStats != null) {
+          final updatedStats = playerStats.updateWithGameResult(
+            score: scoreModel.currentScore,
+            gameTime: gameTimeSec - timeLeft,
+            maxCombo: maxCombo,
+            matchCount: scoreModel.matchCount,
+            failCount: scoreModel.failCount,
+            isWin: isCompleted,
+          );
+          await storageService.savePlayerStats(updatedStats);
+        }
+      }
+    } catch (e) {
+      print('게임 기록 저장 오류: $e');
+    }
+  }
+
   /// 게임 시작 또는 일시정지 해제
   void _startGame() {
     // 일시정지 상태에서 계속하기
@@ -177,6 +263,7 @@ class _GameScreenState extends State<GameScreen> {
       soundService.resumeBackgroundMusic();
       return;
     }
+    
     soundService.playGameStart(); // 게임 시작 사운드
     setState(() {
       _createCards(); // 카드 새로 생성
@@ -185,6 +272,8 @@ class _GameScreenState extends State<GameScreen> {
       timeLeft = gameTimeSec; // 시간 초기화
       isGameRunning = true;
       isTimerPaused = false;
+      maxCombo = 0; // 최고 연속 매칭 기록 초기화
+      gameStartTime = DateTime.now(); // 게임 시작 시간 기록
     });
     if (gameTimer.isActive) gameTimer.cancel(); // 기존 타이머 중지
     _setupTimer(); // 타이머 재설정
@@ -208,6 +297,7 @@ class _GameScreenState extends State<GameScreen> {
       timeLeft = gameTimeSec;
       isGameRunning = false;
       isTimerPaused = false;
+      maxCombo = 0; // 최고 연속 매칭 기록 초기화
       scoreModel.reset(); // 점수 초기화
     });
     if (gameTimer.isActive) gameTimer.cancel();
@@ -220,6 +310,10 @@ class _GameScreenState extends State<GameScreen> {
     isGameRunning = false;
     gameTimer.cancel();
     soundService.stopBackgroundMusic();
+    
+    // 게임 기록 저장 (미완료)
+    _saveGameRecord(false);
+    
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -234,6 +328,7 @@ class _GameScreenState extends State<GameScreen> {
             Text('최종 점수: ${scoreModel.currentScore}점'),
             Text('매칭 성공: ${scoreModel.matchCount}회'),
             Text('매칭 실패: ${scoreModel.failCount}회'),
+            Text('최고 연속 매칭: ${maxCombo}회'),
             if (scoreModel.currentScore > scoreModel.bestScore)
               const Text('새로운 최고 점수!', style: TextStyle(color: Colors.green)),
           ],
@@ -254,6 +349,15 @@ class _GameScreenState extends State<GameScreen> {
       appBar: AppBar(
         title: const Text('메모리 카드 게임'),
         centerTitle: true,
+        actions: [
+          // 랭킹 보드 버튼
+          IconButton(
+            icon: const Icon(Icons.leaderboard),
+            onPressed: () {
+              Navigator.of(context).pushNamed('/ranking');
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -288,6 +392,14 @@ class _GameScreenState extends State<GameScreen> {
                         style: const TextStyle(
                           color: Colors.orange,
                           fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    if (maxCombo > 0)
+                      Text(
+                        '최고 콤보: $maxCombo',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
                         ),
                       ),
                   ],
