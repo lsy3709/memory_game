@@ -88,13 +88,19 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
         controller: _tabController,
         children: [
           // 요약 탭
-          _buildSummaryTab(winner, isDraw),
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _buildSummaryTab(winner, isDraw),
+          ),
           
           // 매칭 기록 탭
           _buildMatchHistoryTab(),
           
           // 통계 탭
-          _buildStatisticsTab(),
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _buildStatisticsTab(),
+          ),
         ],
       ),
     );
@@ -102,61 +108,67 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
 
   /// 요약 탭 위젯
   Widget _buildSummaryTab(PlayerGameData? winner, bool isDraw) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // 승자 표시
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDraw ? Colors.orange.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDraw ? Colors.orange : Colors.green,
-                width: 2,
+    return Column(
+      children: [
+        // 승자 표시
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDraw ? Colors.orange.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDraw ? Colors.orange : Colors.green,
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  isDraw ? Icons.handshake : Icons.emoji_events,
-                  size: 48,
-                  color: isDraw ? Colors.orange : Colors.amber,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isDraw ? '무승부!' : '${winner!.name} 승리!',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '게임 시간: ${_formatGameTime(widget.gameTime)}',
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // 플레이어 비교 카드
-          Row(
-            children: [
-              Expanded(child: _buildPlayerSummaryCard(widget.player1, 0)),
-              const SizedBox(width: 16),
-              Expanded(child: _buildPlayerSummaryCard(widget.player2, 1)),
             ],
           ),
-          const SizedBox(height: 24),
+          child: Column(
+            children: [
+              Icon(
+                isDraw ? Icons.handshake : Icons.emoji_events,
+                size: 48,
+                color: isDraw ? Colors.orange : Colors.amber,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isDraw ? '무승부!' : '${winner!.name} 승리!',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '게임 시간: ${_formatGameTime(widget.gameTime)}',
+                style: const TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
 
-          // 주요 지표 비교
-          _buildComparisonTable(),
-        ],
-      ),
+        // 플레이어 비교 카드
+        Row(
+          children: [
+            Expanded(child: _buildPlayerSummaryCard(widget.player1, 0)),
+            const SizedBox(width: 16),
+            Expanded(child: _buildPlayerSummaryCard(widget.player2, 1)),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // 주요 지표 비교
+        _buildComparisonTable(),
+      ],
     );
   }
 
@@ -173,6 +185,13 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
           width: 2,
         ),
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -183,6 +202,9 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
               fontWeight: FontWeight.bold,
               color: isWinner ? Colors.green : Colors.black,
             ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
           const SizedBox(height: 8),
           Text(
@@ -213,6 +235,13 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
       decoration: BoxDecoration(
         color: Colors.grey.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,11 +315,14 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
       length: 2,
       child: Column(
         children: [
-          const TabBar(
-            tabs: [
-              Tab(text: '플레이어 1'),
-              Tab(text: '플레이어 2'),
-            ],
+          Container(
+            color: Colors.grey.withOpacity(0.1),
+            child: const TabBar(
+              tabs: [
+                Tab(text: '플레이어 1'),
+                Tab(text: '플레이어 2'),
+              ],
+            ),
           ),
           Expanded(
             child: TabBarView(
@@ -314,20 +346,39 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
         final match = player.cardMatches[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
+          elevation: 2,
           child: ListTile(
-            leading: Image.asset(
-              match.imagePath,
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.asset(
+                match.imagePath,
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 40,
+                    height: 40,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.image, color: Colors.grey),
+                  );
+                },
+              ),
             ),
             title: Text('${match.matchNumber}번째 매칭'),
             subtitle: Text('매칭 시간: ${match.formattedMatchedAt}'),
-            trailing: Text(
-              '카드 ${match.pairId + 1}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '카드 ${match.pairId + 1}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
               ),
             ),
           ),
@@ -338,22 +389,19 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
 
   /// 통계 탭 위젯
   Widget _buildStatisticsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // 매칭 성공률 차트
-          _buildMatchRateChart(),
-          const SizedBox(height: 24),
-          
-          // 콤보 기록 차트
-          _buildComboChart(),
-          const SizedBox(height: 24),
-          
-          // 시간별 매칭 분포
-          _buildTimeDistributionChart(),
-        ],
-      ),
+    return Column(
+      children: [
+        // 매칭 성공률 차트
+        _buildMatchRateChart(),
+        const SizedBox(height: 24),
+        
+        // 콤보 기록 차트
+        _buildComboChart(),
+        const SizedBox(height: 24),
+        
+        // 시간별 매칭 분포
+        _buildTimeDistributionChart(),
+      ],
     );
   }
 
@@ -395,12 +443,15 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
                     Text(
                       widget.player1.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
                       value: rate1 / 100,
                       backgroundColor: Colors.grey[300],
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                      minHeight: 8,
                     ),
                     const SizedBox(height: 4),
                     Text('${rate1.toStringAsFixed(1)}%'),
@@ -414,12 +465,15 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
                     Text(
                       widget.player2.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
                       value: rate2 / 100,
                       backgroundColor: Colors.grey[300],
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                      minHeight: 8,
                     ),
                     const SizedBox(height: 4),
                     Text('${rate2.toStringAsFixed(1)}%'),
@@ -468,6 +522,8 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
                     Text(
                       widget.player1.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -488,6 +544,8 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
                     Text(
                       widget.player2.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
                     Text(

@@ -79,237 +79,331 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 제목
-                  const Icon(
-                    Icons.people,
-                    size: 80,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '멀티플레이어 게임',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '2명의 플레이어가 번갈아가며 카드를 매칭합니다',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // 게임 제목 입력
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '게임 제목',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _gameTitleController,
-                          decoration: const InputDecoration(
-                            hintText: '게임 제목을 입력하세요',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return '게임 제목을 입력해주세요';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                  // 제목 영역
+                  _buildHeaderSection(),
                   const SizedBox(height: 24),
 
+                  // 게임 제목 입력
+                  _buildGameTitleSection(),
+                  const SizedBox(height: 20),
+
                   // 플레이어 정보 입력
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '플레이어 정보',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // 플레이어 1
-                        Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  '1',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _player1Controller,
-                                decoration: const InputDecoration(
-                                  labelText: '플레이어 1 이름',
-                                  hintText: '첫 번째 플레이어 이름',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return '플레이어 1 이름을 입력해주세요';
-                                  }
-                                  if (value.trim().length < 2) {
-                                    return '이름은 2자 이상 입력해주세요';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // 플레이어 2
-                        Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: const BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  '2',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _player2Controller,
-                                decoration: const InputDecoration(
-                                  labelText: '플레이어 2 이름',
-                                  hintText: '두 번째 플레이어 이름',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return '플레이어 2 이름을 입력해주세요';
-                                  }
-                                  if (value.trim().length < 2) {
-                                    return '이름은 2자 이상 입력해주세요';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
+                  _buildPlayerInfoSection(),
+                  const SizedBox(height: 20),
 
                   // 게임 규칙 안내
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '게임 규칙',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text('• 플레이어가 번갈아가며 카드를 선택합니다'),
-                        const Text('• 카드 매칭에 성공하면 같은 플레이어가 계속 진행합니다'),
-                        const Text('• 카드 매칭에 실패하면 다음 플레이어로 턴이 넘어갑니다'),
-                        const Text('• 모든 카드를 매칭하면 게임이 종료됩니다'),
-                        const Text('• 더 높은 점수를 얻은 플레이어가 승리합니다'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
+                  _buildGameRulesSection(),
+                  const SizedBox(height: 24),
 
                   // 게임 시작 버튼
-                  ElevatedButton(
-                    onPressed: _startGame,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.blue,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      '게임 시작',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                  _buildStartButton(),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// 헤더 섹션 위젯
+  Widget _buildHeaderSection() {
+    return Column(
+      children: [
+        const Icon(
+          Icons.people,
+          size: 60,
+          color: Colors.white,
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          '멀티플레이어 게임',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          '2명의 플레이어가 번갈아가며 카드를 매칭합니다',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white70,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 게임 제목 섹션 위젯
+  Widget _buildGameTitleSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.edit, color: Colors.blue),
+              const SizedBox(width: 8),
+              const Text(
+                '게임 제목',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _gameTitleController,
+            decoration: const InputDecoration(
+              hintText: '게임 제목을 입력하세요',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return '게임 제목을 입력해주세요';
+              }
+              return null;
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 플레이어 정보 섹션 위젯
+  Widget _buildPlayerInfoSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.people, color: Colors.green),
+              const SizedBox(width: 8),
+              const Text(
+                '플레이어 정보',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 플레이어 1
+          _buildPlayerInputField(
+            controller: _player1Controller,
+            label: '플레이어 1 이름',
+            hint: '첫 번째 플레이어 이름',
+            playerNumber: 1,
+            color: Colors.blue,
+          ),
+          const SizedBox(height: 16),
+
+          // 플레이어 2
+          _buildPlayerInputField(
+            controller: _player2Controller,
+            label: '플레이어 2 이름',
+            hint: '두 번째 플레이어 이름',
+            playerNumber: 2,
+            color: Colors.green,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 플레이어 입력 필드 위젯
+  Widget _buildPlayerInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required int playerNumber,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              playerNumber.toString(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextFormField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: color, width: 2),
+              ),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return '플레이어 $playerNumber 이름을 입력해주세요';
+              }
+              if (value.trim().length < 2) {
+                return '이름은 2자 이상 입력해주세요';
+              }
+              return null;
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 게임 규칙 섹션 위젯
+  Widget _buildGameRulesSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.rule, color: Colors.orange),
+              const SizedBox(width: 8),
+              const Text(
+                '게임 규칙',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildRuleItem('플레이어가 번갈아가며 카드를 선택합니다'),
+          _buildRuleItem('카드 매칭에 성공하면 같은 플레이어가 계속 진행합니다'),
+          _buildRuleItem('카드 매칭에 실패하면 다음 플레이어로 턴이 넘어갑니다'),
+          _buildRuleItem('모든 카드를 매칭하면 게임이 종료됩니다'),
+          _buildRuleItem('더 높은 점수를 얻은 플레이어가 승리합니다'),
+        ],
+      ),
+    );
+  }
+
+  /// 게임 규칙 아이템 위젯
+  Widget _buildRuleItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '• ',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 게임 시작 버튼 위젯
+  Widget _buildStartButton() {
+    return Container(
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _startGame,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.blue,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 4,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.play_arrow, size: 24),
+            const SizedBox(width: 8),
+            const Text(
+              '게임 시작',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
       ),
     );

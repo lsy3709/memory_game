@@ -479,6 +479,8 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   @override
   Widget build(BuildContext context) {
     final currentPlayer = players[currentPlayerIndex];
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
     
     return Scaffold(
       appBar: AppBar(
@@ -489,14 +491,17 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
         children: [
           // 플레이어 정보 영역
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            padding: EdgeInsets.symmetric(
+              vertical: screenHeight * 0.01, 
+              horizontal: screenWidth * 0.04
+            ),
             child: Row(
               children: [
                 // 플레이어 1 정보
                 Expanded(
                   child: _buildPlayerInfoCard(players[0], 0),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: screenWidth * 0.04),
                 // 플레이어 2 정보
                 Expanded(
                   child: _buildPlayerInfoCard(players[1], 1),
@@ -507,30 +512,71 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
 
           // 게임 정보 영역
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            padding: EdgeInsets.symmetric(
+              vertical: screenHeight * 0.01, 
+              horizontal: screenWidth * 0.04
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // 시간 표시
-                Text(
-                  '남은 시간: ${_formatTime()}',
-                  style: const TextStyle(
-                    fontSize: 18.0,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      '남은 시간: ${_formatTime()}',
+                      style: const TextStyle(
+                        fontSize: 16.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
+                SizedBox(width: screenWidth * 0.02),
                 // 현재 플레이어 표시
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: currentPlayerIndex == 0 ? Colors.blue : Colors.green,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${currentPlayer.name} 턴',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: currentPlayerIndex == 0 ? Colors.blue : Colors.green,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: screenWidth * 0.04,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            '${currentPlayer.name} 턴',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -541,12 +587,12 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
           // 카드 그리드 영역
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final gridWidth = constraints.maxWidth;
                   final gridHeight = constraints.maxHeight;
-                  const spacing = 12.0;
+                  final spacing = screenWidth * 0.02; // 반응형 간격
                   final itemWidth = (gridWidth - (cols - 1) * spacing) / cols;
                   final itemHeight = (gridHeight - (rows - 1) * spacing) / rows;
                   final aspectRatio = itemWidth / itemHeight;
@@ -574,35 +620,96 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
           ),
 
           // 하단 버튼 영역
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          Container(
+            padding: EdgeInsets.symmetric(
+              vertical: screenHeight * 0.02, 
+              horizontal: screenWidth * 0.04
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 // 시작/계속하기 버튼
-                ElevatedButton(
-                  onPressed: () {
-                    soundService.playButtonSound();
-                    _startGame();
-                  },
-                  child: Text(isGameRunning && isTimerPaused
-                      ? '계속하기'
-                      : '시작'),
+                Expanded(
+                  child: Container(
+                    height: screenHeight * 0.06,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        soundService.playButtonSound();
+                        _startGame();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: Text(
+                        isGameRunning && isTimerPaused ? '계속하기' : '시작',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 // 멈춤 버튼
-                ElevatedButton(
-                  onPressed: isGameRunning && !isTimerPaused
-                      ? () {
-                    soundService.playButtonSound();
-                    _pauseGame();
-                  }
-                      : null,
-                  child: const Text('멈춤'),
+                Expanded(
+                  child: Container(
+                    height: screenHeight * 0.06,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ElevatedButton(
+                      onPressed: isGameRunning && !isTimerPaused
+                          ? () {
+                        soundService.playButtonSound();
+                        _pauseGame();
+                      }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const Text(
+                        '멈춤',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 // 다시하기 버튼
-                ElevatedButton(
-                  onPressed: _resetGame,
-                  child: const Text('다시하기'),
+                Expanded(
+                  child: Container(
+                    height: screenHeight * 0.06,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ElevatedButton(
+                      onPressed: _resetGame,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const Text(
+                        '다시하기',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -615,12 +722,13 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   /// 플레이어 정보 카드 위젯 생성
   Widget _buildPlayerInfoCard(PlayerGameData player, int playerIndex) {
     final isCurrentPlayer = currentPlayerIndex == playerIndex;
+    final screenWidth = MediaQuery.of(context).size.width;
     
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(screenWidth * 0.02),
       decoration: BoxDecoration(
         color: isCurrentPlayer 
-            ? (playerIndex == 0 ? Colors.blue.withOpacity(0.1) : Colors.green.withOpacity(0.1))
+            ? (playerIndex == 0 ? Colors.blue.withOpacity(0.15) : Colors.green.withOpacity(0.15))
             : Colors.grey.withOpacity(0.1),
         border: Border.all(
           color: isCurrentPlayer 
@@ -628,39 +736,75 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
               : Colors.grey,
           width: isCurrentPlayer ? 2 : 1,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: isCurrentPlayer ? [
+          BoxShadow(
+            color: (playerIndex == 0 ? Colors.blue : Colors.green).withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ] : null,
       ),
       child: Column(
         children: [
+          // 플레이어 이름
           Text(
             player.name,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: screenWidth * 0.035,
               fontWeight: FontWeight.bold,
               color: isCurrentPlayer 
                   ? (playerIndex == 0 ? Colors.blue : Colors.green)
-                  : Colors.black,
+                  : Colors.black87,
             ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: screenWidth * 0.01),
+          // 점수
           Text(
             '${player.scoreModel.currentScore}점',
-            style: const TextStyle(
-              fontSize: 16,
+            style: TextStyle(
+              fontSize: screenWidth * 0.04,
               fontWeight: FontWeight.bold,
+              color: Colors.blue,
             ),
           ),
-          if (player.scoreModel.comboCount > 1)
-            Text(
-              '${player.scoreModel.comboCount}콤보!',
-              style: const TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
+          // 콤보 표시
+          if (player.scoreModel.comboCount > 1) ...[
+            SizedBox(height: screenWidth * 0.005),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${player.scoreModel.comboCount}콤보!',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.bold,
+                  fontSize: screenWidth * 0.025,
+                ),
               ),
             ),
+          ],
+          // 최고 콤보 표시
+          if (player.maxCombo > 0) ...[
+            SizedBox(height: screenWidth * 0.005),
+            Text(
+              '최고: ${player.maxCombo}',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: screenWidth * 0.025,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+} 
 } 
