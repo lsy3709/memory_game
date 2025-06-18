@@ -69,8 +69,6 @@ class MemoryGameApp extends StatelessWidget {
         '/player-registration': (context) => const PlayerRegistrationScreen(),
         '/ranking': (context) => const RankingScreen(),
         '/multiplayer-setup': (context) => const MultiplayerSetupScreen(),
-        '/multiplayer-game': (context) => const MultiplayerGameScreen(),
-        '/multiplayer-comparison': (context) => const MultiplayerComparisonScreen(),
         '/online-login': (context) => const OnlineLoginScreen(),
         '/online-main': (context) => const OnlineMainScreen(),
         '/online-game': (context) => const OnlineGameScreen(),
@@ -79,17 +77,35 @@ class MemoryGameApp extends StatelessWidget {
         '/online-multiplayer-setup': (context) => const MultiplayerSetupScreen(),
       },
       onGenerateRoute: (settings) {
+        // 멀티플레이어 게임 화면 - 동적 라우팅
         if (settings.name == '/multiplayer-game') {
-          final args = settings.arguments as Map<String, dynamic>;
-          return MaterialPageRoute(
-            builder: (context) => MultiplayerGameScreen(
-              player1Name: args['player1Name'],
-              player2Name: args['player2Name'],
-              player1Email: args['player1Email'],
-              player2Email: args['player2Email'],
-            ),
-          );
+          final args = settings.arguments as Map<String, dynamic>?;
+          if (args != null) {
+            return MaterialPageRoute(
+              builder: (context) => MultiplayerGameScreen(
+                player1Name: args['player1Name'] ?? '',
+                player2Name: args['player2Name'] ?? '',
+              ),
+            );
+          }
         }
+        
+        // 멀티플레이어 비교 화면 - 동적 라우팅
+        if (settings.name == '/multiplayer-comparison') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          if (args != null) {
+            return MaterialPageRoute(
+              builder: (context) => MultiplayerComparisonScreen(
+                player1: args['player1'],
+                player2: args['player2'],
+                gameTitle: args['gameTitle'] ?? '',
+                totalTime: args['totalTime'] ?? 0,
+                timeLeft: args['timeLeft'] ?? 0,
+              ),
+            );
+          }
+        }
+        
         return null;
       },
     );

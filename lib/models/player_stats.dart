@@ -10,6 +10,8 @@ class PlayerStats {
   final int totalWins;          // 총 승리 수
   final int totalMatches;       // 총 매칭 성공 수
   final int totalFails;         // 총 매칭 실패 수
+  final int totalMatchCount;    // 총 매칭 시도 수 (성공 + 실패)
+  final int totalFailCount;     // 총 실패 수
   final DateTime lastPlayed;    // 마지막 플레이 시간
   final DateTime createdAt;     // 계정 생성 시간
 
@@ -24,6 +26,8 @@ class PlayerStats {
     this.totalWins = 0,
     this.totalMatches = 0,
     this.totalFails = 0,
+    this.totalMatchCount = 0,
+    this.totalFailCount = 0,
     required this.lastPlayed,
     required this.createdAt,
   });
@@ -41,6 +45,8 @@ class PlayerStats {
       totalWins: json['totalWins'] as int? ?? 0,
       totalMatches: json['totalMatches'] as int? ?? 0,
       totalFails: json['totalFails'] as int? ?? 0,
+      totalMatchCount: json['totalMatchCount'] as int? ?? 0,
+      totalFailCount: json['totalFailCount'] as int? ?? 0,
       lastPlayed: DateTime.parse(json['lastPlayed'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -59,6 +65,8 @@ class PlayerStats {
       'totalWins': totalWins,
       'totalMatches': totalMatches,
       'totalFails': totalFails,
+      'totalMatchCount': totalMatchCount,
+      'totalFailCount': totalFailCount,
       'lastPlayed': lastPlayed.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
     };
@@ -117,6 +125,8 @@ class PlayerStats {
       totalWins: isWin ? totalWins + 1 : totalWins,
       totalMatches: totalMatches + matchCount,
       totalFails: totalFails + failCount,
+      totalMatchCount: totalMatchCount + matchCount,
+      totalFailCount: totalFailCount + failCount,
       lastPlayed: DateTime.now(),
       createdAt: createdAt,
     );

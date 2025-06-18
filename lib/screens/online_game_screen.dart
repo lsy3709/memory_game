@@ -257,6 +257,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       } else {
         // 새로운 플레이어 통계 생성
         final newStats = PlayerStats(
+          id: firebaseService.currentUser!.uid,
           playerName: currentPlayerName,
           email: currentPlayerEmail,
           totalGames: 1,
@@ -264,8 +265,12 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           bestScore: scoreModel.currentScore,
           bestTime: gameTimeSec - timeLeft,
           maxCombo: maxCombo,
+          totalMatches: scoreModel.matchCount,
+          totalFails: scoreModel.failCount,
           totalMatchCount: scoreModel.matchCount,
           totalFailCount: scoreModel.failCount,
+          lastPlayed: DateTime.now(),
+          createdAt: DateTime.now(),
         );
         await firebaseService.saveOnlinePlayerStats(newStats);
       }

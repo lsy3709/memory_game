@@ -185,6 +185,7 @@ class FirebaseService {
       if (doc.exists) {
         final data = doc.data()!;
         return PlayerStats(
+          id: currentUser!.uid,
           playerName: data['playerName'] ?? '',
           email: data['email'] ?? '',
           totalGames: data['totalGames'] ?? 0,
@@ -192,8 +193,12 @@ class FirebaseService {
           bestScore: data['bestScore'] ?? 0,
           bestTime: data['bestTime'] ?? 0,
           maxCombo: data['maxCombo'] ?? 0,
+          totalMatches: data['totalMatchCount'] ?? 0,
+          totalFails: data['totalFailCount'] ?? 0,
           totalMatchCount: data['totalMatchCount'] ?? 0,
           totalFailCount: data['totalFailCount'] ?? 0,
+          lastPlayed: (data['lastUpdatedAt'] as Timestamp).toDate(),
+          createdAt: (data['lastUpdatedAt'] as Timestamp).toDate(),
         );
       }
       return null;
