@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/storage_service.dart';
 import '../models/player_stats.dart';
+import '../services/firebase_service.dart';
 
 /// 메인 화면
 /// 게임 시작, 랭킹 보드, 설정 등의 메뉴를 제공
@@ -14,6 +15,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final StorageService _storageService = StorageService();
+  final FirebaseService _firebaseService = FirebaseService();
   
   PlayerStats? _playerStats;
   bool _isLoading = true;

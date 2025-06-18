@@ -1,12 +1,15 @@
 // 1️⃣ 최상단에 buildscript 블록 추가
 buildscript {
+    ext.kotlin_version = '1.7.10'
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        // AGP를 8.2.1 이상으로 설정
-        classpath 'com.android.tools.build:gradle:8.2.1'
+        // AGP를 7.3.0 이상으로 설정
+        classpath 'com.android.tools.build:gradle:7.3.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.google.gms:google-services:4.4.0'
     }
 }
 

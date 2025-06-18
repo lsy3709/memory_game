@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'screens/main_screen.dart';
 import 'screens/game_screen.dart';
@@ -9,12 +11,28 @@ import 'screens/login_screen.dart';
 import 'screens/player_registration_screen.dart';
 import 'screens/multiplayer_setup_screen.dart';
 import 'screens/multiplayer_game_screen.dart';
+import 'screens/multiplayer_comparison_screen.dart';
+import 'screens/online_login_screen.dart';
+import 'screens/online_main_screen.dart';
+import 'screens/online_game_screen.dart';
+import 'screens/online_ranking_screen.dart';
+import 'screens/online_my_records_screen.dart';
 import 'models/card_model.dart';
 import 'services/sound_service.dart';
+import 'services/firebase_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  
+  // Firebase 초기화
+  try {
+    await Firebase.initializeApp();
+    print('Firebase 초기화 성공');
+  } catch (e) {
+    print('Firebase 초기화 실패: $e');
+  }
+  
   runApp(const MemoryGameApp());
 }
 
@@ -44,12 +62,21 @@ class MemoryGameApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const MainScreen(),
+        '/': (context) => const AuthWrapper(),
+        '/main': (context) => const MainScreen(),
         '/game': (context) => const GameScreen(),
-        '/ranking': (context) => const RankingScreen(),
         '/login': (context) => const LoginScreen(),
-        '/register': (context) => const PlayerRegistrationScreen(),
+        '/player-registration': (context) => const PlayerRegistrationScreen(),
+        '/ranking': (context) => const RankingScreen(),
         '/multiplayer-setup': (context) => const MultiplayerSetupScreen(),
+        '/multiplayer-game': (context) => const MultiplayerGameScreen(),
+        '/multiplayer-comparison': (context) => const MultiplayerComparisonScreen(),
+        '/online-login': (context) => const OnlineLoginScreen(),
+        '/online-main': (context) => const OnlineMainScreen(),
+        '/online-game': (context) => const OnlineGameScreen(),
+        '/online-ranking': (context) => const OnlineRankingScreen(),
+        '/online-my-records': (context) => const OnlineMyRecordsScreen(),
+        '/online-multiplayer-setup': (context) => const MultiplayerSetupScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/multiplayer-game') {
@@ -64,6 +91,36 @@ class MemoryGameApp extends StatelessWidget {
           );
         }
         return null;
+      },
+    );
+  }
+}
+
+/// 인증 상태에 따른 화면 분기 처리
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // Firebase 인증 상태 확인 중
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        
+        // 로그인된 사용자가 있으면 온라인 메인 화면으로
+        if (snapshot.hasData && snapshot.data != null) {
+          return const OnlineMainScreen();
+        }
+        
+        // 로그인되지 않은 경우 로컬 메인 화면으로
+        return const MainScreen();
       },
     );
   }
