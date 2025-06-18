@@ -4,6 +4,7 @@ import 'dart:math';
 
 import '../widgets/memory_card.dart';
 import '../models/card_model.dart';
+import '../models/score_model.dart';
 import '../services/sound_service.dart';
 
 /// 메모리 카드 게임의 메인 화면을 담당하는 StatefulWidget
@@ -32,11 +33,13 @@ class _GameScreenState extends State<GameScreen> {
   bool isTimerPaused = false;             // 타이머 일시정지 여부
   late Timer gameTimer;                   // 게임 타이머
   final SoundService soundService = SoundService(); // 사운드 관리
+  late ScoreModel scoreModel;             // 점수 관리
 
   @override
   void initState() {
     super.initState();
-    _initGame(); // 게임 초기화
+    scoreModel = ScoreModel();
+    _initGame();
   }
 
   @override
@@ -124,14 +127,16 @@ class _GameScreenState extends State<GameScreen> {
     Future.delayed(const Duration(milliseconds: 700), () {
       setState(() {
         if (cards[a].pairId == cards[b].pairId) {
-          soundService.playCardMatch(); // 매칭 성공 사운드
-          cards[a] = cards[a].copyWith(isMatched: true); // 매칭 처리
+          soundService.playCardMatch();
+          cards[a] = cards[a].copyWith(isMatched: true);
           cards[b] = cards[b].copyWith(isMatched: true);
-          _checkGameEnd(); // 게임 종료 여부 확인
+          scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
+          _checkGameEnd();
         } else {
-          soundService.playCardMismatch(); // 매칭 실패 사운드
-          cards[a] = cards[a].copyWith(isFlipped: false); // 카드 다시 뒤집기
+          soundService.playCardMismatch();
+          cards[a] = cards[a].copyWith(isFlipped: false);
           cards[b] = cards[b].copyWith(isFlipped: false);
+          scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
         }
       });
     });
@@ -195,7 +200,7 @@ class _GameScreenState extends State<GameScreen> {
 
   /// 게임 리셋(카드, 시간, 상태 초기화)
   void _resetGame() {
-    soundService.playButtonSound(); // 버튼 사운드
+    soundService.playButtonSound();
     setState(() {
       _createCards();
       firstSelectedIndex = null;
@@ -203,6 +208,7 @@ class _GameScreenState extends State<GameScreen> {
       timeLeft = gameTimeSec;
       isGameRunning = false;
       isTimerPaused = false;
+      scoreModel.reset(); // 점수 초기화
     });
     if (gameTimer.isActive) gameTimer.cancel();
     _setupTimer();
@@ -214,13 +220,24 @@ class _GameScreenState extends State<GameScreen> {
     isGameRunning = false;
     gameTimer.cancel();
     soundService.stopBackgroundMusic();
-    // 게임 오버 다이얼로그 표시
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: const Text('시간 초과!'),
-        content: const Text('게임 오버'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('게임 오버'),
+            const SizedBox(height: 8),
+            Text('최종 점수: ${scoreModel.currentScore}점'),
+            Text('매칭 성공: ${scoreModel.matchCount}회'),
+            Text('매칭 실패: ${scoreModel.failCount}회'),
+            if (scoreModel.currentScore > scoreModel.bestScore)
+              const Text('새로운 최고 점수!', style: TextStyle(color: Colors.green)),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -240,16 +257,42 @@ class _GameScreenState extends State<GameScreen> {
       ),
       body: Column(
         children: [
-          // 타이머 영역
+          // 게임 정보 영역
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            alignment: Alignment.center,
-            child: Text(
-              '남은 시간: ${_formatTime()}',
-              style: const TextStyle(
-                fontSize: 22.0,
-                fontWeight: FontWeight.bold,
-              ),
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // 시간 표시
+                Text(
+                  '남은 시간: ${_formatTime()}',
+                  style: const TextStyle(
+                    fontSize: 18.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                // 점수 표시
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '점수: ${scoreModel.currentScore}',
+                      style: const TextStyle(
+                        fontSize: 18.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (scoreModel.comboCount > 1)
+                      Text(
+                        '${scoreModel.comboCount}콤보!',
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
 
