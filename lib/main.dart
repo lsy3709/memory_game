@@ -31,6 +31,7 @@ void main() async {
     print('Firebase 초기화 성공');
   } catch (e) {
     print('Firebase 초기화 실패: $e');
+    print('로컬 모드로 실행됩니다.');
   }
   
   runApp(const MemoryGameApp());
@@ -116,26 +117,33 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // Firebase 인증 상태 확인 중
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-        
-        // 로그인된 사용자가 있으면 온라인 메인 화면으로
-        if (snapshot.hasData && snapshot.data != null) {
-          return const OnlineMainScreen();
-        }
-        
-        // 로그인되지 않은 경우 로컬 메인 화면으로
-        return const MainScreen();
-      },
-    );
+    // Firebase가 초기화되지 않은 경우 로컬 메인 화면으로
+    try {
+      return StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // Firebase 인증 상태 확인 중
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+          
+          // 로그인된 사용자가 있으면 온라인 메인 화면으로
+          if (snapshot.hasData && snapshot.data != null) {
+            return const OnlineMainScreen();
+          }
+          
+          // 로그인되지 않은 경우 로컬 메인 화면으로
+          return const MainScreen();
+        },
+      );
+    } catch (e) {
+      // Firebase 오류 발생 시 로컬 메인 화면으로
+      print('Firebase 인증 오류: $e');
+      return const MainScreen();
+    }
   }
 }

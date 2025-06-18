@@ -14,14 +14,38 @@ class FirebaseService {
   factory FirebaseService() => _instance;
   FirebaseService._internal();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseAuth? _auth;
+  FirebaseFirestore? _firestore;
+  bool _isInitialized = false;
+
+  /// Firebase 초기화 확인
+  bool get isInitialized => _isInitialized;
+
+  /// Firebase 초기화
+  Future<void> _initialize() async {
+    if (_isInitialized) return;
+    
+    try {
+      _auth = FirebaseAuth.instance;
+      _firestore = FirebaseFirestore.instance;
+      _isInitialized = true;
+    } catch (e) {
+      print('Firebase 서비스 초기화 실패: $e');
+      _isInitialized = false;
+    }
+  }
 
   /// 현재 로그인된 사용자
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser {
+    if (!_isInitialized) return null;
+    return _auth?.currentUser;
+  }
 
   /// 로그인 상태 변경 스트림
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges {
+    if (!_isInitialized) return Stream.value(null);
+    return _auth?.authStateChanges() ?? Stream.value(null);
+  }
 
   /// 이메일/비밀번호로 회원가입
   Future<UserCredential> signUpWithEmailAndPassword({
@@ -29,9 +53,14 @@ class FirebaseService {
     required String password,
     required String playerName,
   }) async {
+    await _initialize();
+    if (!_isInitialized || _auth == null || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
     try {
       // 회원가입
-      final userCredential = await _auth.createUserWithEmailAndPassword(
+      final userCredential = await _auth!.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -40,7 +69,7 @@ class FirebaseService {
       await userCredential.user?.updateDisplayName(playerName);
 
       // Firestore에 사용자 정보 저장
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+      await _firestore!.collection('users').doc(userCredential.user!.uid).set({
         'email': email,
         'playerName': playerName,
         'createdAt': FieldValue.serverTimestamp(),
@@ -58,14 +87,19 @@ class FirebaseService {
     required String email,
     required String password,
   }) async {
+    await _initialize();
+    if (!_isInitialized || _auth == null || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth!.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
       // 마지막 로그인 시간 업데이트
-      await _firestore.collection('users').doc(userCredential.user!.uid).update({
+      await _firestore!.collection('users').doc(userCredential.user!.uid).update({
         'lastLoginAt': FieldValue.serverTimestamp(),
       });
 
@@ -77,13 +111,22 @@ class FirebaseService {
 
   /// 로그아웃
   Future<void> signOut() async {
-    await _auth.signOut();
+    await _initialize();
+    if (!_isInitialized || _auth == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+    await _auth!.signOut();
   }
 
   /// 비밀번호 재설정 이메일 발송
   Future<void> sendPasswordResetEmail(String email) async {
+    await _initialize();
+    if (!_isInitialized || _auth == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
     try {
-      await _auth.sendPasswordResetEmail(email: email);
+      await _auth!.sendPasswordResetEmail(email: email);
     } catch (e) {
       throw _handleAuthError(e);
     }
@@ -91,8 +134,13 @@ class FirebaseService {
 
   /// 사용자 정보 가져오기
   Future<Map<String, dynamic>?> getUserData(String uid) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      return null;
+    }
+
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
+      final doc = await _firestore!.collection('users').doc(uid).get();
       return doc.data();
     } catch (e) {
       print('사용자 정보 가져오기 오류: $e');
@@ -102,12 +150,17 @@ class FirebaseService {
 
   /// 온라인 게임 기록 저장
   Future<void> saveOnlineGameRecord(GameRecord record) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
     if (currentUser == null) {
       throw Exception('로그인이 필요합니다.');
     }
 
     try {
-      await _firestore.collection('online_game_records').add({
+      await _firestore!.collection('online_game_records').add({
         'userId': currentUser!.uid,
         'playerName': record.playerName,
         'email': record.email,
@@ -128,12 +181,17 @@ class FirebaseService {
 
   /// 온라인 멀티플레이어 게임 기록 저장
   Future<void> saveOnlineMultiplayerGameRecord(MultiplayerGameRecord record) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
     if (currentUser == null) {
       throw Exception('로그인이 필요합니다.');
     }
 
     try {
-      await _firestore.collection('online_multiplayer_records').add({
+      await _firestore!.collection('online_multiplayer_records').add({
         'userId': currentUser!.uid,
         'gameTitle': record.gameTitle,
         'players': record.players.map((player) => player.toJson()).toList(),
@@ -150,12 +208,17 @@ class FirebaseService {
 
   /// 온라인 플레이어 통계 저장
   Future<void> saveOnlinePlayerStats(PlayerStats stats) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
     if (currentUser == null) {
       throw Exception('로그인이 필요합니다.');
     }
 
     try {
-      await _firestore.collection('online_player_stats').doc(currentUser!.uid).set({
+      await _firestore!.collection('online_player_stats').doc(currentUser!.uid).set({
         'userId': currentUser!.uid,
         'playerName': stats.playerName,
         'email': stats.email,
@@ -176,12 +239,17 @@ class FirebaseService {
 
   /// 온라인 플레이어 통계 가져오기
   Future<PlayerStats?> getOnlinePlayerStats() async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      return null;
+    }
+
     if (currentUser == null) {
       return null;
     }
 
     try {
-      final doc = await _firestore.collection('online_player_stats').doc(currentUser!.uid).get();
+      final doc = await _firestore!.collection('online_player_stats').doc(currentUser!.uid).get();
       if (doc.exists) {
         final data = doc.data()!;
         return PlayerStats(
@@ -214,8 +282,13 @@ class FirebaseService {
     String orderBy = 'score',
     bool descending = true,
   }) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      return [];
+    }
+
     try {
-      Query query = _firestore.collection('online_game_records')
+      Query query = _firestore!.collection('online_game_records')
           .where('isCompleted', isEqualTo: true);
 
       switch (orderBy) {
@@ -261,8 +334,13 @@ class FirebaseService {
   Future<List<MultiplayerGameRecord>> getOnlineMultiplayerRankings({
     int limit = 50,
   }) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      return [];
+    }
+
     try {
-      final snapshot = await _firestore.collection('online_multiplayer_records')
+      final snapshot = await _firestore!.collection('online_multiplayer_records')
           .where('isCompleted', isEqualTo: true)
           .orderBy('createdAt', descending: true)
           .limit(limit)
@@ -290,12 +368,17 @@ class FirebaseService {
 
   /// 사용자의 온라인 게임 기록 가져오기
   Future<List<GameRecord>> getUserOnlineGameRecords() async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      return [];
+    }
+
     if (currentUser == null) {
       return [];
     }
 
     try {
-      final snapshot = await _firestore.collection('online_game_records')
+      final snapshot = await _firestore!.collection('online_game_records')
           .where('userId', isEqualTo: currentUser!.uid)
           .orderBy('createdAt', descending: true)
           .limit(100)
@@ -355,8 +438,13 @@ class FirebaseService {
 
   /// 네트워크 연결 상태 확인
   Future<bool> checkNetworkConnection() async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      return false;
+    }
+
     try {
-      await _firestore.collection('connection_test').doc('test').get();
+      await _firestore!.collection('connection_test').doc('test').get();
       return true;
     } catch (e) {
       return false;
