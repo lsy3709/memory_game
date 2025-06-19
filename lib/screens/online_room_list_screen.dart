@@ -31,6 +31,16 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
             onPressed: () {
               setState(() {
                 _errorMessage = null;
+                _isLoading = true;
+              });
+              
+              // 잠시 후 로딩 상태 해제 (StreamBuilder가 자동으로 새로고침됨)
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) {
+                  setState(() {
+                    _isLoading = false;
+                  });
+                }
               });
             },
           ),
@@ -126,6 +136,27 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
 
   /// 방 목록 위젯
   Widget _buildRoomList() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+            SizedBox(height: 16),
+            Text(
+              '방 목록을 불러오는 중...',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return StreamBuilder<List<OnlineRoom>>(
       stream: _firebaseService.getOnlineRooms(),
       builder: (context, snapshot) {
@@ -268,19 +299,20 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ElevatedButton(
-            onPressed: room.isFull ? () => _startGame(room) : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          if (room.isFull)
+            ElevatedButton(
+              onPressed: () => _startGame(room),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: const Text('게임 시작'),
             ),
-            child: const Text('게임 시작'),
-          ),
           const SizedBox(height: 4),
           TextButton(
             onPressed: () => _showRoomOptions(room),
-            child: const Text('방 관리'),
+            child: Text(room.isFull ? '방 관리' : '방 삭제'),
           ),
         ],
       );
@@ -297,28 +329,29 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
     }
   }
 
-  /// 빈 목록 위젯
+  /// 빈 상태 위젯
   Widget _buildEmptyWidget() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(
-            Icons.meeting_room,
+            Icons.meeting_room_outlined,
             size: 64,
             color: Colors.white54,
           ),
           const SizedBox(height: 16),
           const Text(
-            '현재 대기 중인 방이 없습니다',
+            '참가 가능한 방이 없습니다',
             style: TextStyle(
               fontSize: 18,
               color: Colors.white70,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           const Text(
-            '첫 번째 방을 만들어보세요!',
+            '새로운 방을 만들어보세요!',
             style: TextStyle(
               fontSize: 14,
               color: Colors.white54,
@@ -327,17 +360,13 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const OnlineRoomCreationScreen(),
-                ),
-              );
+              Navigator.of(context).pushNamed('/online-room-creation');
             },
             icon: const Icon(Icons.add),
             label: const Text('방 만들기'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.blue,
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
           ),
@@ -433,6 +462,8 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
 
   /// 방 관리 옵션 표시
   void _showRoomOptions(OnlineRoom room) {
+    final isMyRoom = room.isHost(_firebaseService.currentUser?.uid ?? '');
+    
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -440,32 +471,86 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('방 정보 수정'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: 방 정보 수정 화면으로 이동
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.people),
-              title: const Text('친구 초대'),
-              onTap: () {
-                Navigator.pop(context);
-                _showFriendInviteDialog(room);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('방 삭제', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteRoomDialog(room);
-              },
-            ),
+            if (isMyRoom) ...[
+              if (room.isFull)
+                ListTile(
+                  leading: const Icon(Icons.play_arrow, color: Colors.green),
+                  title: const Text('게임 시작'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _startGame(room);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('방 정보 수정'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: 방 정보 수정 화면으로 이동
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('방 정보 수정 기능은 추후 업데이트 예정입니다.')),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.people),
+                title: const Text('친구 초대'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showFriendInviteDialog(room);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('방 삭제', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteRoomDialog(room);
+                },
+              ),
+            ] else ...[
+              ListTile(
+                leading: const Icon(Icons.info),
+                title: const Text('방 정보'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showRoomInfoDialog(room);
+                },
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  /// 방 정보 다이얼로그
+  void _showRoomInfoDialog(OnlineRoom room) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(room.roomName),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('방장: ${room.hostName}'),
+            const SizedBox(height: 8),
+            Text('생성: ${_formatTimeAgo(room.createdAt)}'),
+            const SizedBox(height: 8),
+            Text('참가자: ${room.isFull ? "2/2" : "1/2"}'),
+            if (room.isPrivate) ...[
+              const SizedBox(height: 8),
+              const Text('비공개 방', style: TextStyle(color: Colors.orange)),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기'),
+          ),
+        ],
       ),
     );
   }
@@ -486,7 +571,22 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('방 삭제'),
-        content: const Text('정말로 이 방을 삭제하시겠습니까?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('정말로 이 방을 삭제하시겠습니까?'),
+            const SizedBox(height: 8),
+            if (room.isFull)
+              const Text(
+                '⚠️ 다른 플레이어가 참가 중입니다.\n방을 삭제하면 게임이 강제 종료됩니다.',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -495,16 +595,33 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
+              
+              setState(() {
+                _isLoading = true;
+                _errorMessage = null;
+              });
+              
               try {
                 await _firebaseService.leaveOnlineRoom(room.id);
+                
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('방이 삭제되었습니다.')),
+                    const SnackBar(
+                      content: Text('방이 삭제되었습니다.'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
+                  
+                  // 방 목록 새로고침을 위해 setState 호출
+                  setState(() {});
                 }
               } catch (e) {
                 setState(() {
                   _errorMessage = '방 삭제에 실패했습니다: ${e.toString()}';
+                });
+              } finally {
+                setState(() {
+                  _isLoading = false;
                 });
               }
             },

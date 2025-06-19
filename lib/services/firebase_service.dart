@@ -757,7 +757,7 @@ class FirebaseService {
     }
   }
 
-  /// 온라인 게임 방 나가기
+  /// 온라인 게임 방 나가기 - 개선된 버전
   Future<void> leaveOnlineRoom(String roomId) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
@@ -774,29 +774,63 @@ class FirebaseService {
       await _firestore!.runTransaction((transaction) async {
         final roomDoc = await transaction.get(roomRef);
         if (!roomDoc.exists) {
+          print('방이 이미 존재하지 않음: $roomId');
           return;
         }
 
         final room = OnlineRoom.fromJson(roomDoc.data()!);
+        print('방 나가기 처리: 플레이어=${currentUser!.uid}, 방장=${room.hostId}, 게스트=${room.guestId}');
         
         if (room.isHost(currentUser!.uid)) {
-          // 방장이 나가면 방 삭제
+          // 방장이 나가면 방과 모든 관련 데이터 삭제
+          print('방장이 나가므로 방과 모든 데이터 삭제');
+          
+          // 서브컬렉션들 삭제
+          final subCollections = [
+            'game_state',
+            'card_actions', 
+            'turn_changes',
+            'card_matches'
+          ];
+          
+          for (final collectionName in subCollections) {
+            try {
+              final subCollectionRef = roomRef.collection(collectionName);
+              final subDocs = await subCollectionRef.get();
+              
+              for (final doc in subDocs.docs) {
+                transaction.delete(doc.reference);
+              }
+              print('서브컬렉션 삭제 완료: $collectionName');
+            } catch (e) {
+              print('서브컬렉션 삭제 실패 ($collectionName): $e');
+              // 개별 서브컬렉션 삭제 실패는 무시하고 계속 진행
+            }
+          }
+          
+          // 방 문서 삭제
           transaction.delete(roomRef);
+          print('방 문서 삭제 완료');
+          
         } else if (room.isGuest(currentUser!.uid)) {
           // 게스트가 나가면 게스트 정보만 제거
+          print('게스트가 나가므로 게스트 정보만 제거');
           final updatedRoom = room.copyWith(
             guestId: null,
             guestName: null,
             guestEmail: null,
           );
           transaction.update(roomRef, updatedRoom.toJson());
+          print('게스트 정보 제거 완료');
+        } else {
+          print('방에 참가하지 않은 사용자: ${currentUser!.uid}');
         }
       });
 
       print('온라인 게임 방 나가기 완료: $roomId');
     } catch (e) {
       print('온라인 게임 방 나가기 오류: $e');
-      throw Exception('방 나가기에 실패했습니다.');
+      throw Exception('방 나가기에 실패했습니다: ${e.toString()}');
     }
   }
 

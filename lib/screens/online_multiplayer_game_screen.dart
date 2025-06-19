@@ -916,6 +916,116 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     print('=== 턴 변경 완료 ===');
   }
 
+  /// 방 나가기 처리
+  Future<void> _leaveRoom() async {
+    print('=== 방 나가기 시작 ===');
+    print('현재 플레이어 ID: $currentPlayerId');
+    print('방장 ID: ${currentRoom.hostId}');
+    print('게스트 ID: ${currentRoom.guestId}');
+    
+    try {
+      // 게임 타이머 정지
+      _stopTimer();
+      
+      // 실시간 동기화 구독 해제
+      _cardActionsSubscription?.cancel();
+      _turnChangeSubscription?.cancel();
+      _cardMatchesSubscription?.cancel();
+      _gameStateSubscription?.cancel();
+      
+      // Firebase에서 방 나가기 처리
+      await firebaseService.leaveOnlineRoom(currentRoom.id);
+      
+      print('Firebase 방 나가기 완료');
+      
+      // 방장인 경우 게임 상태도 정리
+      if (currentRoom.isHost(currentPlayerId)) {
+        try {
+          await firebaseService.updateGameState(currentRoom.id, {
+            'isGameRunning': false,
+            'gameEndedAt': FieldValue.serverTimestamp(),
+            'endedBy': 'host_left',
+          });
+          print('게임 상태 정리 완료');
+        } catch (e) {
+          print('게임 상태 정리 실패: $e');
+        }
+      }
+      
+      if (mounted) {
+        // 성공 메시지 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(currentRoom.isHost(currentPlayerId) 
+                ? '방이 삭제되었습니다.' 
+                : '방을 나갔습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // 방 목록 화면으로 돌아가기
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/online-room-list',
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print('방 나가기 오류: $e');
+      
+      if (mounted) {
+        // 오류 메시지 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('방 나가기에 실패했습니다: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        
+        // 오류가 발생해도 화면은 나가기
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/online-room-list',
+          (route) => false,
+        );
+      }
+    }
+    
+    print('=== 방 나가기 완료 ===');
+  }
+
+  /// 방 나가기 확인 다이얼로그
+  void _showLeaveRoomDialog() {
+    final isHost = currentRoom.isHost(currentPlayerId);
+    final title = isHost ? '방 삭제' : '방 나가기';
+    final content = isHost 
+        ? '방을 삭제하시겠습니까?\n다른 플레이어가 있다면 게임이 종료됩니다.'
+        : '방을 나가시겠습니까?';
+    final confirmText = isHost ? '삭제' : '나가기';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _leaveRoom();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isHost ? Colors.red : Colors.orange,
+            ),
+            child: Text(confirmText),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -1198,7 +1308,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: _showLeaveRoomDialog,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
                           foregroundColor: Colors.white,
