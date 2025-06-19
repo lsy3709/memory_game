@@ -450,12 +450,57 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
   }
 
+  /// 턴 변경
+  void _changeTurn() {
+    if (!mounted) return;
+    
+    print('=== 턴 변경 시작 ===');
+    print('현재 플레이어 ID: $currentPlayerId');
+    print('방장 ID: ${currentRoom.hostId}');
+    print('게스트 ID: ${currentRoom.guestId}');
+    print('현재 내 턴: $isMyTurn');
+    
+    // 현재 플레이어가 방장인지 게스트인지 확인
+    final isCurrentPlayerHost = currentRoom.isHost(currentPlayerId);
+    
+    // 다음 플레이어 ID 결정
+    String nextPlayerId;
+    if (isCurrentPlayerHost) {
+      // 방장인 경우 게스트로 턴 변경
+      nextPlayerId = currentRoom.guestId ?? currentRoom.hostId;
+      print('방장 -> 게스트 턴 변경: $nextPlayerId');
+    } else {
+      // 게스트인 경우 방장으로 턴 변경
+      nextPlayerId = currentRoom.hostId;
+      print('게스트 -> 방장 턴 변경: $nextPlayerId');
+    }
+    
+    print('턴 변경: $currentPlayerId -> $nextPlayerId');
+    print('다음 턴이 내 턴인가: ${nextPlayerId == currentPlayerId}');
+    
+    // 로컬 상태 업데이트
+    setState(() {
+      isMyTurn = nextPlayerId == currentPlayerId;
+    });
+    
+    print('로컬 턴 상태 업데이트: 내 턴 = $isMyTurn');
+    
+    // Firebase에 턴 변경 정보 전송
+    firebaseService.syncTurnChange(currentRoom.id, currentPlayerId, nextPlayerId);
+    
+    print('Firebase 턴 변경 정보 전송 완료');
+    print('=== 턴 변경 완료 ===');
+  }
+
   /// 매칭 성공 처리
   void _handleMatchSuccess() {
     soundService.playMatchSound();
     
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
+    
+    print('매칭 성공 처리 시작');
+    print('현재 콤보: ${scoreModel.currentCombo}');
     
     setState(() {
       cards[firstIndex].isMatched = true;
@@ -485,9 +530,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       currentPlayerScore, // 점수 정보 추가
     );
     
+    print('매칭 성공 후 콤보: ${scoreModel.currentCombo}');
+    
     // 매칭 성공 시에도 턴 변경 (연속 매칭이 아닌 경우)
     if (scoreModel.currentCombo == 0) {
+      print('콤보가 0이므로 턴 변경 실행');
       _changeTurn();
+    } else {
+      print('콤보가 ${scoreModel.currentCombo}이므로 턴 유지');
     }
     
     // 게임 완료 확인
@@ -501,6 +551,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
     
+    print('매칭 실패 처리 시작');
     print('매칭 실패 - 카드 뒤집기 해제: $firstIndex, $secondIndex');
     
     // 실시간 동기화 - 매칭 실패 정보 전송
@@ -515,6 +566,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 1초 후 카드 뒤집기 해제
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
+        print('매칭 실패 후 카드 뒤집기 해제 및 턴 변경');
         setState(() {
           cards[firstIndex].isFlipped = false;
           cards[secondIndex].isFlipped = false;
@@ -526,36 +578,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         _changeTurn();
       }
     });
-  }
-
-  /// 턴 변경
-  void _changeTurn() {
-    if (!mounted) return;
-    
-    // 현재 플레이어가 방장인지 게스트인지 확인
-    final isCurrentPlayerHost = currentRoom.isHost(currentPlayerId);
-    
-    // 다음 플레이어 ID 결정
-    String nextPlayerId;
-    if (isCurrentPlayerHost) {
-      // 방장인 경우 게스트로 턴 변경
-      nextPlayerId = currentRoom.guestId ?? currentRoom.hostId;
-    } else {
-      // 게스트인 경우 방장으로 턴 변경
-      nextPlayerId = currentRoom.hostId;
-    }
-    
-    print('턴 변경: $currentPlayerId -> $nextPlayerId');
-    print('현재 플레이어가 방장: $isCurrentPlayerHost');
-    
-    setState(() {
-      isMyTurn = nextPlayerId == currentPlayerId;
-    });
-    
-    // Firebase에 턴 변경 정보 전송
-    firebaseService.syncTurnChange(currentRoom.id, currentPlayerId, nextPlayerId);
-    
-    print('턴 변경 완료: 내 턴 = $isMyTurn');
   }
 
   /// 게임 완료 확인
@@ -697,13 +719,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     
-    // 먼저 카드 그리드 크기 계산
-    final headerHeight = 80.0; // 헤더 높이
-    final controlHeight = 80.0; // 컨트롤 영역 높이
-    final padding = 32.0; // 전체 패딩
+    // 레이아웃 계산 - 더 효율적인 공간 활용
+    final headerHeight = 60.0; // 헤더 높이 줄임
+    final controlHeight = 60.0; // 컨트롤 영역 높이 줄임
+    final padding = 16.0; // 패딩 줄임
     final availableHeight = screenHeight - headerHeight - controlHeight - padding;
     
-    // 카드 개수에 따른 그리드 계산 (6x8 = 48개 카드 고려)
+    // 카드 개수에 따른 그리드 계산
     final totalCards = cards.length;
     int gridColumns;
     int gridRows;
@@ -739,18 +761,19 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       }
     }
     
-    // 카드 크기 계산 (가로/세로 모두 고려)
-    final cardSpacing = 4.0;
+    // 카드 간격 최소화
+    final cardSpacing = 2.0; // 간격을 2px로 줄임
     final availableGridWidth = screenWidth - padding - (gridColumns - 1) * cardSpacing;
     final availableGridHeight = availableHeight - (gridRows - 1) * cardSpacing;
     
+    // 카드 크기 계산 - 가용 공간에 맞춰 조정
     final cardWidth = availableGridWidth / gridColumns;
     final cardHeight = availableGridHeight / gridRows;
     
-    // 카드 크기 제한 (최소 40px, 최대 80px로 줄임)
-    final cardSize = cardWidth.clamp(40.0, 80.0);
+    // 카드 크기 제한 (더 작게 조정)
+    final cardSize = cardWidth.clamp(35.0, 70.0);
     
-    // 그리드가 화면을 벗어나지 않도록 추가 검증
+    // 그리드가 화면을 벗어나지 않도록 강제 조정
     final actualGridHeight = (cardSize * gridRows) + ((gridRows - 1) * cardSpacing);
     final finalCardSize = actualGridHeight > availableHeight 
         ? (availableHeight - (gridRows - 1) * cardSpacing) / gridRows
@@ -800,14 +823,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               // 게임 정보 헤더 (고정 높이)
               Container(
                 height: headerHeight,
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // 현재 플레이어 정보
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: isMyTurn ? Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
@@ -820,7 +843,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                                fontSize: 10,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -828,18 +851,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                               '점수: $currentPlayerScore',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
+                                fontSize: 8,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     // 상대방 정보
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: !isMyTurn ? Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
@@ -852,7 +875,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                                fontSize: 10,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -860,7 +883,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                               '점수: $opponentPlayerScore',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
+                                fontSize: 8,
                               ),
                             ),
                           ],
@@ -874,13 +897,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               // 게임 시작 버튼 (방장만, 게임 시작 전에만)
               if (!isGameRunning && currentRoom.isHost(currentPlayerId))
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: ElevatedButton(
                     onPressed: _startGame,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
                     child: const Text('게임 시작'),
                   ),
@@ -889,12 +912,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               // 대기 메시지 (게스트만, 게임 시작 전에만)
               if (!isGameRunning && !currentRoom.isHost(currentPlayerId))
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(8),
                   child: const Text(
                     '방장이 게임을 시작할 때까지 기다려주세요...',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
@@ -903,52 +926,53 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               
               // 카드 그리드 (고정 크기, 스크롤 없음)
               if (isGameRunning)
-                Container(
-                  height: availableHeight,
-                  padding: const EdgeInsets.all(8),
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: gridColumns,
-                      childAspectRatio: 0.8,
-                      crossAxisSpacing: cardSpacing,
-                      mainAxisSpacing: cardSpacing,
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: gridColumns,
+                        childAspectRatio: 0.8,
+                        crossAxisSpacing: cardSpacing,
+                        mainAxisSpacing: cardSpacing,
+                      ),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) {
+                        return SizedBox(
+                          width: finalCardSize,
+                          height: finalCardSize,
+                          child: MemoryCard(
+                            card: cards[index],
+                            onTap: () => _onCardTap(index),
+                            isEnabled: isMyTurn && isGameRunning,
+                          ),
+                        );
+                      },
                     ),
-                    itemCount: cards.length,
-                    itemBuilder: (context, index) {
-                      return SizedBox(
-                        width: finalCardSize,
-                        height: finalCardSize,
-                        child: MemoryCard(
-                          card: cards[index],
-                          onTap: () => _onCardTap(index),
-                          isEnabled: isMyTurn && isGameRunning,
-                        ),
-                      );
-                    },
                   ),
                 ),
               
               // 게임 완료 메시지
               if (!isGameRunning && gameCompleted)
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(8),
                   child: Column(
                     children: [
                       Text(
                         '게임 완료!',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
                         '최고 연속 매칭: $maxCombo',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -958,7 +982,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               // 게임 컨트롤 (고정 높이)
               Container(
                 height: controlHeight,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -967,6 +991,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),
                       child: const Text('방 나가기'),
                     ),

@@ -458,13 +458,13 @@ class _GameScreenState extends State<GameScreen> {
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     
-    // 먼저 카드 그리드 크기 계산
-    final headerHeight = 80.0; // 헤더 높이
-    final controlHeight = 80.0; // 컨트롤 영역 높이
-    final padding = 32.0; // 전체 패딩
+    // 레이아웃 계산 - 더 효율적인 공간 활용
+    final headerHeight = 60.0; // 헤더 높이 줄임
+    final controlHeight = 60.0; // 컨트롤 영역 높이 줄임
+    final padding = 16.0; // 패딩 줄임
     final availableHeight = screenHeight - headerHeight - controlHeight - padding;
     
-    // 카드 개수에 따른 그리드 계산 (6x8 = 48개 카드 고려)
+    // 카드 개수에 따른 그리드 계산
     final totalCards = cards.length;
     int gridColumns;
     int gridRows;
@@ -500,18 +500,19 @@ class _GameScreenState extends State<GameScreen> {
       }
     }
     
-    // 카드 크기 계산 (가로/세로 모두 고려)
-    final cardSpacing = 4.0;
+    // 카드 간격 최소화
+    final cardSpacing = 2.0; // 간격을 2px로 줄임
     final availableGridWidth = screenWidth - padding - (gridColumns - 1) * cardSpacing;
     final availableGridHeight = availableHeight - (gridRows - 1) * cardSpacing;
     
+    // 카드 크기 계산 - 가용 공간에 맞춰 조정
     final cardWidth = availableGridWidth / gridColumns;
     final cardHeight = availableGridHeight / gridRows;
     
-    // 카드 크기 제한 (최소 40px, 최대 80px로 줄임)
-    final cardSize = cardWidth.clamp(40.0, 80.0);
+    // 카드 크기 제한 (더 작게 조정)
+    final cardSize = cardWidth.clamp(35.0, 70.0);
     
-    // 그리드가 화면을 벗어나지 않도록 추가 검증
+    // 그리드가 화면을 벗어나지 않도록 강제 조정
     final actualGridHeight = (cardSize * gridRows) + ((gridRows - 1) * cardSpacing);
     final finalCardSize = actualGridHeight > availableHeight 
         ? (availableHeight - (gridRows - 1) * cardSpacing) / gridRows
@@ -553,7 +554,7 @@ class _GameScreenState extends State<GameScreen> {
               // 게임 정보 헤더 (고정 높이)
               Container(
                 height: headerHeight,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -569,7 +570,7 @@ class _GameScreenState extends State<GameScreen> {
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -586,7 +587,7 @@ class _GameScreenState extends State<GameScreen> {
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -595,52 +596,53 @@ class _GameScreenState extends State<GameScreen> {
               ),
               
               // 카드 그리드 (고정 크기, 스크롤 없음)
-              Container(
-                height: availableHeight,
-                padding: const EdgeInsets.all(8),
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: gridColumns,
-                    childAspectRatio: 0.8,
-                    crossAxisSpacing: cardSpacing,
-                    mainAxisSpacing: cardSpacing,
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: gridColumns,
+                      childAspectRatio: 0.8,
+                      crossAxisSpacing: cardSpacing,
+                      mainAxisSpacing: cardSpacing,
+                    ),
+                    itemCount: cards.length,
+                    itemBuilder: (context, index) {
+                      return SizedBox(
+                        width: finalCardSize,
+                        height: finalCardSize,
+                        child: MemoryCard(
+                          card: cards[index],
+                          onTap: () => _onCardTap(index),
+                          isEnabled: isGameRunning,
+                        ),
+                      );
+                    },
                   ),
-                  itemCount: cards.length,
-                  itemBuilder: (context, index) {
-                    return SizedBox(
-                      width: finalCardSize,
-                      height: finalCardSize,
-                      child: MemoryCard(
-                        card: cards[index],
-                        onTap: () => _onCardTap(index),
-                        isEnabled: isGameRunning,
-                      ),
-                    );
-                  },
                 ),
               ),
               
               // 게임 완료 메시지
               if (!isGameRunning && gameCompleted)
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(8),
                   child: Column(
                     children: [
                       Text(
                         '게임 완료!',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
                         '최고 연속 매칭: $maxCombo',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -650,7 +652,7 @@ class _GameScreenState extends State<GameScreen> {
               // 게임 컨트롤 (고정 높이)
               Container(
                 height: controlHeight,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -659,6 +661,7 @@ class _GameScreenState extends State<GameScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),
                       child: const Text('다시 시작'),
                     ),
@@ -667,6 +670,7 @@ class _GameScreenState extends State<GameScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),
                       child: const Text('나가기'),
                     ),
