@@ -1297,8 +1297,8 @@ class FirebaseService {
 
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('card_actions')
-        .orderBy('timestamp', descending: true) // 클라이언트 타임스탬프로 정렬
-        .limit(10)
+        .orderBy('timestamp', descending: false) // 오래된 순서로 정렬하여 순차 처리
+        .limit(20) // 더 많은 액션을 가져와서 누락 방지
         .snapshots()
         .map((snapshot) {
           final actions = snapshot.docs.map((doc) => doc.data()).toList();
@@ -1403,8 +1403,8 @@ class FirebaseService {
 
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('card_matches')
-        .orderBy('timestamp', descending: true) // 클라이언트 타임스탬프로 정렬
-        .limit(10)
+        .orderBy('timestamp', descending: false) // 오래된 순서로 정렬하여 순차 처리
+        .limit(20) // 더 많은 매칭을 가져와서 누락 방지
         .snapshots()
         .map((snapshot) {
           final matches = snapshot.docs.map((doc) => doc.data()).toList();
