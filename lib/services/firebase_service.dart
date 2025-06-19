@@ -1155,33 +1155,33 @@ class FirebaseService {
     }
 
     try {
-      // 트랜잭션을 사용하여 양방향 친구 관계 모두 삭제
-      await _firestore!.runTransaction((transaction) async {
-        // 현재 사용자와 관련된 모든 친구 관계 찾기
-        final friendsQuery = await transaction.get(
-          _firestore!.collection('friends')
-              .where('status', isEqualTo: 'accepted')
-        );
+      // 먼저 삭제할 친구 관계들을 찾기
+      final friendsQuery = await _firestore!.collection('friends')
+          .where('status', isEqualTo: 'accepted')
+          .get();
 
-        final friendsToDelete = <String>[];
+      final friendsToDelete = <String>[];
 
-        for (final doc in friendsQuery.docs) {
-          final friendData = doc.data();
-          final userId = friendData['userId'] as String;
-          final friendId = friendData['friendId'] as String;
+      for (final doc in friendsQuery.docs) {
+        final friendData = doc.data();
+        final userId = friendData['userId'] as String;
+        final friendId = friendData['friendId'] as String;
 
-          // 현재 사용자와 대상 친구와의 관계인지 확인
-          if ((userId == currentUser!.uid && friendId == targetFriendId) ||
-              (friendId == currentUser!.uid && userId == targetFriendId)) {
-            friendsToDelete.add(doc.id);
+        // 현재 사용자와 대상 친구와의 관계인지 확인
+        if ((userId == currentUser!.uid && friendId == targetFriendId) ||
+            (friendId == currentUser!.uid && userId == targetFriendId)) {
+          friendsToDelete.add(doc.id);
+        }
+      }
+
+      // 트랜잭션을 사용하여 친구 관계 삭제
+      if (friendsToDelete.isNotEmpty) {
+        await _firestore!.runTransaction((transaction) async {
+          for (final docId in friendsToDelete) {
+            transaction.delete(_firestore!.collection('friends').doc(docId));
           }
-        }
-
-        // 모든 관련 친구 관계 삭제
-        for (final docId in friendsToDelete) {
-          transaction.delete(_firestore!.collection('friends').doc(docId));
-        }
-      });
+        });
+      }
 
       print('친구 삭제 완료: $targetFriendId');
     } catch (e) {
