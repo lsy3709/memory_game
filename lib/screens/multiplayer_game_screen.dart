@@ -237,7 +237,6 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       final totalGameTime = gameEndTime.difference(gameStartTime).inSeconds;
       
       for (int i = 0; i < players.length; i++) {
-        players[i].gameTime = totalGameTime;
         players[i].isCompleted = true;
         players[i].timeLeft = totalGameTime;
       }
