@@ -31,12 +31,13 @@ void main() async {
     // Firebase 설정 파일이 있는지 확인하고 초기화
     firebaseInitialized = await _tryInitializeFirebase();
     if (firebaseInitialized) {
-      print('Firebase 초기화 성공');
+      print('Firebase 초기화 성공 - 온라인 모드 사용 가능');
     } else {
-      print('Firebase 설정 파일이 없습니다. 로컬 모드로 실행됩니다.');
+      print('Firebase 설정이 완료되지 않았습니다.');
+      print('로컬 모드로 실행됩니다. 온라인 기능을 사용하려면 Firebase 설정을 완료해주세요.');
     }
   } catch (e) {
-    print('Firebase 초기화 실패: $e');
+    print('Firebase 초기화 중 오류 발생: $e');
     print('로컬 모드로 실행됩니다.');
     firebaseInitialized = false;
   }

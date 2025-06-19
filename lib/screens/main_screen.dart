@@ -128,6 +128,14 @@ class _MainScreenState extends State<MainScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.help),
+              title: const Text('Firebase 설정 가이드'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _showFirebaseSetupGuide();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.delete_forever),
               title: const Text('데이터 초기화'),
               onTap: () {
@@ -246,11 +254,17 @@ class _MainScreenState extends State<MainScreen> {
             Text('• 랭킹 보드 시스템'),
             Text('• 사운드 효과 및 배경음악'),
             Text('• 로컬 데이터 저장'),
+            SizedBox(height: 16),
+            Text('온라인 기능:'),
+            Text('• Firebase 설정이 완료되면 온라인 모드 사용 가능'),
+            Text('• 전 세계 플레이어와 랭킹 경쟁'),
+            Text('• 온라인 멀티플레이어 게임'),
+            Text('• 클라우드 데이터 저장'),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.pop(context),
             child: const Text('확인'),
           ),
         ],
@@ -306,6 +320,8 @@ class _MainScreenState extends State<MainScreen> {
             const Text('로컬 모드로 게임을 즐기실 수 있습니다.'),
             const SizedBox(height: 16),
             const Text('설정 > Firebase 상태 확인에서 자세한 정보를 확인할 수 있습니다.'),
+            const SizedBox(height: 8),
+            const Text('설정 > Firebase 설정 가이드에서 설정 방법을 확인할 수 있습니다.'),
           ],
         ),
         actions: [
@@ -335,6 +351,49 @@ class _MainScreenState extends State<MainScreen> {
             const SizedBox(height: 16),
             const Text('콘솔에서 자세한 정보를 확인할 수 있습니다.'),
           ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Firebase 설정 가이드 표시
+  void _showFirebaseSetupGuide() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Firebase 설정 가이드'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('온라인 기능을 사용하려면 Firebase 설정을 완료해야 합니다.'),
+              SizedBox(height: 16),
+              Text('1. Firebase 프로젝트 생성:'),
+              Text('   • Firebase Console에서 새 프로젝트 생성'),
+              Text('   • Authentication과 Firestore Database 활성화'),
+              SizedBox(height: 8),
+              Text('2. FlutterFire CLI 설치:'),
+              Text('   • npm install -g firebase-tools'),
+              Text('   • firebase login'),
+              Text('   • dart pub global activate flutterfire_cli'),
+              SizedBox(height: 8),
+              Text('3. Firebase 설정 파일 생성:'),
+              Text('   • flutterfire configure'),
+              Text('   • 생성된 파일들을 프로젝트에 추가'),
+              SizedBox(height: 8),
+              Text('4. 앱 재시작:'),
+              Text('   • 설정 완료 후 앱을 재시작하면 온라인 기능 사용 가능'),
+              SizedBox(height: 16),
+              Text('자세한 설정 방법은 README.md 파일을 참조하세요.'),
+            ],
+          ),
         ),
         actions: [
           TextButton(

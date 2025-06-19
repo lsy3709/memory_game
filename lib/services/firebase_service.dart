@@ -34,7 +34,8 @@ class FirebaseService {
       _isFirebaseAvailable = await _checkFirebaseAvailability();
       
       if (!_isFirebaseAvailable) {
-        print('Firebase가 사용할 수 없습니다. 로컬 모드로 실행됩니다.');
+        print('Firebase 설정이 완료되지 않았습니다.');
+        print('로컬 모드로 실행됩니다. 온라인 기능을 사용하려면 Firebase 설정을 완료해주세요.');
         _isInitialized = true; // 초기화는 성공으로 처리하되 Firebase는 사용하지 않음
         return;
       }
@@ -60,9 +61,9 @@ class FirebaseService {
       }
       
       _isInitialized = true;
-      print('Firebase 서비스 초기화 성공');
+      print('Firebase 서비스 초기화 성공 - 온라인 기능 사용 가능');
     } catch (e) {
-      print('Firebase 서비스 초기화 실패: $e');
+      print('Firebase 서비스 초기화 중 오류 발생: $e');
       _isInitialized = true; // 초기화는 성공으로 처리하되 Firebase는 사용하지 않음
       _isFirebaseAvailable = false;
       _auth = null;
