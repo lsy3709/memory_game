@@ -127,6 +127,23 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       print('로그인 오류 (상세): $e');
       String errorMessage = _getLoginErrorMessage(e.toString());
       
+      // Firebase Auth 내부 오류인 경우 특별 처리
+      if (e.toString().contains('Firebase Auth 내부 오류 (로그인은 성공)')) {
+        print('Firebase Auth 내부 오류 감지 - 로그인 성공으로 처리');
+        if (mounted) {
+          setState(() {
+            _errorMessage = null;
+            _isLoading = false;
+          });
+          // 온라인 메인 화면으로 이동
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/online-main',
+            (route) => false,
+          );
+        }
+        return;
+      }
+      
       // 이미 로그인된 사용자인지 확인 (오류 발생했지만 실제로는 로그인됨)
       if (_firebaseService.currentUser != null) {
         print('오류 발생했으나 사용자가 로그인되어 있음: ${_firebaseService.currentUser?.email}');

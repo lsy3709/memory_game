@@ -108,12 +108,10 @@ class FirebaseService {
             print('사용자 데이터 생성 오류 (무시됨): $e');
           }
           
-          // 성공적인 UserCredential 객체 반환
-          return UserCredential(
-            user: currentUser,
-            additionalUserInfo: null,
-            credential: null,
-          );
+          // 성공적인 로그인으로 처리 (오류를 던지지 않음)
+          print('PigeonUserDetails 오류 무시하고 로그인 성공으로 처리');
+          // 원래 예외를 다시 던지되, 로그인은 실제로 성공했음을 표시
+          throw Exception('Firebase Auth 내부 오류 (로그인은 성공)');
         }
       }
       
