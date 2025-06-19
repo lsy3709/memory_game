@@ -3,6 +3,8 @@ import '../services/firebase_service.dart';
 import '../models/player_stats.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/sound_service.dart';
+import '../services/storage_service.dart';
 
 /// 온라인 게임 메인 화면
 class OnlineMainScreen extends StatefulWidget {
@@ -13,7 +15,9 @@ class OnlineMainScreen extends StatefulWidget {
 }
 
 class _OnlineMainScreenState extends State<OnlineMainScreen> {
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
+  final SoundService _soundService = SoundService.instance;
+  final StorageService _storageService = StorageService.instance;
   String _playerName = '';
   String _email = '';
   bool _isLoading = true;
@@ -391,7 +395,7 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
                   icon: Icons.emoji_events,
                   label: '승리',
                   value: '${_playerStats!.totalWins}',
-                  color: Colors.gold,
+                  color: Colors.amber,
                 ),
               ),
             ],

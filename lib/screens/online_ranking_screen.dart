@@ -12,7 +12,7 @@ class OnlineRankingScreen extends StatefulWidget {
 
 class _OnlineRankingScreenState extends State<OnlineRankingScreen>
     with SingleTickerProviderStateMixin {
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
   late TabController _tabController;
   
   List<GameRecord> _scoreRankings = [];

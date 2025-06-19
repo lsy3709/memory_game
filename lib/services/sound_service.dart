@@ -2,147 +2,146 @@
 
 import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
 
+/// 사운드 서비스를 관리하는 클래스
 class SoundService {
-  // 효과음과 배경음악(BGM) 재생을 위한 AudioPlayer 인스턴스
-  final AudioPlayer _effectPlayer = AudioPlayer();
-  final AudioPlayer _bgmPlayer    = AudioPlayer();
-  final Random _random            = Random(); // 랜덤 BGM 선택용
+  static SoundService? _instance;
+  static SoundService get instance => _instance ??= SoundService._();
+  
+  SoundService._();
 
-  bool _isBgmPlaying = false; // BGM 재생 상태 플래그
+  AudioPlayer? _backgroundPlayer;
+  AudioPlayer? _effectPlayer;
+  bool _isSoundEnabled = true;
+  bool _isMusicEnabled = true;
+  double _soundVolume = 1.0;
+  double _musicVolume = 0.5;
 
-  SoundService() {
-    // 효과음 플레이어를 저지연 모드로 설정
-    _effectPlayer.setPlayerMode(PlayerMode.lowLatency);
+  /// 사운드 활성화/비활성화
+  bool get isSoundEnabled => _isSoundEnabled;
+  set isSoundEnabled(bool value) {
+    _isSoundEnabled = value;
+    if (!value) {
+      _stopBackgroundMusic();
+    }
   }
 
-  // 버튼 클릭 효과음 재생
-  Future<void> playButtonSound() async {
+  /// 음악 활성화/비활성화
+  bool get isMusicEnabled => _isMusicEnabled;
+  set isMusicEnabled(bool value) {
+    _isMusicEnabled = value;
+    if (!value) {
+      _stopBackgroundMusic();
+    } else {
+      _playBackgroundMusic();
+    }
+  }
+
+  /// 사운드 볼륨
+  double get soundVolume => _soundVolume;
+  set soundVolume(double value) {
+    _soundVolume = value.clamp(0.0, 1.0);
+  }
+
+  /// 음악 볼륨
+  double get musicVolume => _musicVolume;
+  set musicVolume(double value) {
+    _musicVolume = value.clamp(0.0, 1.0);
+    if (_backgroundPlayer != null) {
+      _backgroundPlayer!.setVolume(_musicVolume);
+    }
+  }
+
+  /// 배경 음악 재생
+  Future<void> playBackgroundMusic() async {
+    if (!_isMusicEnabled) return;
+
     try {
-      await _effectPlayer.play(
-        AssetSource('sounds/ui/button_click.wav'),
-      );
+      _backgroundPlayer ??= AudioPlayer();
+      await _backgroundPlayer!.play(AssetSource('sounds/background_music.mp3'));
+      await _backgroundPlayer!.setVolume(_musicVolume);
+      await _backgroundPlayer!.setReleaseMode(ReleaseMode.loop);
     } catch (e) {
-      print('Error playing button sound: $e');
+      print('배경 음악 재생 오류: $e');
     }
   }
 
-  // 카드 뒤집기 효과음 재생
-  Future<void> playCardFlip() async {
+  /// 배경 음악 정지
+  Future<void> _stopBackgroundMusic() async {
     try {
-      await _effectPlayer.play(
-        AssetSource('sounds/effect/card_flip.wav'),
-      );
+      await _backgroundPlayer?.stop();
     } catch (e) {
-      print('Error playing card flip: $e');
+      print('배경 음악 정지 오류: $e');
     }
   }
 
-  // 카드 매치 성공 효과음 재생
-  Future<void> playCardMatch() async {
+  /// 게임 시작 사운드
+  Future<void> playGameStartSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/game_start.mp3');
+  }
+
+  /// 카드 뒤집기 사운드
+  Future<void> playCardFlipSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/card_flip.mp3');
+  }
+
+  /// 카드 매치 사운드
+  Future<void> playMatchSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/match.mp3');
+  }
+
+  /// 카드 매치 실패 사운드
+  Future<void> playMismatchSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/mismatch.mp3');
+  }
+
+  /// 게임 종료 사운드
+  Future<void> playGameOverSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/game_over.mp3');
+  }
+
+  /// 버튼 클릭 사운드
+  Future<void> playButtonClickSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/button_click.mp3');
+  }
+
+  /// 효과음 재생 (내부 메서드)
+  Future<void> _playSound(String assetPath) async {
     try {
-      await _effectPlayer.play(
-        AssetSource('sounds/effect/card_match.wav'),
-      );
+      _effectPlayer ??= AudioPlayer();
+      await _effectPlayer!.play(AssetSource(assetPath));
+      await _effectPlayer!.setVolume(_soundVolume);
     } catch (e) {
-      print('Error playing card match: $e');
+      print('효과음 재생 오류 ($assetPath): $e');
     }
   }
 
-  // 카드 매치 실패 효과음 재생
-  Future<void> playCardMismatch() async {
+  /// 모든 사운드 정지
+  Future<void> stopAllSounds() async {
     try {
-      await _effectPlayer.play(
-        AssetSource('sounds/effect/card_mismatch.wav'),
-      );
+      await _backgroundPlayer?.stop();
+      await _effectPlayer?.stop();
     } catch (e) {
-      print('Error playing card mismatch: $e');
+      print('사운드 정지 오류: $e');
     }
   }
 
-  // 게임 시작 효과음 재생
-  Future<void> playGameStart() async {
+  /// 리소스 해제
+  Future<void> dispose() async {
     try {
-      await _effectPlayer.play(
-        AssetSource('sounds/effect/game_start.wav'),
-      );
+      await _backgroundPlayer?.dispose();
+      await _effectPlayer?.dispose();
+      _backgroundPlayer = null;
+      _effectPlayer = null;
     } catch (e) {
-      print('Error playing game start: $e');
-    }
-  }
-
-  // 게임 승리 효과음 및 박수 소리 재생
-  Future<void> playGameWin() async {
-    try {
-      await _effectPlayer.play(
-        AssetSource('sounds/effect/game_win.wav'),
-      );
-      // 1.5초 후 박수 효과음 추가 재생
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        _effectPlayer.play(
-          AssetSource('sounds/effect/applause.wav'),
-        );
-      });
-    } catch (e) {
-      print('Error playing game win: $e');
-    }
-  }
-
-  // 랜덤 BGM 트랙을 선택해 배경음악 재생 (반복)
-  Future<void> startBackgroundMusic() async {
-    if (_isBgmPlaying) {
-      await _bgmPlayer.stop();
-    }
-    try {
-      final int track = _random.nextInt(10) + 1; // 1~10번 트랙 중 랜덤 선택
-      await _bgmPlayer.play(
-        AssetSource('sounds/bgm/bgm$track.wav'),
-      );
-      await _bgmPlayer.setReleaseMode(ReleaseMode.loop); // 반복 재생
-      _isBgmPlaying = true;
-    } catch (e) {
-      print('Error playing BGM: $e');
-    }
-  }
-
-  // 배경음악 일시정지
-  Future<void> pauseBackgroundMusic() async {
-    if (_isBgmPlaying) {
-      await _bgmPlayer.pause();
-    }
-  }
-
-  // 배경음악 재개
-  Future<void> resumeBackgroundMusic() async {
-    if (!_isBgmPlaying) {
-      await _bgmPlayer.resume();
-      _isBgmPlaying = true;
-    }
-  }
-
-  // 배경음악 정지
-  Future<void> stopBackgroundMusic() async {
-    await _bgmPlayer.stop();
-    _isBgmPlaying = false;
-  }
-
-  // 플레이어 리소스 해제
-  void dispose() {
-    try {
-      // 재생 중지
-      _effectPlayer.stop();
-      _bgmPlayer.stop();
-      
-      // 플레이어 해제
-      _effectPlayer.dispose();
-      _bgmPlayer.dispose();
-      
-      // 상태 초기화
-      _isBgmPlaying = false;
-      
-      print('SoundService 리소스 해제 완료');
-    } catch (e) {
-      print('SoundService dispose 오류: $e');
+      print('사운드 서비스 해제 오류: $e');
     }
   }
 }

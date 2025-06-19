@@ -13,7 +13,7 @@ class OnlineMyRecordsScreen extends StatefulWidget {
 
 class _OnlineMyRecordsScreenState extends State<OnlineMyRecordsScreen>
     with SingleTickerProviderStateMixin {
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
   late TabController _tabController;
   
   List<GameRecord> _myRecords = [];

@@ -13,7 +13,7 @@ class OnlineRoomListScreen extends StatefulWidget {
 }
 
 class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -269,7 +269,7 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           ElevatedButton(
-            onPressed: room.isFull ? _startGame : null,
+            onPressed: room.isFull ? () => _startGame(room) : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,

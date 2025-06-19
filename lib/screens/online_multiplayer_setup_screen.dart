@@ -14,7 +14,7 @@ class _OnlineMultiplayerSetupScreenState extends State<OnlineMultiplayerSetupScr
   final _formKey = GlobalKey<FormState>();
   final _player2NameController = TextEditingController();
   final _gameTitleController = TextEditingController();
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
 
   String _currentPlayerName = '';
   String _currentPlayerEmail = '';

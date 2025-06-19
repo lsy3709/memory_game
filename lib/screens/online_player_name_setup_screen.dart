@@ -12,7 +12,7 @@ class OnlinePlayerNameSetupScreen extends StatefulWidget {
 class _OnlinePlayerNameSetupScreenState extends State<OnlinePlayerNameSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _playerNameController = TextEditingController();
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
   
   bool _isLoading = false;
   String? _errorMessage;

@@ -15,7 +15,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _playerNameController = TextEditingController();
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
 
   bool _isLoginMode = true;
   bool _isLoading = false;

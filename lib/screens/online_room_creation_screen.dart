@@ -15,7 +15,7 @@ class _OnlineRoomCreationScreenState extends State<OnlineRoomCreationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _roomNameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
 
   bool _isPrivate = false;
   bool _isLoading = false;
@@ -326,7 +326,7 @@ class _OnlineRoomCreationScreenState extends State<OnlineRoomCreationScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.rules, color: Colors.blue, size: 20),
+                      const Icon(Icons.rule, color: Colors.blue, size: 20),
                       const SizedBox(width: 8),
                       const Text(
                         '방 규칙',

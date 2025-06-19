@@ -13,7 +13,7 @@ class FriendManagementScreen extends StatefulWidget {
 
 class _FriendManagementScreenState extends State<FriendManagementScreen>
     with SingleTickerProviderStateMixin {
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
   late TabController _tabController;
   
   final _emailController = TextEditingController();

@@ -3,11 +3,8 @@ class CardModel {
   /// 카드의 고유 ID
   final int id;
 
-  /// 짝을 이루는 카드의 ID
-  final int pairId;
-
-  /// 카드 이미지 경로
-  final String imagePath;
+  /// 카드의 이모지
+  final String emoji;
 
   /// 카드가 뒤집혀 있는지 여부
   bool isFlipped;
@@ -15,29 +12,83 @@ class CardModel {
   /// 카드가 매칭되었는지 여부
   bool isMatched;
 
+  /// 카드가 활성화되었는지 여부
+  bool isEnabled;
+
   /// CardModel 생성자
   CardModel({
     required this.id,
-    required this.pairId,
-    required this.imagePath,
+    required this.emoji,
     this.isFlipped = false,
     this.isMatched = false,
+    this.isEnabled = true,
   });
+
+  /// 카드 뒤집기
+  void flip() {
+    if (!isMatched && isEnabled) {
+      isFlipped = !isFlipped;
+    }
+  }
+
+  /// 카드 매치 설정
+  void setMatched(bool matched) {
+    isMatched = matched;
+    if (matched) {
+      isFlipped = true;
+    }
+  }
+
+  /// 카드 비활성화
+  void setEnabled(bool enabled) {
+    isEnabled = enabled;
+  }
 
   /// CardModel의 복사본을 생성하되, 일부 필드만 변경할 수 있음
   CardModel copyWith({
     int? id,
-    int? pairId,
-    String? imagePath,
+    String? emoji,
     bool? isFlipped,
     bool? isMatched,
+    bool? isEnabled,
   }) {
     return CardModel(
       id: id ?? this.id,
-      pairId: pairId ?? this.pairId,
-      imagePath: imagePath ?? this.imagePath,
+      emoji: emoji ?? this.emoji,
       isFlipped: isFlipped ?? this.isFlipped,
       isMatched: isMatched ?? this.isMatched,
+      isEnabled: isEnabled ?? this.isEnabled,
     );
   }
+
+  /// JSON으로 변환
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'emoji': emoji,
+      'isFlipped': isFlipped,
+      'isMatched': isMatched,
+      'isEnabled': isEnabled,
+    };
+  }
+
+  /// JSON에서 생성
+  factory CardModel.fromJson(Map<String, dynamic> json) {
+    return CardModel(
+      id: json['id'] ?? 0,
+      emoji: json['emoji'] ?? '❓',
+      isFlipped: json['isFlipped'] ?? false,
+      isMatched: json['isMatched'] ?? false,
+      isEnabled: json['isEnabled'] ?? true,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CardModel && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }

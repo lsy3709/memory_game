@@ -37,7 +37,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   Timer? gameTimer;                       // 게임 타이머 (nullable로 변경)
   final SoundService soundService = SoundService(); // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
-  final FirebaseService firebaseService = FirebaseService(); // Firebase 서비스
+  final FirebaseService firebaseService = FirebaseService.instance; // Firebase 서비스
   
   // 기록 관련 변수
   int maxCombo = 0;                       // 최고 연속 매칭 기록

@@ -1,15 +1,15 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:crypto/crypto.dart';
 import 'dart:convert';
-import 'dart:async';
 import 'dart:math';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/game_record.dart';
 import '../models/multiplayer_game_record.dart';
 import '../models/player_stats.dart';
 import '../models/online_room.dart';
 import '../models/friend.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:async';
 
 /// Firebase 서비스를 관리하는 클래스
 class FirebaseService {
@@ -161,6 +161,25 @@ class FirebaseService {
     } catch (e) {
       print('사용자 데이터 가져오기 오류: $e');
       return null;
+    }
+  }
+
+  /// 플레이어 이름 업데이트
+  Future<void> updatePlayerName(String userId, String playerName) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      await _firestore!.collection('users').doc(userId).update({
+        'playerName': playerName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      print('플레이어 이름 업데이트 완료: $playerName');
+    } catch (e) {
+      print('플레이어 이름 업데이트 오류: $e');
+      throw Exception('플레이어 이름 업데이트에 실패했습니다: ${e.toString()}');
     }
   }
 
@@ -787,9 +806,9 @@ class FirebaseService {
       final friendName = friendData['playerName'] ?? '플레이어';
       final friendEmail = friendData['email'] ?? '';
 
-      final friendId = _firestore!.collection('friends').doc().id;
+      final friendDocId = _firestore!.collection('friends').doc().id;
       final friend = Friend(
-        id: friendId,
+        id: friendDocId,
         userId: currentUser!.uid,
         friendId: friendId,
         userName: userName,
@@ -800,7 +819,7 @@ class FirebaseService {
         createdAt: DateTime.now(),
       );
 
-      await _firestore!.collection('friends').doc(friendId).set(friend.toJson());
+      await _firestore!.collection('friends').doc(friendDocId).set(friend.toJson());
       print('친구 요청 전송 완료: $friendEmail');
     } catch (e) {
       print('친구 요청 전송 오류: $e');

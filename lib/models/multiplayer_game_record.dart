@@ -116,9 +116,8 @@ class PlayerGameResult {
   final int matchCount;           // 매칭 성공 횟수
   final int failCount;            // 매칭 실패 횟수
   final int maxCombo;             // 최고 연속 매칭 기록
-  final int gameTime;             // 게임 완료 시간 (초)
-  final List<CardMatch> cardMatches; // 매칭된 카드 목록
-  final bool isCompleted;         // 게임 완료 여부
+  final int timeLeft;             // 남은 시간 (초)
+  final bool isWinner;            // 승자 여부
 
   PlayerGameResult({
     required this.playerName,
@@ -127,9 +126,8 @@ class PlayerGameResult {
     required this.matchCount,
     required this.failCount,
     required this.maxCombo,
-    required this.gameTime,
-    required this.cardMatches,
-    required this.isCompleted,
+    required this.timeLeft,
+    this.isWinner = false,
   });
 
   /// JSON으로부터 PlayerGameResult 객체 생성
@@ -141,11 +139,8 @@ class PlayerGameResult {
       matchCount: json['matchCount'] as int,
       failCount: json['failCount'] as int,
       maxCombo: json['maxCombo'] as int,
-      gameTime: json['gameTime'] as int,
-      cardMatches: (json['cardMatches'] as List?)
-          ?.map((matchJson) => CardMatch.fromJson(matchJson))
-          .toList() ?? [],
-      isCompleted: json['isCompleted'] as bool,
+      timeLeft: json['timeLeft'] as int,
+      isWinner: json['isWinner'] as bool,
     );
   }
 
@@ -158,9 +153,8 @@ class PlayerGameResult {
       'matchCount': matchCount,
       'failCount': failCount,
       'maxCombo': maxCombo,
-      'gameTime': gameTime,
-      'cardMatches': cardMatches.map((match) => match.toJson()).toList(),
-      'isCompleted': isCompleted,
+      'timeLeft': timeLeft,
+      'isWinner': isWinner,
     };
   }
 
@@ -173,9 +167,32 @@ class PlayerGameResult {
 
   /// 게임 완료 시간을 mm:ss 형식으로 반환
   String get formattedGameTime {
-    final mins = gameTime ~/ 60;
-    final secs = gameTime % 60;
+    final mins = timeLeft ~/ 60;
+    final secs = timeLeft % 60;
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+
+  /// 복사본 생성
+  PlayerGameResult copyWith({
+    String? playerName,
+    String? email,
+    int? score,
+    int? matchCount,
+    int? failCount,
+    int? maxCombo,
+    int? timeLeft,
+    bool? isWinner,
+  }) {
+    return PlayerGameResult(
+      playerName: playerName ?? this.playerName,
+      email: email ?? this.email,
+      score: score ?? this.score,
+      matchCount: matchCount ?? this.matchCount,
+      failCount: failCount ?? this.failCount,
+      maxCombo: maxCombo ?? this.maxCombo,
+      timeLeft: timeLeft ?? this.timeLeft,
+      isWinner: isWinner ?? this.isWinner,
+    );
   }
 }
 

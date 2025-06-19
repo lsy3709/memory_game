@@ -4,6 +4,7 @@ import 'dart:io';
 import '../services/storage_service.dart';
 import '../models/player_stats.dart';
 import '../services/firebase_service.dart';
+import '../services/sound_service.dart';
 
 /// 메인 화면
 /// 게임 시작, 랭킹 보드, 설정 등의 메뉴를 제공
@@ -15,8 +16,9 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  final StorageService _storageService = StorageService();
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
+  final SoundService _soundService = SoundService.instance;
+  final StorageService _storageService = StorageService.instance;
   
   PlayerStats? _playerStats;
   bool _isLoading = true;
@@ -75,29 +77,18 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  /// Firebase 상태 확인 (콘솔 체크)
-  void _checkFirebaseStatus() async {
+  /// Firebase 상태 확인
+  Future<void> _checkFirebaseStatus() async {
     try {
-      print('=== Firebase 상태 확인 ===');
-      print('Firebase 초기화 상태: ${_firebaseService.isInitialized}');
-      print('Firebase 사용 가능: ${_firebaseService.isFirebaseAvailable}');
-      
       final isInitialized = await _firebaseService.ensureInitialized();
-      print('Firebase 초기화 재확인: $isInitialized');
+      print('Firebase 초기화 상태: $isInitialized');
       
-      final currentUser = _firebaseService.currentUser;
-      print('현재 로그인된 사용자: ${currentUser?.email ?? '없음'}');
-      
-      // Firebase 설정 파일 상태 확인
-      await _checkFirebaseConfigFiles();
-      
-      print('=== Firebase 상태 확인 완료 ===');
-      
-      // 상태 확인 결과를 사용자에게 표시
-      _showFirebaseStatusDialog(isInitialized, currentUser);
+      // 이미 로그인되어 있는지 확인
+      if (_firebaseService.currentUser != null) {
+        print('이미 로그인된 사용자: ${_firebaseService.currentUser?.email}');
+      }
     } catch (e) {
-      print('Firebase 상태 확인 오류: $e');
-      _showFirebaseErrorDialog();
+      print('Firebase 상태 확인 중 오류: $e');
     }
   }
 
@@ -401,8 +392,8 @@ class _MainScreenState extends State<MainScreen> {
           children: [
             Text('초기화 상태: ${isInitialized ? '성공' : '실패'}'),
             Text('사용 가능: ${_firebaseService.isFirebaseAvailable ? '예' : '아니오'}'),
-            Text('로그인 상태: ${currentUser != null ? '로그인됨' : '로그인 안됨'}'),
-            if (currentUser != null) Text('사용자: ${currentUser.email}'),
+            Text('온라인 상태: ${_firebaseService.currentUser != null ? '로그인됨' : '로그인 안됨'}'),
+            if (_firebaseService.currentUser != null) Text('사용자: ${_firebaseService.currentUser.email}'),
             const SizedBox(height: 16),
             const Text('설정 파일 상태:', style: TextStyle(fontWeight: FontWeight.bold)),
             Text('• Firebase Options: ${firebaseOptionsExists ? '✅' : '❌'}'),
