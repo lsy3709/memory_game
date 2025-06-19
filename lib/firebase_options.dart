@@ -17,7 +17,10 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -25,7 +28,10 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -43,41 +49,23 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // TODO: Firebase 프로젝트 설정 후 실제 값으로 교체
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    authDomain: 'your-project-id.firebaseapp.com',
-    storageBucket: 'your-project-id.appspot.com',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyCKJTIXFahLBeZzDsflwWFO6mpq_DM_HL8',
+    appId: '1:382607300214:android:9ea487174af3e52358b157',
+    messagingSenderId: '382607300214',
+    projectId: 'memory-game-58c95',
+    storageBucket: 'memory-game-58c95.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    storageBucket: 'your-project-id.appspot.com',
-    iosClientId: 'your-ios-client-id-here',
+    apiKey: 'AIzaSyCMn1NKYiC2agfsrWjTBbT3jHCRbh6JfO8',
+    appId: '1:382607300214:ios:cd193b89b652ee9358b157',
+    messagingSenderId: '382607300214',
+    projectId: 'memory-game-58c95',
+    storageBucket: 'memory-game-58c95.firebasestorage.app',
+    androidClientId: '382607300214-9d2mrjoqtbmpl654ehb0duq4g7dbibp2.apps.googleusercontent.com',
+    iosClientId: '382607300214-0hh4uegptsaqbi93bv71563j9jkugms6.apps.googleusercontent.com',
     iosBundleId: 'com.goldmagnetsoft.memoryGame',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'your-api-key-here',
-    appId: 'your-app-id-here',
-    messagingSenderId: 'your-sender-id-here',
-    projectId: 'your-project-id-here',
-    storageBucket: 'your-project-id.appspot.com',
-    iosClientId: 'your-ios-client-id-here',
-    iosBundleId: 'com.goldmagnetsoft.memoryGame',
-  );
-} 
+}

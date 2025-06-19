@@ -696,32 +696,34 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final screenSize = MediaQuery.of(context).size;
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
-    
-    // 화면 크기에 따라 카드 크기와 그리드 열 수 조절
-    int gridColumns;
-    double cardSize;
-    double cardSpacing;
-    
-    if (screenWidth < 400) {
-      // 작은 화면 (세로 모드)
-      gridColumns = 4;
-      cardSize = (screenWidth - 40) / 4 - 8; // 패딩과 간격 고려
-      cardSpacing = 4;
-    } else if (screenWidth < 600) {
-      // 중간 화면
-      gridColumns = 5;
-      cardSize = (screenWidth - 50) / 5 - 8;
-      cardSpacing = 6;
-    } else {
-      // 큰 화면 (가로 모드)
-      gridColumns = 6;
-      cardSize = (screenWidth - 60) / 6 - 8;
-      cardSpacing = 8;
-    }
-    
+
+    // 카드 레이아웃을 6열 8행으로 고정
+    final int gridColumns = 6;  // 고정된 열 수
+    final int gridRows = 8;     // 고정된 행 수
+
+    // 사용 가능한 화면 영역 계산 (상단 정보 영역 및 하단 컨트롤 영역 고려)
+    // AppBar, 게임 정보 헤더 및 컨트롤 영역의 대략적인 높이
+    final double headerHeight = 150;  // 게임 정보 헤더의 대략적인 높이
+    final double controlsHeight = 80; // 게임 컨트롤의 대략적인 높이
+    final double availableHeight = screenHeight - headerHeight - controlsHeight;
+    final double availableWidth = screenWidth;
+
+    // 카드 크기 계산 - 화면에 맞게 조절
+    // 가로/세로 비율을 고려하여 더 작은 값 기준으로 계산
+    double cardWidthByWidth = (availableWidth - (gridColumns + 1) * 8) / gridColumns;
+    double cardHeightByHeight = (availableHeight - (gridRows + 1) * 8) / gridRows;
+
+    // 종횡비를 유지하기 위한 최종 카드 크기 계산 (카드 비율 0.8 고려)
+    double cardWidth = min(cardWidthByWidth, cardHeightByHeight / 0.8);
+    double cardHeight = cardWidth * 0.8; // 카드의 비율 0.8 적용
+
     // 카드 크기 최소/최대 제한
-    cardSize = cardSize.clamp(60.0, 120.0);
-    
+    cardWidth = cardWidth.clamp(40.0, 100.0);
+    cardHeight = cardHeight.clamp(50.0, 120.0);
+
+    // 카드 간 간격
+    double cardSpacing = min(8.0, screenWidth / 60);  // 화면 크기에 비례한 간격
+
     return Scaffold(
       appBar: AppBar(
         title: Text(currentRoom.roomName),
@@ -749,35 +751,47 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             children: [
               // 게임 정보 헤더
               _buildGameHeader(),
-              
+
               // 카드 그리드
               if (isGameRunning)
+              // 기존 Expanded(child: Center(child: LayoutBuilder(...))) 부분을 아래처럼 교체
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: GridView.builder(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: gridColumns,
-                        childAspectRatio: 0.8, // 카드 비율 조정
-                        crossAxisSpacing: cardSpacing,
-                        mainAxisSpacing: cardSpacing,
-                      ),
-                      itemCount: cards.length,
-                      itemBuilder: (context, index) {
-                        return SizedBox(
-                          width: cardSize,
-                          height: cardSize,
-                          child: MemoryCard(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final spacing = 8.0;
+                      final gridColumns = 6;
+                      final gridRows = 8;
+                      // 사용 가능한 전체 영역
+                      final totalWidth = constraints.maxWidth;
+                      final totalHeight = constraints.maxHeight;
+
+                      // 카드 크기 계산
+                      final cardWidth = (totalWidth - (gridColumns - 1) * spacing) / gridColumns;
+                      final cardHeight = (totalHeight - (gridRows - 1) * spacing) / gridRows;
+
+                      return GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: gridColumns,
+                          childAspectRatio: cardWidth / cardHeight,
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing: spacing,
+                        ),
+                        itemCount: cards.length,
+                        itemBuilder: (context, index) {
+                          return MemoryCard(
                             card: cards[index],
                             onTap: () => _onCardTap(index),
                             isEnabled: isMyTurn && isGameRunning,
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
-              
+
+
               // 게임 완료 메시지
               if (!isGameRunning && gameCompleted)
                 Container(
@@ -803,7 +817,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     ],
                   ),
                 ),
-              
+
               // 게임 컨트롤
               _buildGameControls(),
             ],
@@ -842,7 +856,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             ],
           ),
           const SizedBox(height: 8), // 간격 줄임
-          
+
           // 게임 상태 정보
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -870,7 +884,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   ],
                 ),
               ),
-              
+
               // 턴 표시
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), // 패딩 줄임
@@ -887,7 +901,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   ),
                 ),
               ),
-              
+
               // 최고 콤보
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // 패딩 줄임
