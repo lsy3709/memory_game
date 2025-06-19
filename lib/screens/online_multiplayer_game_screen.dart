@@ -1134,11 +1134,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     try {
       final gameDuration = DateTime.now().difference(gameStartTime);
       final gameRecord = GameRecord(
+        id: '', // Firebase에서 자동 생성
         playerName: currentPlayerName,
+        email: firebaseService.currentUser?.email ?? '',
         score: currentPlayerScore,
-        time: gameDuration.inSeconds,
-        date: DateTime.now(),
+        matchCount: scoreModel.matchCount,
+        failCount: scoreModel.failCount,
         maxCombo: maxCombo,
+        timeLeft: timeLeft,
+        totalTime: gameTimeSec,
+        createdAt: DateTime.now(),
+        isCompleted: true,
       );
       
       // 로컬 저장
