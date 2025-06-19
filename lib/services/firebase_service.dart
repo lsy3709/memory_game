@@ -1451,4 +1451,35 @@ class FirebaseService {
       throw Exception('게임 카드 데이터 로드에 실패했습니다: $e');
     }
   }
+
+  /// 게임 기록 저장
+  Future<void> saveGameRecord(dynamic gameRecord) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      if (currentUser == null) {
+        throw Exception('로그인된 사용자가 없습니다.');
+      }
+
+      final recordData = {
+        'playerName': gameRecord.playerName,
+        'score': gameRecord.score,
+        'time': gameRecord.time,
+        'date': gameRecord.date.toIso8601String(),
+        'maxCombo': gameRecord.maxCombo,
+        'userId': currentUser!.uid,
+        'userEmail': currentUser!.email,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      await _firestore!.collection('game_records').add(recordData);
+      print('게임 기록 저장 완료: ${gameRecord.playerName} - ${gameRecord.score}점');
+    } catch (e) {
+      print('게임 기록 저장 오류: $e');
+      throw Exception('게임 기록 저장에 실패했습니다.');
+    }
+  }
 }

@@ -5,6 +5,7 @@ import 'dart:math';
 import '../widgets/memory_card.dart';
 import '../models/card_model.dart';
 import '../models/score_model.dart';
+import '../models/game_record.dart';
 import '../models/multiplayer_game_record.dart';
 import '../models/online_room.dart';
 import '../services/sound_service.dart';
