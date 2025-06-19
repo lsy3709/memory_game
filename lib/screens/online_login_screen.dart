@@ -73,11 +73,23 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       }
     } catch (e) {
       print('로그인 오류: $e');
-      if (mounted) {
-        setState(() {
-          _errorMessage = _getLoginErrorMessage(e.toString());
-          _isLoading = false;
-        });
+      final errorMessage = _getLoginErrorMessage(e.toString());
+      
+      // 빈 오류 메시지는 표시하지 않음 (App Check 경고 등)
+      if (errorMessage.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = errorMessage;
+            _isLoading = false;
+          });
+        }
+      } else {
+        // 오류 메시지가 비어있으면 로딩 상태만 해제
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
       
       // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공

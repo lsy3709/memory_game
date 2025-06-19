@@ -585,6 +585,12 @@ class FirebaseService {
 
   /// Firebase 인증 오류 처리
   String _handleAuthError(dynamic error) {
+    // App Check 관련 오류는 무시 (개발 환경에서 정상적인 경고)
+    if (error.toString().contains('No AppCheckProvider installed')) {
+      print('App Check 경고 무시 (개발 환경에서 정상)');
+      return ''; // 빈 문자열 반환하여 오류 메시지 표시하지 않음
+    }
+    
     if (error is FirebaseAuthException) {
       switch (error.code) {
         case 'weak-password':
@@ -601,6 +607,15 @@ class FirebaseService {
           return '너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요.';
         default:
           return '인증 오류가 발생했습니다: ${error.message}';
+      }
+    } else if (error is FirebaseException) {
+      // FirebaseException 처리
+      if (error.message?.contains('permission-denied') == true) {
+        return '권한이 없습니다. Firestore 보안 규칙을 확인해주세요.';
+      } else if (error.message?.contains('unavailable') == true) {
+        return '네트워크 연결을 확인해주세요.';
+      } else {
+        return 'Firebase 오류가 발생했습니다: ${error.message}';
       }
     }
     return '알 수 없는 오류가 발생했습니다.';
