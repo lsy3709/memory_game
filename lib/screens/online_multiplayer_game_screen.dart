@@ -267,7 +267,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
     
     print('카드 생성 완료: ${cards.length}개 카드, ${numPairs}개 쌍');
-    print('카드 타입: ${useEmojis ? "이모지" : "이미지"}');
     // 디버깅을 위해 카드 정보 출력
     for (int i = 0; i < cards.length; i++) {
       print('카드 $i: ID=${cards[i].id}, 국기=${cards[i].emoji}, 이름=${cards[i].name}');

@@ -1,15 +1,17 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import '../models/game_record.dart';
 import '../models/multiplayer_game_record.dart';
 import '../models/player_stats.dart';
 import '../models/online_room.dart';
 import '../models/friend.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:async';
+import '../models/card_model.dart';
+import '../models/score_model.dart';
 
 /// Firebase 서비스를 관리하는 클래스
 class FirebaseService {
