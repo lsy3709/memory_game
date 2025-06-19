@@ -1263,7 +1263,7 @@ class FirebaseService {
             .toList());
   }
 
-  /// 턴 변경 동기화
+  /// 턴 변경 동기화 - 개선된 버전
   Future<void> syncTurnChange(String roomId, String currentPlayerId, String nextPlayerId) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
@@ -1271,20 +1271,28 @@ class FirebaseService {
     }
 
     try {
+      // 현재 시간을 밀리초로 기록
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      
+      print('턴 변경 동기화 시작: $currentPlayerId -> $nextPlayerId (시간: $timestamp)');
+      
       await _firestore!.collection('online_rooms').doc(roomId)
           .collection('turn_changes')
           .add({
         'currentPlayerId': currentPlayerId,
         'nextPlayerId': nextPlayerId,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': timestamp, // 서버 타임스탬프 대신 클라이언트 타임스탬프 사용
+        'clientTimestamp': FieldValue.serverTimestamp(), // 서버 타임스탬프도 함께 저장
       });
+      
+      print('턴 변경 동기화 완료');
     } catch (e) {
       print('턴 변경 동기화 오류: $e');
       throw Exception('턴 변경 동기화에 실패했습니다.');
     }
   }
 
-  /// 턴 변경 스트림 가져오기
+  /// 턴 변경 스트림 가져오기 - 개선된 버전
   Stream<Map<String, dynamic>?> getTurnChangeStream(String roomId) {
     if (!_isInitialized || _firestore == null) {
       return Stream.value(null);
@@ -1292,10 +1300,17 @@ class FirebaseService {
 
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('turn_changes')
-        .orderBy('timestamp', descending: true)
+        .orderBy('timestamp', descending: true) // 클라이언트 타임스탬프로 정렬
         .limit(1)
         .snapshots()
-        .map((snapshot) => snapshot.docs.isNotEmpty ? snapshot.docs.first.data() : null);
+        .map((snapshot) {
+          if (snapshot.docs.isNotEmpty) {
+            final data = snapshot.docs.first.data();
+            print('턴 변경 스트림 데이터: $data');
+            return data;
+          }
+          return null;
+        });
   }
 
   /// 카드 매칭 동기화
