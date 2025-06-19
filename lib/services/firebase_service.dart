@@ -2,8 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/services.dart';
+import 'dart:async';
 
 import '../models/game_record.dart';
 import '../models/player_stats.dart';
@@ -32,13 +31,9 @@ class FirebaseService {
     if (_isInitialized) return;
 
     try {
-      // 디버깅을 위한 파일 시스템 확인
-      await debugCheckFiles();
+      print('Firebase 초기화 시도...');
 
-      // 직접 파일 확인
-      await manualCheckFiles();
-
-      // Firebase가 사용 가능한지 확인
+      // Firebase가 사용 가능한지 확인 (파일 시스템 검사 대신 직접 접근 시도)
       _isFirebaseAvailable = await _checkFirebaseAvailability();
 
       if (!_isFirebaseAvailable) {
@@ -48,7 +43,7 @@ class FirebaseService {
         return;
       }
 
-      // Firebase 인스턴스 생성
+      // Firebase 인스턴스 생성 (이미 확인 단계에서 접근했으므로 성공할 가능성이 높음)
       try {
         _auth = FirebaseAuth.instance;
         _firestore = FirebaseFirestore.instance;
@@ -79,224 +74,43 @@ class FirebaseService {
     }
   }
 
-  /// 디버깅을 위한 파일 시스템 확인
-  Future<void> debugCheckFiles() async {
-    final currentDir = Directory.current.absolute.path;
-    print('디버그: 현재 작업 디렉토리 (절대 경로): $currentDir');
-
-    // 파일 시스템 목록 확인
-    try {
-      print('디버그: 현재 디렉토리 파일 목록:');
-      final entities = Directory(currentDir).listSync();
-      for (var entity in entities) {
-        print('  - ${entity.path}');
-      }
-    } catch (e) {
-      print('디버그: 디렉토리 목록 확인 중 오류: $e');
-    }
-
-    // lib 디렉토리 확인
-    try {
-      final libPath = '$currentDir${Platform.pathSeparator}lib';
-      if (await Directory(libPath).exists()) {
-        print('디버그: lib 디렉토리 파일 목록:');
-        final entities = Directory(libPath).listSync();
-        for (var entity in entities) {
-          print('  - ${entity.path}');
-        }
-      } else {
-        print('디버그: lib 디렉토리가 존재하지 않습니다.');
-      }
-    } catch (e) {
-      print('디버그: lib 디렉토리 확인 중 오류: $e');
-    }
-
-    // android/app 디렉토리 확인
-    try {
-      final androidPath = '$currentDir${Platform.pathSeparator}android${Platform.pathSeparator}app';
-      if (await Directory(androidPath).exists()) {
-        print('디버그: android/app 디렉토리 파일 목록:');
-        final entities = Directory(androidPath).listSync();
-        for (var entity in entities) {
-          print('  - ${entity.path}');
-        }
-      } else {
-        print('디버그: android/app 디렉토리가 존재하지 않습니다.');
-      }
-    } catch (e) {
-      print('디버그: android/app 디렉토리 확인 중 오류: $e');
-    }
-  }
-
-  /// 직접 파일 확인
-  Future<void> manualCheckFiles() async {
-    print('수동 파일 확인 시작...');
-
-    // Firebase Options 파일 확인
-    final optionsPath = 'lib/firebase_options.dart';
-    final optionsFile = File(optionsPath);
-    print('Firebase Options 파일 존재: ${await optionsFile.exists()}');
-    if (await optionsFile.exists()) {
-      print('Firebase Options 파일 내용 미리보기:');
-      final content = await optionsFile.readAsString();
-      print(content.substring(0, content.length > 200 ? 200 : content.length));
-    }
-
-    // Android 설정 파일 확인
-    final androidPath = 'android/app/google-services.json';
-    final androidFile = File(androidPath);
-    print('Android 설정 파일 존재: ${await androidFile.exists()}');
-    if (await androidFile.exists()) {
-      print('Android 설정 파일 내용 미리보기:');
-      final content = await androidFile.readAsString();
-      print(content.substring(0, content.length > 200 ? 200 : content.length));
-    }
-
-    print('수동 파일 확인 완료');
-  }
-
-  /// Firebase 사용 가능 여부 확인
+  /// Firebase 사용 가능 여부 확인 (파일 검사 대신 인스턴스 접근으로 확인)
   Future<bool> _checkFirebaseAvailability() async {
     try {
-      // Firebase 설정 파일 존재 여부 확인
-      final hasFirebaseOptions = await _checkFirebaseOptionsFile();
-      final hasAndroidConfig = await _checkAndroidConfig();
-      final hasIOSConfig = await _checkIOSConfig();
-
       print('=== Firebase 설정 상태 확인 ===');
-      print('Firebase Options 파일: ${hasFirebaseOptions ? '있음' : '없음'}');
-      print('Android 설정 파일: ${hasAndroidConfig ? '있음' : '없음'}');
-      print('iOS 설정 파일: ${hasIOSConfig ? '있음' : '없음'}');
-
-      if (!hasFirebaseOptions) {
-        print('누락된 설정: lib/firebase_options.dart 파일이 없습니다.');
-        print('해결 방법: flutterfire configure 명령어를 실행하세요.');
-      }
-
-      if (!hasAndroidConfig) {
-        print('누락된 설정: android/app/google-services.json 파일이 없습니다.');
-        print('해결 방법: Firebase Console에서 Android 앱을 등록하고 설정 파일을 다운로드하세요.');
-      }
-
-      if (!hasIOSConfig) {
-        print('누락된 설정: ios/Runner/GoogleService-Info.plist 파일이 없습니다.');
-        print('해결 방법: Firebase Console에서 iOS 앱을 등록하고 설정 파일을 다운로드하세요.');
-      }
 
       // Firebase가 실제로 초기화되었는지 확인
       bool isFirebaseInitialized = false;
       try {
         // Firebase Auth 인스턴스에 접근 시도
         final auth = FirebaseAuth.instance;
+        final firestore = FirebaseFirestore.instance;
         isFirebaseInitialized = true;
+        print('Firebase 인스턴스 접근 성공');
       } catch (e) {
         print('Firebase 인스턴스 접근 실패: $e');
         isFirebaseInitialized = false;
+
+        // 오류 메시지로 설정 문제 추정
+        if (e.toString().contains('options') || e.toString().contains('Firebase App')) {
+          print('누락된 설정: lib/firebase_options.dart 파일이 누락되었거나 올바르지 않습니다.');
+          print('해결 방법: flutterfire configure 명령어를 실행하세요.');
+        }
+
+        if (e.toString().contains('google-services.json') || e.toString().contains('configuration')) {
+          print('누락된 설정: android/app/google-services.json 파일이 누락되었거나 올바르지 않습니다.');
+          print('해결 방법: Firebase Console에서 Android 앱을 등록하고 설정 파일을 다운로드하세요.');
+        }
       }
 
-      // 모든 설정이 완료되었는지 확인
-      final isComplete = hasFirebaseOptions && hasAndroidConfig && isFirebaseInitialized;
-      print('Firebase 설정 완료 상태: ${isComplete ? '완료' : '미완료'}');
+      print('Firebase 설정 완료 상태: ${isFirebaseInitialized ? '완료' : '미완료'}');
       print('Firebase 초기화 상태: ${isFirebaseInitialized ? '성공' : '실패'}');
       print('=== Firebase 설정 상태 확인 완료 ===');
 
-      return isComplete;
+      return isFirebaseInitialized;
     } catch (e) {
       print('Firebase 설정 확인 중 오류: $e');
       return false;
-    }
-  }
-
-  /// Firebase Options 파일 확인
-  Future<bool> _checkFirebaseOptionsFile() async {
-    try {
-      // 현재 작업 디렉토리 확인
-      final currentDir = Directory.current.absolute.path;
-      print('현재 작업 디렉토리 (절대 경로): $currentDir');
-
-      // 프로젝트의 최상위 디렉토리를 찾기
-      String projectRootDir = currentDir;
-      if (currentDir.contains('android') || currentDir.contains('ios')) {
-        // android/ios 디렉토리에 있는 경우 상위 디렉토리로 이동
-        projectRootDir = Directory(currentDir).parent.path;
-      }
-
-      // 여러 가능한 경로 확인 (절대 경로 사용)
-      final paths = [
-        '$projectRootDir${Platform.pathSeparator}lib${Platform.pathSeparator}firebase_options.dart',
-        '$currentDir${Platform.pathSeparator}lib${Platform.pathSeparator}firebase_options.dart',
-        '$currentDir${Platform.pathSeparator}firebase_options.dart',
-        'lib/firebase_options.dart',  // 상대 경로도 시도
-        './lib/firebase_options.dart',
-      ];
-
-      print('확인할 Firebase Options 경로:');
-      paths.forEach((path) => print('  - $path'));
-
-      for (final path in paths) {
-        final file = File(path);
-        if (await file.exists()) {
-          print('Firebase Options 파일 발견: $path');
-          return true;
-        }
-      }
-
-      print('Firebase Options 파일을 찾을 수 없습니다.');
-      return false;
-    } catch (e) {
-      print('Firebase Options 파일 확인 중 오류: $e');
-      return false;
-    }
-  }
-
-  /// Android 설정 파일 확인
-  Future<bool> _checkAndroidConfig() async {
-    try {
-      // 현재 작업 디렉토리 확인
-      final currentDir = Directory.current.absolute.path;
-
-      // 프로젝트의 최상위 디렉토리를 찾기
-      String projectRootDir = currentDir;
-      if (currentDir.contains('android') || currentDir.contains('ios')) {
-        projectRootDir = Directory(currentDir).parent.path;
-      }
-
-      // 여러 가능한 경로 확인 (절대 경로 사용)
-      final paths = [
-        '$projectRootDir${Platform.pathSeparator}android${Platform.pathSeparator}app${Platform.pathSeparator}google-services.json',
-        '$currentDir${Platform.pathSeparator}android${Platform.pathSeparator}app${Platform.pathSeparator}google-services.json',
-        '$currentDir${Platform.pathSeparator}google-services.json',
-        'android/app/google-services.json',  // 상대 경로도 시도
-        './android/app/google-services.json',
-      ];
-
-      print('확인할 Android 설정 파일 경로:');
-      paths.forEach((path) => print('  - $path'));
-
-      for (final path in paths) {
-        final file = File(path);
-        if (await file.exists()) {
-          print('Android 설정 파일 발견: $path');
-          return true;
-        }
-      }
-
-      print('Android 설정 파일을 찾을 수 없습니다.');
-      return false;
-    } catch (e) {
-      print('Android 설정 파일 확인 중 오류: $e');
-      return false;
-    }
-  }
-
-  /// iOS 설정 파일 확인
-  Future<bool> _checkIOSConfig() async {
-    try {
-      // iOS 설정은 선택사항으로 처리
-      return true;
-    } catch (e) {
-      print('iOS 설정 파일 확인 중 오류: $e');
-      return true; // iOS 설정은 필수가 아니므로 true 반환
     }
   }
 
