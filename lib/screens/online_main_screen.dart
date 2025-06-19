@@ -45,6 +45,17 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
         print('로드된 플레이어 이름: $_playerName');
         print('로드된 이메일: $_email');
         
+        // 플레이어 이름이 기본값이면 설정 화면으로 이동
+        if (_playerName == '플레이어' && mounted) {
+          // 잠시 후 설정 화면으로 이동
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/online-player-name-setup');
+            }
+          });
+          return;
+        }
+        
         // 플레이어 통계 로드
         await _loadPlayerStats();
       }
@@ -62,8 +73,9 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // online_player_stats 컬렉션에서 통계 로드
         final doc = await FirebaseFirestore.instance
-            .collection('player_stats')
+            .collection('online_player_stats')
             .doc(user.uid)
             .get();
         
@@ -71,6 +83,8 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
           setState(() {
             _playerStats = PlayerStats.fromMap(doc.data()!);
           });
+        } else {
+          print('플레이어 통계가 존재하지 않습니다. 새로 생성됩니다.');
         }
       }
     } catch (e) {

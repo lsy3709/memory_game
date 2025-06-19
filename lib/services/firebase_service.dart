@@ -202,6 +202,15 @@ class FirebaseService {
         // Firestore에 저장된 플레이어 이름으로 프로필 업데이트
         await userCredential.user?.updateDisplayName(userData['playerName']);
         print('플레이어 이름 업데이트: ${userData['playerName']}');
+      } else {
+        // 사용자 문서가 없으면 기본 정보로 생성
+        await _firestore!.collection('users').doc(userCredential.user!.uid).set({
+          'email': email,
+          'playerName': userCredential.user!.displayName ?? '플레이어',
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastLoginAt': FieldValue.serverTimestamp(),
+        });
+        print('새로운 사용자 문서 생성: ${userCredential.user!.uid}');
       }
 
       // 마지막 로그인 시간 업데이트
@@ -247,7 +256,14 @@ class FirebaseService {
 
     try {
       final doc = await _firestore!.collection('users').doc(uid).get();
-      return doc.data();
+      if (doc.exists) {
+        final data = doc.data()!;
+        print('사용자 정보 로드 성공: ${data['playerName']}');
+        return data;
+      } else {
+        print('사용자 문서가 존재하지 않습니다: $uid');
+        return null;
+      }
     } catch (e) {
       print('사용자 정보 가져오기 오류: $e');
       return null;
