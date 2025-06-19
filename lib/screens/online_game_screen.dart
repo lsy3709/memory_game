@@ -276,7 +276,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       isGameRunning = false;
       gameTimer?.cancel(); // 타이머 중지
       soundService.stopBackgroundMusic(); // 배경음악 중지
-      soundService.playGameWinSound(); // 승리 사운드
+      soundService.playGameWin(); // 승리 사운드
       
       // 온라인 게임 기록 저장
       _saveOnlineGameRecord(true);
