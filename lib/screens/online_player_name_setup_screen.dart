@@ -79,10 +79,15 @@ class _OnlinePlayerNameSetupScreenState extends State<OnlinePlayerNameSetupScree
       await _firebaseService.updatePlayerName(user.uid, playerName);
       print('Firestore 저장 완료');
       
-      // Firebase Auth 프로필도 업데이트
+      // Firebase Auth 프로필 업데이트 (안전하게 처리)
       print('Firebase Auth 프로필 업데이트 중...');
-      await user.updateDisplayName(playerName);
-      print('Firebase Auth 업데이트 완료');
+      try {
+        await user.updateDisplayName(playerName);
+        print('Firebase Auth 업데이트 완료');
+      } catch (authError) {
+        print('Firebase Auth 업데이트 실패 (무시하고 계속): $authError');
+        // Auth 업데이트 실패해도 Firestore에는 저장되었으므로 계속 진행
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

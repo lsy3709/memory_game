@@ -196,12 +196,10 @@ class FirebaseService {
         password: password,
       );
 
-      // 사용자 정보 가져오기 및 프로필 업데이트
+      // 사용자 정보 가져오기 (Auth 프로필 업데이트는 제거)
       final userData = await getUserData(userCredential.user!.uid);
       if (userData != null && userData['playerName'] != null) {
-        // Firestore에 저장된 플레이어 이름으로 프로필 업데이트
-        await userCredential.user?.updateDisplayName(userData['playerName']);
-        print('플레이어 이름 업데이트: ${userData['playerName']}');
+        print('기존 플레이어 이름 발견: ${userData['playerName']}');
       } else {
         // 사용자 문서가 없으면 기본 정보로 생성
         await _firestore!.collection('users').doc(userCredential.user!.uid).set({
