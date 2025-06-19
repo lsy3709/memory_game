@@ -350,19 +350,19 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
           child: ListTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: Image.asset(
-                match.imagePath,
+              child: Container(
                 width: 40,
                 height: 40,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 40,
-                    height: 40,
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.image, color: Colors.grey),
-                  );
-                },
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Center(
+                  child: Text(
+                    match.emoji,
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                ),
               ),
             ),
             title: Text('${match.matchNumber}번째 매칭'),

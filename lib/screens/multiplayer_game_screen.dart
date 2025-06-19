@@ -73,7 +73,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     players = [
       PlayerGameData(
         name: widget.player1Name,
-        email: widget.player1Email,
+        email: widget.player1Email ?? '',
         scoreModel: ScoreModel(),
         maxCombo: 0,
         cardMatches: [],
@@ -82,7 +82,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       ),
       PlayerGameData(
         name: widget.player2Name,
-        email: widget.player2Email,
+        email: widget.player2Email ?? '',
         scoreModel: ScoreModel(),
         maxCombo: 0,
         cardMatches: [],
@@ -191,11 +191,11 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
             soundService.playCardMatch();
             cards[a] = cards[a].copyWith(isMatched: true);
             cards[b] = cards[b].copyWith(isMatched: true);
-            currentPlayer.scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
+            players[currentPlayerIndex].scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
             
             // 최고 연속 매칭 기록 업데이트
-            if (currentPlayer.scoreModel.currentCombo > currentPlayer.maxCombo) {
-              currentPlayer.maxCombo = currentPlayer.scoreModel.currentCombo;
+            if (players[currentPlayerIndex].scoreModel.currentCombo > players[currentPlayerIndex].maxCombo) {
+              players[currentPlayerIndex].maxCombo = players[currentPlayerIndex].scoreModel.currentCombo;
             }
             
             // 매칭된 카드 정보 추가
@@ -239,6 +239,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       for (int i = 0; i < players.length; i++) {
         players[i].gameTime = totalGameTime;
         players[i].isCompleted = true;
+        players[i].timeLeft = totalGameTime;
       }
       
       // 게임 기록 저장
