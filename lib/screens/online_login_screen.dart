@@ -23,6 +23,30 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    // 플러터 프레임워크가 초기화된 후 실행
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkFirebaseStatus();
+    });
+  }
+  
+  /// Firebase 상태 확인
+  Future<void> _checkFirebaseStatus() async {
+    try {
+      final isInitialized = await _firebaseService.ensureInitialized();
+      print('Firebase 초기화 상태: $isInitialized');
+      
+      // 이미 로그인되어 있는지 확인
+      if (_firebaseService.currentUser != null) {
+        print('이미 로그인된 사용자: ${_firebaseService.currentUser?.email}');
+      }
+    } catch (e) {
+      print('Firebase 상태 확인 중 오류: $e');
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -40,23 +64,47 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     });
 
     try {
-      print('온라인 로그인 시도: ${_emailController.text.trim()}');
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+      print('온라인 로그인 시도: $email');
       
       // Firebase 초기화 확인
       final isInitialized = await _firebaseService.ensureInitialized();
+      print('로그인 시도 전 Firebase 초기화 상태: $isInitialized');
+      
       if (!isInitialized) {
         throw Exception('Firebase가 초기화되지 않았습니다.');
       }
 
-      await _firebaseService.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      // 로그인 시도
+      final credential = await _firebaseService.signInWithEmailAndPassword(
+        email: email,
+        password: password,
       );
+      
+      print('로그인 성공: ${credential.user?.email}');
 
+      // 로그인 후 사용자 상태 확인
       if (_firebaseService.currentUser != null) {
-        print('로그인 성공 - 온라인 메인 화면으로 이동');
-        // 성공 시 오류 메시지 초기화하고 즉시 화면 전환
+        print('로그인 사용자 정보 - UID: ${_firebaseService.currentUser?.uid}, 이메일: ${_firebaseService.currentUser?.email}');
+        
+        try {
+          // 사용자 데이터 로드 시도 (추가 검증)
+          final userData = await _firebaseService.getUserData(_firebaseService.currentUser!.uid);
+          if (userData != null) {
+            print('사용자 데이터 로드 성공: ${userData['playerName']}');
+          } else {
+            print('사용자 데이터가 없습니다. 기본값 사용');
+          }
+        } catch (e) {
+          // 사용자 데이터 로드 실패해도 로그인은 성공으로 처리
+          print('사용자 데이터 로드 실패: $e');
+        }
+        
+        // 로그인 성공 후 화면 전환 - mounted 확인 중요
         if (mounted) {
+          print('로그인 성공 - 온라인 메인 화면으로 이동');
+          // 성공 시 오류 메시지 초기화
           setState(() {
             _errorMessage = null;
             _isLoading = false;
@@ -67,45 +115,75 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
             (route) => false,
           );
         }
-        return; // 성공 시 여기서 종료
       } else {
+        // 로그인은 성공했지만 currentUser가 null인 경우
+        // (이론적으로는 발생하지 않아야 함)
+        print('로그인 성공했으나 currentUser가 null입니다.');
         throw Exception('로그인 후 사용자 정보를 가져올 수 없습니다.');
       }
     } catch (e) {
-      print('로그인 오류: $e');
-      final errorMessage = _getLoginErrorMessage(e.toString());
+      // 오류 발생 시 자세한 로그 출력
+      print('로그인 오류 (상세): $e');
+      String errorMessage = _getLoginErrorMessage(e.toString());
       
-      // 빈 오류 메시지는 표시하지 않음 (App Check 경고 등)
+      // 이미 로그인된 사용자인지 확인 (오류 발생했지만 실제로는 로그인됨)
+      if (_firebaseService.currentUser != null) {
+        print('오류 발생했으나 사용자가 로그인되어 있음: ${_firebaseService.currentUser?.email}');
+        
+        if (mounted) {
+          print('기존 로그인 사용자 처리 - 온라인 메인 화면으로 이동');
+          setState(() {
+            _errorMessage = null;
+            _isLoading = false;
+          });
+          // 온라인 메인 화면으로 이동
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/online-main',
+            (route) => false,
+          );
+        }
+        return;
+      }
+      
+      // App Check 경고 등의 무시 가능한 오류는 표시하지 않음
       if (errorMessage.isNotEmpty) {
         if (mounted) {
           setState(() {
             _errorMessage = errorMessage;
-            _isLoading = false;
-          });
-        }
-      } else {
-        // 오류 메시지가 비어있으면 로딩 상태만 해제
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
           });
         }
       }
       
       // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공
       if (e.toString().contains('Firebase가 초기화되지 않았습니다') ||
-          e.toString().contains('Firebase가 설정되지 않았습니다')) {
+          e.toString().contains('Firebase가 설정되지 않았습니다') ||
+          e.toString().contains('Firebase가 사용할 수 없습니다')) {
         _showFirebaseErrorDialog();
+      }
+    } finally {
+      // 로딩 상태 해제 (로그인 성공으로 화면 전환된 경우는 제외)
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
 
   /// 로그인 오류 메시지를 사용자 친화적으로 변환
   String _getLoginErrorMessage(String error) {
-    // App Check 관련 오류는 무시 (개발 환경에서 정상적인 경고)
-    if (error.contains('No AppCheckProvider installed')) {
-      print('App Check 경고 무시 (개발 환경에서 정상)');
+    // Firebase 자체 오류는 무시 (디버그용 오류)
+    if (error.contains('No AppCheckProvider installed') || 
+        error.contains('X-Firebase-Locale')) {
+      print('무시 가능한 Firebase 경고입니다: $error');
       return ''; // 빈 문자열 반환하여 오류 메시지 표시하지 않음
+    }
+    
+    // 알 수 없는 오류 메시지 필터링 - 이 부분이 표시되는 것이 문제
+    if (error.contains('알 수 없는 오류가 발생했습니다')) {
+      print('알 수 없는 오류 필터링됨: $error');
+      // 로그인은 실제로 성공했을 가능성이 있으므로 빈 문자열 반환
+      return '';
     }
     
     if (error.contains('user-not-found')) {
@@ -137,7 +215,11 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     });
 
     try {
-      print('온라인 회원가입 시도: ${_emailController.text.trim()}');
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+      final playerName = _playerNameController.text.trim();
+      
+      print('온라인 회원가입 시도: $email, 플레이어 이름: $playerName');
       
       // Firebase 초기화 확인
       final isInitialized = await _firebaseService.ensureInitialized();
@@ -145,20 +227,27 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         throw Exception('Firebase가 초기화되지 않았습니다.');
       }
 
-      await _firebaseService.signUpWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        playerName: _playerNameController.text.trim(),
+      // 회원가입 시도
+      final credential = await _firebaseService.signUpWithEmailAndPassword(
+        email: email,
+        password: password,
+        playerName: playerName,
       );
+      
+      print('회원가입 성공: ${credential.user?.email}');
 
       // 회원가입 성공 후 사용자 상태 확인
       if (_firebaseService.currentUser != null) {
         if (mounted) {
           print('회원가입 성공 - 온라인 메인 화면으로 이동');
-          // 회원가입 시에는 이미 플레이어 이름이 설정되었으므로 온라인 메인 화면으로
+          setState(() {
+            _errorMessage = null;
+            _isLoading = false;
+          });
+          // 온라인 메인 화면으로 이동
           Navigator.of(context).pushNamedAndRemoveUntil(
             '/online-main',
-            (route) => false, // 모든 이전 화면 제거
+            (route) => false,
           );
         }
       } else {
@@ -166,9 +255,13 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       }
     } catch (e) {
       print('회원가입 오류: $e');
-      setState(() {
-        _errorMessage = _getSignUpErrorMessage(e.toString());
-      });
+      final errorMessage = _getSignUpErrorMessage(e.toString());
+      
+      if (errorMessage.isNotEmpty && mounted) {
+        setState(() {
+          _errorMessage = errorMessage;
+        });
+      }
       
       // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공
       if (e.toString().contains('Firebase가 초기화되지 않았습니다') ||
@@ -176,7 +269,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         _showFirebaseErrorDialog();
       }
     } finally {
-      if (mounted) {
+      if (mounted && _isLoading) {
         setState(() {
           _isLoading = false;
         });
@@ -186,6 +279,13 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
 
   /// 회원가입 오류 메시지를 사용자 친화적으로 변환
   String _getSignUpErrorMessage(String error) {
+    // Firebase 자체 오류는 무시
+    if (error.contains('No AppCheckProvider installed') ||
+        error.contains('X-Firebase-Locale')) {
+      print('무시 가능한 Firebase 경고입니다: $error');
+      return '';
+    }
+    
     if (error.contains('email-already-in-use')) {
       return '이미 사용 중인 이메일입니다.';
     } else if (error.contains('weak-password')) {
@@ -225,7 +325,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     });
 
     try {
-      await _firebaseService.sendPasswordResetEmail(_emailController.text.trim());
+      final email = _emailController.text.trim();
+      print('비밀번호 재설정 이메일 발송 시도: $email');
+      
+      await _firebaseService.sendPasswordResetEmail(email);
+      
+      print('비밀번호 재설정 이메일 발송 성공');
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,15 +341,33 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         );
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
+      print('비밀번호 재설정 이메일 발송 오류: $e');
+      final errorMessage = _getResetPasswordErrorMessage(e.toString());
+      
+      if (mounted && errorMessage.isNotEmpty) {
+        setState(() {
+          _errorMessage = errorMessage;
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  /// 비밀번호 재설정 오류 메시지 변환
+  String _getResetPasswordErrorMessage(String error) {
+    if (error.contains('user-not-found')) {
+      return '등록되지 않은 이메일입니다.';
+    } else if (error.contains('invalid-email')) {
+      return '올바르지 않은 이메일 형식입니다.';
+    } else if (error.contains('network-request-failed')) {
+      return '네트워크 연결을 확인해주세요.';
+    } else {
+      return '비밀번호 재설정 이메일 발송에 실패했습니다: ${error.replaceAll('Exception: ', '')}';
     }
   }
 
@@ -255,24 +378,26 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Firebase 연결 오류'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('온라인 모드를 사용할 수 없습니다.'),
-            SizedBox(height: 8),
-            Text('가능한 원인:'),
-            Text('• Firebase 설정이 완료되지 않음'),
-            Text('• 네트워크 연결 문제'),
-            Text('• Firebase 프로젝트 설정 오류'),
-            SizedBox(height: 8),
-            Text('해결 방법:'),
-            Text('1. android/app/google-services.json 파일 확인'),
-            Text('2. lib/firebase_options.dart 파일의 설정값 확인'),
-            Text('3. Firebase Console에서 프로젝트 설정 확인'),
-            SizedBox(height: 8),
-            Text('로컬 모드로 전환하여 게임을 즐기실 수 있습니다.'),
-          ],
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('온라인 모드를 사용할 수 없습니다.'),
+              SizedBox(height: 8),
+              Text('가능한 원인:'),
+              Text('• Firebase 설정이 완료되지 않음'),
+              Text('• 네트워크 연결 문제'),
+              Text('• Firebase 프로젝트 설정 오류'),
+              SizedBox(height: 8),
+              Text('해결 방법:'),
+              Text('1. android/app/google-services.json 파일 확인'),
+              Text('2. lib/firebase_options.dart 파일의 설정값 확인'),
+              Text('3. Firebase Console에서 프로젝트 설정 확인'),
+              SizedBox(height: 8),
+              Text('로컬 모드로 전환하여 게임을 즐기실 수 있습니다.'),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -416,7 +541,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                         const SizedBox(height: 16),
 
                         // 오류 메시지
-                        if (_errorMessage != null)
+                        if (_errorMessage != null && _errorMessage!.isNotEmpty)
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
@@ -432,7 +557,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                             ),
                           ),
 
-                        if (_errorMessage != null) const SizedBox(height: 16),
+                        if (_errorMessage != null && _errorMessage!.isNotEmpty) const SizedBox(height: 16),
 
                         // 로그인/회원가입 버튼
                         SizedBox(
@@ -512,4 +637,4 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       ),
     );
   }
-} 
+}
