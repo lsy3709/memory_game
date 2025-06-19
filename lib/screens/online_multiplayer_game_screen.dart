@@ -57,6 +57,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   // 실시간 동기화 관련 변수
   StreamSubscription? _cardActionsSubscription;
   StreamSubscription? _turnChangeSubscription;
+  StreamSubscription? _cardMatchesSubscription;
   List<Map<String, dynamic>> recentCardActions = [];
   String? lastTurnChangePlayerId;
 
@@ -75,6 +76,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     gameTimer?.cancel();
     _cardActionsSubscription?.cancel();
     _turnChangeSubscription?.cancel();
+    _cardMatchesSubscription?.cancel();
     soundService.stopBackgroundMusic();
     super.dispose();
   }
@@ -164,6 +166,33 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       }
     });
 
+    // 카드 매칭 리스너
+    _cardMatchesSubscription = firebaseService.getCardMatchesStream(currentRoom.id)
+        .listen((matches) {
+      if (matches.isNotEmpty) {
+        final latestMatch = matches.first;
+        final matchPlayerId = latestMatch['playerId'] as String;
+        
+        // 다른 플레이어의 매칭만 처리
+        if (matchPlayerId != currentPlayerId) {
+          final cardIndex1 = latestMatch['cardIndex1'] as int;
+          final cardIndex2 = latestMatch['cardIndex2'] as int;
+          final isMatched = latestMatch['isMatched'] as bool;
+          
+          setState(() {
+            if (cardIndex1 < cards.length && cardIndex2 < cards.length) {
+              cards[cardIndex1].isMatched = isMatched;
+              cards[cardIndex2].isMatched = isMatched;
+              if (isMatched) {
+                cards[cardIndex1].isFlipped = true;
+                cards[cardIndex2].isFlipped = true;
+              }
+            }
+          });
+        }
+      }
+    });
+
     // 턴 변경 리스너
     _turnChangeSubscription = firebaseService.getTurnChangeStream(currentRoom.id)
         .listen((turnChange) {
@@ -193,14 +222,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _createCards() {
     final List<CardModel> tempCards = [];
     
-    // 카드 쌍 생성
+    // 카드 쌍 생성 - 각 쌍에 고유한 ID 부여
     for (int i = 0; i < numPairs; i++) {
+      // 첫 번째 카드
       tempCards.add(CardModel(
         id: i,
         emoji: _getFlagEmoji(i),
         isMatched: false,
         isFlipped: false,
       ));
+      // 두 번째 카드 (같은 ID)
       tempCards.add(CardModel(
         id: i,
         emoji: _getFlagEmoji(i),
@@ -215,6 +246,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     setState(() {
       cards = tempCards;
     });
+    
+    print('카드 생성 완료: ${cards.length}개 카드, ${numPairs}개 쌍');
+    // 디버깅을 위해 카드 정보 출력
+    for (int i = 0; i < cards.length; i++) {
+      print('카드 $i: ID=${cards[i].id}, 이모지=${cards[i].emoji}');
+    }
   }
 
   /// 이모지 가져오기 (국기로 변경)
@@ -286,6 +323,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final firstCard = cards[firstSelectedIndex!];
     final secondCard = cards[secondSelectedIndex!];
     
+    print('매칭 확인:');
+    print('첫 번째 카드 (인덱스: $firstSelectedIndex): ID=${firstCard.id}, 이모지=${firstCard.emoji}');
+    print('두 번째 카드 (인덱스: $secondSelectedIndex): ID=${secondCard.id}, 이모지=${secondCard.emoji}');
+    print('매칭 결과: ${firstCard.id == secondCard.id}');
+    
     if (firstCard.id == secondCard.id) {
       // 매칭 성공
       _handleMatchSuccess();
@@ -317,6 +359,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       secondSelectedIndex = null;
     });
     
+    // 실시간 동기화 - 매칭 성공 정보 전송
+    firebaseService.syncCardMatch(
+      currentRoom.id, 
+      firstSelectedIndex!, 
+      secondSelectedIndex!, 
+      true, 
+      currentPlayerId
+    );
+    
     // 게임 완료 확인
     _checkGameCompletion();
   }
@@ -324,6 +375,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   /// 매칭 실패 처리
   void _handleMatchFailure() {
     soundService.playMismatchSound();
+    
+    // 실시간 동기화 - 매칭 실패 정보 전송
+    firebaseService.syncCardMatch(
+      currentRoom.id, 
+      firstSelectedIndex!, 
+      secondSelectedIndex!, 
+      false, 
+      currentPlayerId
+    );
     
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
@@ -338,7 +398,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           isMyTurn = false;
         });
         
-        // 상대방 턴으로 변경 (실제로는 Firebase를 통해 동기화)
+        // 상대방 턴으로 변경
         _switchTurn();
       }
     });
@@ -673,16 +733,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final screenHeight = screenSize.height;
     
     // 헤더와 컨트롤 영역을 제외한 사용 가능한 높이 계산
-    final availableHeight = screenHeight - 280; // 헤더 + 컨트롤 영역 더 정확한 계산
+    final availableHeight = screenHeight - 320; // 헤더 + 컨트롤 영역 더 정확한 계산
     
     // 카드 크기 계산 (화면에 맞게 조정)
     final horizontalPadding = 32.0; // 좌우 패딩
-    final cardSpacing = 8.0; // 카드 간격
+    final cardSpacing = 6.0; // 카드 간격 줄임
     final availableWidth = screenWidth - horizontalPadding - (cols - 1) * cardSpacing;
     final cardWidth = availableWidth / cols;
     
     // 카드 높이 계산 (비율 고려)
-    final cardHeight = cardWidth * 1.2; // 카드 비율 조정
+    final cardHeight = cardWidth * 1.1; // 카드 비율 더 줄임
     
     // 전체 그리드 높이 계산
     final totalGridHeight = cardHeight * rows + (rows - 1) * cardSpacing;
@@ -694,29 +754,24 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     return Container(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // 카드 그리드
-          SizedBox(
-            height: totalGridHeight > availableHeight ? totalGridHeight : availableHeight,
-            child: GridView.builder(
-              physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: cols,
-                childAspectRatio: cardWidth / adjustedCardHeight,
-                crossAxisSpacing: cardSpacing,
-                mainAxisSpacing: cardSpacing,
-              ),
-              itemCount: cards.length,
-              itemBuilder: (context, index) {
-                return MemoryCard(
-                  card: cards[index],
-                  onTap: () => _onCardTap(index),
-                );
-              },
-            ),
+      child: SizedBox(
+        height: totalGridHeight > availableHeight ? totalGridHeight : availableHeight,
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            childAspectRatio: cardWidth / adjustedCardHeight,
+            crossAxisSpacing: cardSpacing,
+            mainAxisSpacing: cardSpacing,
           ),
-        ],
+          itemCount: cards.length,
+          itemBuilder: (context, index) {
+            return MemoryCard(
+              card: cards[index],
+              onTap: () => _onCardTap(index),
+            );
+          },
+        ),
       ),
     );
   }

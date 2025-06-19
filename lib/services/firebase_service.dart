@@ -1295,4 +1295,43 @@ class FirebaseService {
         .snapshots()
         .map((snapshot) => snapshot.docs.isNotEmpty ? snapshot.docs.first.data() : null);
   }
+
+  /// 카드 매칭 동기화
+  Future<void> syncCardMatch(String roomId, int cardIndex1, int cardIndex2, bool isMatched, String playerId) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('card_matches')
+          .add({
+        'cardIndex1': cardIndex1,
+        'cardIndex2': cardIndex2,
+        'isMatched': isMatched,
+        'playerId': playerId,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('카드 매칭 동기화 오류: $e');
+      throw Exception('카드 매칭 동기화에 실패했습니다.');
+    }
+  }
+
+  /// 카드 매칭 스트림 가져오기
+  Stream<List<Map<String, dynamic>>> getCardMatchesStream(String roomId) {
+    if (!_isInitialized || _firestore == null) {
+      return Stream.value([]);
+    }
+
+    return _firestore!.collection('online_rooms').doc(roomId)
+        .collection('card_matches')
+        .orderBy('timestamp', descending: true)
+        .limit(10)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => doc.data())
+            .toList());
+  }
 }

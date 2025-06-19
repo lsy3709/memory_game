@@ -94,6 +94,11 @@ service cloud.firestore {
     match /online_rooms/{roomId}/turn_changes/{docId} {
       allow read, write: if request.auth != null;
     }
+
+    // 카드 매칭 - 인증된 사용자만 읽기/쓰기 가능
+    match /online_rooms/{roomId}/card_matches/{docId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
 ```
