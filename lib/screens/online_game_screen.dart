@@ -223,7 +223,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     if (firstSelectedIndex == index) return;
     if (firstSelectedIndex != null && secondSelectedIndex != null) return;
 
-    soundService.playCardFlip(); // 카드 뒤집기 사운드
+    soundService.playCardFlipSound(); // 카드 뒤집기 사운드
     setState(() {
       cards[index] = cards[index].copyWith(isFlipped: true); // 카드 뒤집기
       if (firstSelectedIndex == null) {
@@ -248,7 +248,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       if (mounted) {
         setState(() {
           if (cards[a].id == cards[b].id) {
-            soundService.playCardMatch();
+            soundService.playMatchSound();
             cards[a] = cards[a].copyWith(isMatched: true);
             cards[b] = cards[b].copyWith(isMatched: true);
             scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
@@ -260,7 +260,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
             
             _checkGameEnd();
           } else {
-            soundService.playCardMismatch();
+            soundService.playMismatchSound();
             cards[a] = cards[a].copyWith(isFlipped: false);
             cards[b] = cards[b].copyWith(isFlipped: false);
             scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
@@ -276,7 +276,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       isGameRunning = false;
       gameTimer?.cancel(); // 타이머 중지
       soundService.stopBackgroundMusic(); // 배경음악 중지
-      soundService.playGameWin(); // 승리 사운드
+      soundService.playGameWinSound(); // 승리 사운드
       
       // 온라인 게임 기록 저장
       _saveOnlineGameRecord(true);
@@ -434,7 +434,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       return;
     }
     
-    soundService.playGameStart(); // 게임 시작 사운드
+    soundService.playGameStartSound(); // 게임 시작 사운드
     
     // 기존 타이머 정리
     if (gameTimer?.isActive == true) {
@@ -453,7 +453,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     });
     
     _setupTimer(); // 타이머 재설정
-    soundService.startBackgroundMusic(); // 배경음악 시작
+    soundService.playBackgroundMusic(); // 배경음악 시작
   }
 
   /// 게임 일시정지
@@ -465,7 +465,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
   /// 게임 리셋(카드, 시간, 상태 초기화)
   void _resetGame() {
-    soundService.playButtonSound();
+    soundService.playButtonClickSound();
     
     // 기존 타이머 정리
     if (gameTimer?.isActive == true) {
@@ -691,7 +691,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                     // 시작/계속하기 버튼
                     ElevatedButton(
                       onPressed: () {
-                        soundService.playButtonSound();
+                        soundService.playButtonClickSound();
                         _startGame();
                       },
                       style: ElevatedButton.styleFrom(
@@ -704,7 +704,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                     ElevatedButton(
                       onPressed: isGameRunning && !isTimerPaused
                           ? () {
-                              soundService.playButtonSound();
+                              soundService.playButtonClickSound();
                               _pauseGame();
                             }
                           : null,
