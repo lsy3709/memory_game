@@ -47,6 +47,12 @@ class FirebaseService {
       try {
         _auth = FirebaseAuth.instance;
         _firestore = FirebaseFirestore.instance;
+        
+        // 현재 사용자 상태 확인
+        final currentUser = _auth!.currentUser;
+        if (currentUser != null) {
+          print('기존 로그인된 사용자 발견: ${currentUser.email}');
+        }
       } catch (e) {
         print('Firebase 인스턴스 생성 실패: $e');
         _isFirebaseAvailable = false;

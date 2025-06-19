@@ -51,8 +51,17 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         password: _passwordController.text,
       );
 
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/online-main');
+      // 로그인 성공 후 사용자 상태 확인
+      if (_firebaseService.currentUser != null) {
+        if (mounted) {
+          // 즉시 화면 전환
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/online-main',
+            (route) => false, // 모든 이전 화면 제거
+          );
+        }
+      } else {
+        throw Exception('로그인 후 사용자 정보를 가져올 수 없습니다.');
       }
     } catch (e) {
       setState(() {
@@ -95,8 +104,17 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         playerName: _playerNameController.text.trim(),
       );
 
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/online-main');
+      // 회원가입 성공 후 사용자 상태 확인
+      if (_firebaseService.currentUser != null) {
+        if (mounted) {
+          // 즉시 화면 전환
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/online-main',
+            (route) => false, // 모든 이전 화면 제거
+          );
+        }
+      } else {
+        throw Exception('회원가입 후 사용자 정보를 가져올 수 없습니다.');
       }
     } catch (e) {
       setState(() {
@@ -179,6 +197,11 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
             Text('• Firebase 설정이 완료되지 않음'),
             Text('• 네트워크 연결 문제'),
             Text('• Firebase 프로젝트 설정 오류'),
+            SizedBox(height: 8),
+            Text('해결 방법:'),
+            Text('1. android/app/google-services.json 파일 확인'),
+            Text('2. lib/firebase_options.dart 파일의 설정값 확인'),
+            Text('3. Firebase Console에서 프로젝트 설정 확인'),
             SizedBox(height: 8),
             Text('로컬 모드로 전환하여 게임을 즐기실 수 있습니다.'),
           ],

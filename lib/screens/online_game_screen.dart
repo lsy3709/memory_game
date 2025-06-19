@@ -229,6 +229,31 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   /// 온라인 게임 기록 저장
   Future<void> _saveOnlineGameRecord(bool isCompleted) async {
     try {
+      // Firebase 연결 상태 확인
+      final isFirebaseAvailable = await firebaseService.ensureInitialized();
+      if (!isFirebaseAvailable) {
+        print('Firebase가 사용할 수 없어 온라인 기록을 저장할 수 없습니다.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('온라인 기록 저장을 위해 Firebase 설정이 필요합니다.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // 로그인 상태 확인
+      if (firebaseService.currentUser == null) {
+        print('로그인되지 않은 상태에서 온라인 기록 저장 시도');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('온라인 기록 저장을 위해 로그인이 필요합니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       final gameRecord = GameRecord(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         playerName: currentPlayerName,
@@ -243,8 +268,14 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
         isCompleted: isCompleted,
       );
 
+      print('온라인 게임 기록 저장 시작...');
+      print('플레이어: $currentPlayerName');
+      print('점수: ${scoreModel.currentScore}');
+      print('완료 여부: $isCompleted');
+
       // 온라인 게임 기록 저장
       await firebaseService.saveOnlineGameRecord(gameRecord);
+      print('온라인 게임 기록 저장 완료');
 
       // 온라인 플레이어 통계 업데이트
       final onlineStats = await firebaseService.getOnlinePlayerStats();
@@ -258,6 +289,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           isWin: isCompleted,
         );
         await firebaseService.saveOnlinePlayerStats(updatedStats);
+        print('온라인 플레이어 통계 업데이트 완료');
       } else {
         // 새로운 플레이어 통계 생성
         final newStats = PlayerStats(
@@ -277,15 +309,28 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           createdAt: DateTime.now(),
         );
         await firebaseService.saveOnlinePlayerStats(newStats);
+        print('새로운 온라인 플레이어 통계 생성 완료');
+      }
+
+      // 성공 메시지 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('온라인 랭킹에 기록이 저장되었습니다! (${scoreModel.currentScore}점)'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       print('온라인 게임 기록 저장 오류: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('온라인 기록 저장에 실패했습니다: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('온라인 기록 저장에 실패했습니다: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
