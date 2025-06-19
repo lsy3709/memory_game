@@ -128,7 +128,21 @@ class SoundService {
 
   // 플레이어 리소스 해제
   void dispose() {
-    _effectPlayer.dispose();
-    _bgmPlayer.dispose();
+    try {
+      // 재생 중지
+      _effectPlayer.stop();
+      _bgmPlayer.stop();
+      
+      // 플레이어 해제
+      _effectPlayer.dispose();
+      _bgmPlayer.dispose();
+      
+      // 상태 초기화
+      _isBgmPlaying = false;
+      
+      print('SoundService 리소스 해제 완료');
+    } catch (e) {
+      print('SoundService dispose 오류: $e');
+    }
   }
 }

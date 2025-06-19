@@ -56,8 +56,18 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
   @override
   void dispose() {
-    if (gameTimer.isActive) gameTimer.cancel(); // 타이머 해제
-    soundService.dispose(); // 사운드 리소스 해제
+    // 타이머 정리
+    if (gameTimer.isActive) {
+      gameTimer.cancel();
+    }
+    
+    // 사운드 리소스 해제
+    soundService.dispose();
+    
+    // 상태 변수 초기화
+    isGameRunning = false;
+    isTimerPaused = false;
+    
     super.dispose();
   }
 
@@ -127,8 +137,14 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
   void _setupTimer() {
+    // 기존 타이머가 있다면 취소
+    if (gameTimer.isActive) {
+      gameTimer.cancel();
+    }
+    
     gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (isGameRunning && !isTimerPaused) {
+      // mounted 상태 확인 후 setState 호출
+      if (mounted && isGameRunning && !isTimerPaused) {
         setState(() {
           if (timeLeft > 0) {
             timeLeft--; // 남은 시간 감소
@@ -176,26 +192,29 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
     // 0.7초 후 매칭 결과 처리(뒤집힌 카드 보여주기)
     Future.delayed(const Duration(milliseconds: 700), () {
-      setState(() {
-        if (cards[a].pairId == cards[b].pairId) {
-          soundService.playCardMatch();
-          cards[a] = cards[a].copyWith(isMatched: true);
-          cards[b] = cards[b].copyWith(isMatched: true);
-          scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
-          
-          // 최고 연속 매칭 기록 업데이트
-          if (scoreModel.comboCount > maxCombo) {
-            maxCombo = scoreModel.comboCount;
+      // mounted 상태 확인 후 setState 호출
+      if (mounted) {
+        setState(() {
+          if (cards[a].pairId == cards[b].pairId) {
+            soundService.playCardMatch();
+            cards[a] = cards[a].copyWith(isMatched: true);
+            cards[b] = cards[b].copyWith(isMatched: true);
+            scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
+            
+            // 최고 연속 매칭 기록 업데이트
+            if (scoreModel.comboCount > maxCombo) {
+              maxCombo = scoreModel.comboCount;
+            }
+            
+            _checkGameEnd();
+          } else {
+            soundService.playCardMismatch();
+            cards[a] = cards[a].copyWith(isFlipped: false);
+            cards[b] = cards[b].copyWith(isFlipped: false);
+            scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
           }
-          
-          _checkGameEnd();
-        } else {
-          soundService.playCardMismatch();
-          cards[a] = cards[a].copyWith(isFlipped: false);
-          cards[b] = cards[b].copyWith(isFlipped: false);
-          scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
-        }
-      });
+        });
+      }
     });
   }
 
@@ -212,33 +231,36 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       
       // 0.5초 후 축하 다이얼로그 표시
       Future.delayed(const Duration(milliseconds: 500), () {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text('축하합니다!'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('모든 카드를 맞췄어요!'),
-                const SizedBox(height: 8),
-                Text('최종 점수: ${scoreModel.currentScore}점'),
-                Text('최고 연속 매칭: ${maxCombo}회'),
-                Text('완료 시간: ${_formatTime()}'),
-                const SizedBox(height: 8),
-                const Text('온라인 랭킹에 기록이 저장되었습니다!', 
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+        // mounted 상태 확인 후 다이얼로그 표시
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              title: const Text('축하합니다!'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('모든 카드를 맞췄어요!'),
+                  const SizedBox(height: 8),
+                  Text('최종 점수: ${scoreModel.currentScore}점'),
+                  Text('최고 연속 매칭: ${maxCombo}회'),
+                  Text('완료 시간: ${_formatTime()}'),
+                  const SizedBox(height: 8),
+                  const Text('온라인 랭킹에 기록이 저장되었습니다!', 
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('확인'),
+                ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('확인'),
-              ),
-            ],
-          ),
-        );
+          );
+        }
       });
     }
   }
@@ -361,6 +383,12 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     }
     
     soundService.playGameStart(); // 게임 시작 사운드
+    
+    // 기존 타이머 정리
+    if (gameTimer.isActive) {
+      gameTimer.cancel();
+    }
+    
     setState(() {
       _createCards(); // 카드 새로 생성
       firstSelectedIndex = null;
@@ -371,7 +399,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       maxCombo = 0; // 최고 연속 매칭 기록 초기화
       gameStartTime = DateTime.now(); // 게임 시작 시간 기록
     });
-    if (gameTimer.isActive) gameTimer.cancel(); // 기존 타이머 중지
+    
     _setupTimer(); // 타이머 재설정
     soundService.startBackgroundMusic(); // 배경음악 시작
   }
@@ -386,6 +414,12 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   /// 게임 리셋(카드, 시간, 상태 초기화)
   void _resetGame() {
     soundService.playButtonSound();
+    
+    // 기존 타이머 정리
+    if (gameTimer.isActive) {
+      gameTimer.cancel();
+    }
+    
     setState(() {
       _createCards();
       firstSelectedIndex = null;
@@ -396,7 +430,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       maxCombo = 0; // 최고 연속 매칭 기록 초기화
       scoreModel.reset(); // 점수 초기화
     });
-    if (gameTimer.isActive) gameTimer.cancel();
+    
     _setupTimer();
     soundService.stopBackgroundMusic();
   }
@@ -410,34 +444,37 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     // 온라인 게임 기록 저장 (미완료)
     _saveOnlineGameRecord(false);
     
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('시간 초과!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('게임 오버'),
-            const SizedBox(height: 8),
-            Text('최종 점수: ${scoreModel.currentScore}점'),
-            Text('매칭 성공: ${scoreModel.matchCount}회'),
-            Text('매칭 실패: ${scoreModel.failCount}회'),
-            Text('최고 연속 매칭: ${maxCombo}회'),
-            const SizedBox(height: 8),
-            const Text('온라인 랭킹에 기록이 저장되었습니다!', 
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+    // mounted 상태 확인 후 다이얼로그 표시
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text('시간 초과!'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('게임 오버'),
+              const SizedBox(height: 8),
+              Text('최종 점수: ${scoreModel.currentScore}점'),
+              Text('매칭 성공: ${scoreModel.matchCount}회'),
+              Text('매칭 실패: ${scoreModel.failCount}회'),
+              Text('최고 연속 매칭: ${maxCombo}회'),
+              const SizedBox(height: 8),
+              const Text('온라인 랭킹에 기록이 저장되었습니다!', 
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
+      );
+    }
   }
 
   @override

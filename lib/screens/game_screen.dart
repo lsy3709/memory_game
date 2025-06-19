@@ -58,8 +58,18 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
-    if (gameTimer.isActive) gameTimer.cancel(); // 타이머 해제
-    soundService.dispose(); // 사운드 리소스 해제
+    // 타이머 정리
+    if (gameTimer.isActive) {
+      gameTimer.cancel();
+    }
+    
+    // 사운드 리소스 해제
+    soundService.dispose();
+    
+    // 상태 변수 초기화
+    isGameRunning = false;
+    isTimerPaused = false;
+    
     super.dispose();
   }
 
@@ -105,8 +115,14 @@ class _GameScreenState extends State<GameScreen> {
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
   void _setupTimer() {
+    // 기존 타이머가 있다면 취소
+    if (gameTimer.isActive) {
+      gameTimer.cancel();
+    }
+    
     gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (isGameRunning && !isTimerPaused) {
+      // mounted 상태 확인 후 setState 호출
+      if (mounted && isGameRunning && !isTimerPaused) {
         setState(() {
           if (timeLeft > 0) {
             timeLeft--; // 남은 시간 감소
@@ -154,26 +170,29 @@ class _GameScreenState extends State<GameScreen> {
 
     // 0.7초 후 매칭 결과 처리(뒤집힌 카드 보여주기)
     Future.delayed(const Duration(milliseconds: 700), () {
-      setState(() {
-        if (cards[a].pairId == cards[b].pairId) {
-          soundService.playCardMatch();
-          cards[a] = cards[a].copyWith(isMatched: true);
-          cards[b] = cards[b].copyWith(isMatched: true);
-          scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
-          
-          // 최고 연속 매칭 기록 업데이트
-          if (scoreModel.comboCount > maxCombo) {
-            maxCombo = scoreModel.comboCount;
+      // mounted 상태 확인 후 setState 호출
+      if (mounted) {
+        setState(() {
+          if (cards[a].pairId == cards[b].pairId) {
+            soundService.playCardMatch();
+            cards[a] = cards[a].copyWith(isMatched: true);
+            cards[b] = cards[b].copyWith(isMatched: true);
+            scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
+            
+            // 최고 연속 매칭 기록 업데이트
+            if (scoreModel.comboCount > maxCombo) {
+              maxCombo = scoreModel.comboCount;
+            }
+            
+            _checkGameEnd();
+          } else {
+            soundService.playCardMismatch();
+            cards[a] = cards[a].copyWith(isFlipped: false);
+            cards[b] = cards[b].copyWith(isFlipped: false);
+            scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
           }
-          
-          _checkGameEnd();
-        } else {
-          soundService.playCardMismatch();
-          cards[a] = cards[a].copyWith(isFlipped: false);
-          cards[b] = cards[b].copyWith(isFlipped: false);
-          scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
-        }
-      });
+        });
+      }
     });
   }
 
