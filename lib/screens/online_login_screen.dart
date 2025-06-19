@@ -54,11 +54,23 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       // 로그인 성공 후 사용자 상태 확인
       if (_firebaseService.currentUser != null) {
         if (mounted) {
-          // 즉시 화면 전환
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/online-main',
-            (route) => false, // 모든 이전 화면 제거
-          );
+          // 플레이어 이름이 설정되어 있는지 확인
+          final userData = await _firebaseService.getUserData(_firebaseService.currentUser!.uid);
+          final hasPlayerName = userData != null && userData['playerName'] != null && userData['playerName'].toString().isNotEmpty;
+          
+          if (hasPlayerName) {
+            // 플레이어 이름이 있으면 온라인 메인 화면으로
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/online-main',
+              (route) => false, // 모든 이전 화면 제거
+            );
+          } else {
+            // 플레이어 이름이 없으면 플레이어 이름 설정 화면으로
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/online-player-name-setup',
+              (route) => false, // 모든 이전 화면 제거
+            );
+          }
         }
       } else {
         throw Exception('로그인 후 사용자 정보를 가져올 수 없습니다.');
@@ -107,7 +119,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       // 회원가입 성공 후 사용자 상태 확인
       if (_firebaseService.currentUser != null) {
         if (mounted) {
-          // 즉시 화면 전환
+          // 회원가입 시에는 이미 플레이어 이름이 설정되었으므로 온라인 메인 화면으로
           Navigator.of(context).pushNamedAndRemoveUntil(
             '/online-main',
             (route) => false, // 모든 이전 화면 제거

@@ -30,10 +30,20 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // Firebase 서비스를 통해 사용자 정보 가져오기
+        final userData = await _firebaseService.getUserData(user.uid);
+        
         setState(() {
-          _playerName = user.displayName ?? '플레이어';
-          _email = user.email ?? '';
+          if (userData != null && userData['playerName'] != null) {
+            _playerName = userData['playerName'];
+          } else {
+            _playerName = user.displayName ?? '플레이어';
+          }
+          _email = userData?['email'] ?? user.email ?? '';
         });
+        
+        print('로드된 플레이어 이름: $_playerName');
+        print('로드된 이메일: $_email');
         
         // 플레이어 통계 로드
         await _loadPlayerStats();
@@ -209,6 +219,22 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
                                 color: Colors.grey,
                               ),
                             ),
+                            // 플레이어 이름이 기본값인 경우 설정 버튼 표시
+                            if (_playerName == '플레이어') ...[
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).pushNamed('/online-player-name-setup');
+                                },
+                                icon: const Icon(Icons.edit, size: 16),
+                                label: const Text('플레이어 이름 설정'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

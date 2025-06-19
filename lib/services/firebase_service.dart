@@ -196,6 +196,14 @@ class FirebaseService {
         password: password,
       );
 
+      // 사용자 정보 가져오기 및 프로필 업데이트
+      final userData = await getUserData(userCredential.user!.uid);
+      if (userData != null && userData['playerName'] != null) {
+        // Firestore에 저장된 플레이어 이름으로 프로필 업데이트
+        await userCredential.user?.updateDisplayName(userData['playerName']);
+        print('플레이어 이름 업데이트: ${userData['playerName']}');
+      }
+
       // 마지막 로그인 시간 업데이트
       await _firestore!.collection('users').doc(userCredential.user!.uid).update({
         'lastLoginAt': FieldValue.serverTimestamp(),
@@ -243,6 +251,25 @@ class FirebaseService {
     } catch (e) {
       print('사용자 정보 가져오기 오류: $e');
       return null;
+    }
+  }
+
+  /// 플레이어 이름 업데이트
+  Future<void> updatePlayerName(String uid, String playerName) async {
+    await _initialize();
+    if (!_isInitialized || !_isFirebaseAvailable || _firestore == null) {
+      throw Exception('Firebase가 사용할 수 없습니다. 로컬 모드로 실행 중입니다.');
+    }
+
+    try {
+      await _firestore!.collection('users').doc(uid).update({
+        'playerName': playerName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      print('플레이어 이름 업데이트 완료: $playerName');
+    } catch (e) {
+      print('플레이어 이름 업데이트 오류: $e');
+      throw Exception('플레이어 이름 업데이트에 실패했습니다.');
     }
   }
 

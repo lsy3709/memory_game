@@ -17,6 +17,7 @@ import 'screens/online_game_screen.dart';
 import 'screens/online_ranking_screen.dart';
 import 'screens/online_my_records_screen.dart';
 import 'screens/online_multiplayer_setup_screen.dart';
+import 'screens/online_player_name_setup_screen.dart';
 import 'models/card_model.dart';
 import 'services/sound_service.dart';
 import 'services/firebase_service.dart';
@@ -71,6 +72,7 @@ class MemoryGameApp extends StatelessWidget {
         '/online-ranking': (context) => const OnlineRankingScreen(),
         '/online-my-records': (context) => const OnlineMyRecordsScreen(),
         '/online-multiplayer-setup': (context) => const OnlineMultiplayerSetupScreen(),
+        '/online-player-name-setup': (context) => const OnlinePlayerNameSetupScreen(),
       },
       onGenerateRoute: (settings) {
         // 멀티플레이어 게임 화면 - 동적 라우팅

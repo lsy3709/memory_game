@@ -72,6 +72,23 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
             currentPlayerName = userData['playerName'] ?? user.displayName ?? '플레이어';
             currentPlayerEmail = userData['email'] ?? user.email ?? '';
           });
+          print('게임 화면 - 플레이어 이름: $currentPlayerName');
+          print('게임 화면 - 플레이어 이메일: $currentPlayerEmail');
+        } else {
+          // Firestore에서 데이터를 가져올 수 없는 경우 Firebase Auth 정보 사용
+          setState(() {
+            currentPlayerName = user.displayName ?? '플레이어';
+            currentPlayerEmail = user.email ?? '';
+          });
+          print('Firestore 데이터 없음 - Firebase Auth 정보 사용');
+          print('게임 화면 - 플레이어 이름: $currentPlayerName');
+          print('게임 화면 - 플레이어 이메일: $currentPlayerEmail');
+        }
+      } else {
+        print('로그인된 사용자가 없습니다.');
+        // 로그인되지 않은 경우 로컬 메인 화면으로 이동
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/main');
         }
       }
     } catch (e) {
