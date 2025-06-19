@@ -80,12 +80,23 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final userData = await firebaseService.getUserData(user.uid);
         currentPlayerName = userData?['playerName'] ?? user.displayName ?? '플레이어';
         
-        // 상대방 정보 가져오기
-        opponentPlayerName = currentRoom.getOtherPlayerName(currentPlayerId) ?? '상대방';
-        opponentPlayerEmail = currentRoom.getOtherPlayerEmail(currentPlayerId) ?? '';
+        // 상대방 정보 가져오기 - 방 정보에서 직접 가져오기
+        if (currentRoom.isHost(currentPlayerId)) {
+          // 방장인 경우 게스트 정보 가져오기
+          opponentPlayerName = currentRoom.guestName ?? '대기 중...';
+          opponentPlayerEmail = currentRoom.guestEmail ?? '';
+        } else {
+          // 게스트인 경우 방장 정보 가져오기
+          opponentPlayerName = currentRoom.hostName;
+          opponentPlayerEmail = currentRoom.hostEmail;
+        }
         
         // 방장이 먼저 시작
         isMyTurn = currentRoom.isHost(currentPlayerId);
+        
+        print('플레이어 정보 로드 완료:');
+        print('현재 플레이어: $currentPlayerName (${currentRoom.isHost(currentPlayerId) ? '방장' : '게스트'})');
+        print('상대방: $opponentPlayerName');
       }
     } catch (e) {
       print('플레이어 정보 로드 오류: $e');
@@ -98,6 +109,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       if (room != null) {
         setState(() {
           currentRoom = room;
+          
+          // 상대방 정보 업데이트
+          if (currentPlayerId.isNotEmpty) {
+            if (room.isHost(currentPlayerId)) {
+              opponentPlayerName = room.guestName ?? '대기 중...';
+              opponentPlayerEmail = room.guestEmail ?? '';
+            } else {
+              opponentPlayerName = room.hostName;
+              opponentPlayerEmail = room.hostEmail;
+            }
+          }
         });
         
         // 방 상태에 따른 처리
@@ -435,9 +457,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             // 게임 정보 헤더
             _buildGameHeader(),
             
-            // 카드 그리드
+            // 게임 시작 전 대기 화면 또는 카드 그리드
             Expanded(
-              child: _buildCardGrid(),
+              child: currentRoom.status == RoomStatus.waiting 
+                  ? _buildWaitingScreen()
+                  : _buildCardGrid(),
             ),
             
             // 게임 컨트롤
@@ -589,21 +613,45 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 카드 그리드 위젯
   Widget _buildCardGrid() {
-    return GridView.builder(
+    // 화면 크기에 따라 카드 크기 조정
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    
+    // 헤더와 컨트롤 영역을 제외한 사용 가능한 높이 계산
+    final availableHeight = screenHeight - 200; // 헤더 + 컨트롤 영역 대략적 계산
+    
+    // 카드 크기 계산 (화면에 맞게 조정)
+    final cardWidth = (screenWidth - 32 - (cols - 1) * 8) / cols; // 패딩과 간격 고려
+    final cardHeight = cardWidth * 1.4; // 카드 비율 조정
+    
+    // 그리드가 화면을 벗어나지 않도록 조정
+    final totalGridHeight = cardHeight * rows + (rows - 1) * 8;
+    final adjustedCardHeight = totalGridHeight > availableHeight 
+        ? (availableHeight - (rows - 1) * 8) / rows 
+        : cardHeight;
+    
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
+      child: SizedBox(
+        height: totalGridHeight > availableHeight ? totalGridHeight : availableHeight,
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            childAspectRatio: cardWidth / adjustedCardHeight,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: cards.length,
+          itemBuilder: (context, index) {
+            return MemoryCard(
+              card: cards[index],
+              onTap: () => _onCardTap(index),
+            );
+          },
+        ),
       ),
-      itemCount: cards.length,
-      itemBuilder: (context, index) {
-        return MemoryCard(
-          card: cards[index],
-          onTap: () => _onCardTap(index),
-        );
-      },
     );
   }
 
@@ -623,15 +671,26 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               foregroundColor: Colors.white,
             ),
           ),
-          ElevatedButton.icon(
-            onPressed: isGameRunning ? null : _resetGame,
-            icon: const Icon(Icons.refresh),
-            label: const Text('다시 시작'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
+          if (currentRoom.status == RoomStatus.waiting && currentRoom.isHost(currentPlayerId) && currentRoom.isFull)
+            ElevatedButton.icon(
+              onPressed: _startGameAsHost,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('게임 시작'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
             ),
-          ),
+          if (currentRoom.status == RoomStatus.playing)
+            ElevatedButton.icon(
+              onPressed: isGameRunning ? null : _resetGame,
+              icon: const Icon(Icons.refresh),
+              label: const Text('다시 시작'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+            ),
         ],
       ),
     );
@@ -671,5 +730,69 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         ],
       ),
     );
+  }
+
+  /// 대기 화면 위젯
+  Widget _buildWaitingScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.people,
+            size: 80,
+            color: Colors.white,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '게임 시작 대기 중...',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '상대방이 참가하면 게임이 시작됩니다.',
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.white70,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          
+          // 방장만 시작 버튼 표시
+          if (currentRoom.isHost(currentPlayerId) && currentRoom.isFull)
+            ElevatedButton.icon(
+              onPressed: _startGameAsHost,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('게임 시작'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                textStyle: const TextStyle(fontSize: 18),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 방장이 게임 시작
+  Future<void> _startGameAsHost() async {
+    try {
+      await firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
+      print('게임 시작 요청 완료');
+    } catch (e) {
+      print('게임 시작 오류: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('게임 시작에 실패했습니다: $e')),
+        );
+      }
+    }
   }
 } 
