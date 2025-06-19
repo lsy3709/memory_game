@@ -518,30 +518,41 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     
-    // 화면 크기에 따라 카드 크기와 그리드 열 수 조절
+    // 먼저 카드 그리드 크기 계산
+    final headerHeight = 80.0; // 헤더 높이
+    final controlHeight = 80.0; // 컨트롤 영역 높이
+    final padding = 32.0; // 전체 패딩
+    final availableHeight = screenHeight - headerHeight - controlHeight - padding;
+    
+    // 카드 개수에 따른 그리드 계산
+    final totalCards = cards.length;
     int gridColumns;
-    double cardSize;
-    double cardSpacing;
+    int gridRows;
     
     if (screenWidth < 400) {
       // 작은 화면 (세로 모드)
       gridColumns = 4;
-      cardSize = (screenWidth - 40) / 4 - 8;
-      cardSpacing = 4;
+      gridRows = (totalCards / gridColumns).ceil();
     } else if (screenWidth < 600) {
       // 중간 화면
       gridColumns = 5;
-      cardSize = (screenWidth - 50) / 5 - 8;
-      cardSpacing = 6;
+      gridRows = (totalCards / gridColumns).ceil();
     } else {
       // 큰 화면 (가로 모드)
       gridColumns = 6;
-      cardSize = (screenWidth - 60) / 6 - 8;
-      cardSpacing = 8;
+      gridRows = (totalCards / gridColumns).ceil();
     }
     
-    // 카드 크기 최소/최대 제한
-    cardSize = cardSize.clamp(60.0, 120.0);
+    // 카드 크기 계산 (가로/세로 모두 고려)
+    final cardSpacing = 4.0;
+    final availableGridWidth = screenWidth - padding - (gridColumns - 1) * cardSpacing;
+    final availableGridHeight = availableHeight - (gridRows - 1) * cardSpacing;
+    
+    final cardWidth = availableGridWidth / gridColumns;
+    final cardHeight = availableGridHeight / gridRows;
+    
+    // 카드 크기 제한 (최소 50px, 최대 100px)
+    final cardSize = cardWidth.clamp(50.0, 100.0);
     
     return Scaffold(
       appBar: AppBar(
@@ -576,8 +587,9 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // 게임 정보 헤더
+              // 게임 정보 헤더 (고정 높이)
               Container(
+                height: headerHeight,
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -591,6 +603,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               widget.player1Name,
@@ -599,6 +612,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               '점수: ${players[0].scoreModel.score}',
@@ -621,6 +635,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               widget.player2Name,
@@ -629,6 +644,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               '점수: ${players[1].scoreModel.score}',
@@ -645,30 +661,30 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                 ),
               ),
               
-              // 카드 그리드
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: gridColumns,
-                      childAspectRatio: 0.8,
-                      crossAxisSpacing: cardSpacing,
-                      mainAxisSpacing: cardSpacing,
-                    ),
-                    itemCount: cards.length,
-                    itemBuilder: (context, index) {
-                      return SizedBox(
-                        width: cardSize,
-                        height: cardSize,
-                        child: MemoryCard(
-                          card: cards[index],
-                          onTap: () => _onCardTap(index),
-                          isEnabled: isGameRunning,
-                        ),
-                      );
-                    },
+              // 카드 그리드 (고정 크기, 스크롤 없음)
+              Container(
+                height: availableHeight,
+                padding: const EdgeInsets.all(8),
+                child: GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: gridColumns,
+                    childAspectRatio: 0.8,
+                    crossAxisSpacing: cardSpacing,
+                    mainAxisSpacing: cardSpacing,
                   ),
+                  itemCount: cards.length,
+                  itemBuilder: (context, index) {
+                    return SizedBox(
+                      width: cardSize,
+                      height: cardSize,
+                      child: MemoryCard(
+                        card: cards[index],
+                        onTap: () => _onCardTap(index),
+                        isEnabled: isGameRunning,
+                      ),
+                    );
+                  },
                 ),
               ),
               
@@ -698,8 +714,9 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                   ),
                 ),
               
-              // 게임 컨트롤
+              // 게임 컨트롤 (고정 높이)
               Container(
+                height: controlHeight,
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
