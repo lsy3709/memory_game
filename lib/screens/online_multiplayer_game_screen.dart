@@ -409,7 +409,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   /// 카드 생성 및 섞기 - 개선된 버전
-  void _createCards() async {
+  Future<void> _createCards() async {
     final List<CardModel> tempCards = [];
     
     // 카드 쌍 생성 - 각 쌍에 고유한 ID 부여
