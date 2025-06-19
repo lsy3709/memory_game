@@ -180,6 +180,13 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       return ''; // 빈 문자열 반환하여 오류 메시지 표시하지 않음
     }
     
+    // PigeonUserDetails 오류는 무시 (Firebase Auth 내부 오류)
+    if (error.contains('PigeonUserDetails') || 
+        error.contains('List<Object?>')) {
+      print('Firebase Auth 내부 오류입니다 (무시됨): $error');
+      return ''; // 빈 문자열 반환하여 오류 메시지 표시하지 않음
+    }
+    
     // 알 수 없는 오류 메시지 필터링 - 이 부분이 표시되는 것이 문제
     if (error.contains('알 수 없는 오류가 발생했습니다')) {
       print('알 수 없는 오류 필터링됨: $error');
@@ -285,6 +292,13 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         error.contains('X-Firebase-Locale')) {
       print('무시 가능한 Firebase 경고입니다: $error');
       return '';
+    }
+    
+    // PigeonUserDetails 오류는 무시 (Firebase Auth 내부 오류)
+    if (error.contains('PigeonUserDetails') || 
+        error.contains('List<Object?>')) {
+      print('Firebase Auth 내부 오류입니다 (무시됨): $error');
+      return ''; // 빈 문자열 반환하여 오류 메시지 표시하지 않음
     }
     
     if (error.contains('email-already-in-use')) {

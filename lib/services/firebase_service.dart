@@ -67,22 +67,56 @@ class FirebaseService {
     }
 
     try {
+      // 로그인 시도
       final credential = await _auth!.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
       
-      // 사용자 정보 업데이트
-      _currentUser = credential.user;
-      
-      // 로그인 성공 후 사용자 데이터 확인 및 생성
-      if (_currentUser != null) {
-        await _ensureUserDataExists(_currentUser!);
+      // 사용자 정보 업데이트 (안전하게 처리)
+      try {
+        _currentUser = credential.user;
+        
+        // 로그인 성공 후 사용자 데이터 확인 및 생성
+        if (_currentUser != null) {
+          await _ensureUserDataExists(_currentUser!);
+        }
+      } catch (e) {
+        print('사용자 정보 처리 오류 (무시됨): $e');
+        // 사용자 정보 처리 오류가 발생해도 로그인은 성공으로 처리
       }
       
       return credential;
     } catch (e) {
       print('로그인 오류: $e');
+      
+      // PigeonUserDetails 오류인 경우 특별 처리
+      if (e.toString().contains('PigeonUserDetails') || 
+          e.toString().contains('List<Object?>')) {
+        print('Firebase Auth 내부 오류 감지 - 로그인은 성공했을 가능성이 높음');
+        
+        // 현재 사용자 상태 확인
+        final currentUser = _auth!.currentUser;
+        if (currentUser != null) {
+          print('사용자가 실제로 로그인되어 있음: ${currentUser.email}');
+          _currentUser = currentUser;
+          
+          // 사용자 데이터 확인 및 생성
+          try {
+            await _ensureUserDataExists(currentUser);
+          } catch (e) {
+            print('사용자 데이터 생성 오류 (무시됨): $e');
+          }
+          
+          // 성공적인 UserCredential 객체 반환
+          return UserCredential(
+            user: currentUser,
+            additionalUserInfo: null,
+            credential: null,
+          );
+        }
+      }
+      
       rethrow;
     }
   }
