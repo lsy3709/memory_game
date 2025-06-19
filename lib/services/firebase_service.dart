@@ -26,11 +26,22 @@ class FirebaseService {
     if (_isInitialized) return;
     
     try {
-      _auth = FirebaseAuth.instance;
-      _firestore = FirebaseFirestore.instance;
+      // Firebase가 초기화되었는지 확인
+      try {
+        _auth = FirebaseAuth.instance;
+        _firestore = FirebaseFirestore.instance;
+      } catch (e) {
+        print('Firebase 인스턴스 생성 실패: $e');
+        throw Exception('Firebase가 설정되지 않았습니다. firebase_options.dart 파일을 확인해주세요.');
+      }
       
-      // Firebase 연결 테스트
-      await _firestore!.collection('connection_test').doc('test').get();
+      // Firebase 연결 테스트 (선택적)
+      try {
+        await _firestore!.collection('connection_test').doc('test').get();
+      } catch (e) {
+        print('Firebase 연결 테스트 실패: $e');
+        // 연결 테스트 실패해도 초기화는 성공으로 처리
+      }
       
       _isInitialized = true;
       print('Firebase 서비스 초기화 성공');
@@ -41,7 +52,7 @@ class FirebaseService {
       _firestore = null;
       
       // Firebase 초기화 실패 시 상세한 오류 정보 제공
-      if (e.toString().contains('firebase_core')) {
+      if (e.toString().contains('firebase_core') || e.toString().contains('no-app')) {
         throw Exception('Firebase가 설정되지 않았습니다. firebase_options.dart 파일을 확인해주세요.');
       } else if (e.toString().contains('network')) {
         throw Exception('네트워크 연결을 확인해주세요.');

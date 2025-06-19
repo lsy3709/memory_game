@@ -26,20 +26,25 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   
-  // Firebase 초기화
+  // Firebase 초기화 (설정 파일이 있는 경우에만)
+  bool firebaseInitialized = false;
   try {
     await Firebase.initializeApp();
+    firebaseInitialized = true;
     print('Firebase 초기화 성공');
   } catch (e) {
     print('Firebase 초기화 실패: $e');
     print('로컬 모드로 실행됩니다.');
+    firebaseInitialized = false;
   }
   
-  runApp(const MemoryGameApp());
+  runApp(MemoryGameApp(firebaseInitialized: firebaseInitialized));
 }
 
 class MemoryGameApp extends StatelessWidget {
-  const MemoryGameApp({super.key});
+  final bool firebaseInitialized;
+  
+  const MemoryGameApp({super.key, required this.firebaseInitialized});
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +69,7 @@ class MemoryGameApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const AuthWrapper(),
+        '/': (context) => AuthWrapper(firebaseInitialized: firebaseInitialized),
         '/main': (context) => const MainScreen(),
         '/game': (context) => const GameScreen(),
         '/login': (context) => const LoginScreen(),
@@ -114,11 +119,18 @@ class MemoryGameApp extends StatelessWidget {
 
 /// 인증 상태에 따른 화면 분기 처리
 class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
+  final bool firebaseInitialized;
+  
+  const AuthWrapper({super.key, required this.firebaseInitialized});
 
   @override
   Widget build(BuildContext context) {
     // Firebase가 초기화되지 않은 경우 로컬 메인 화면으로
+    if (!firebaseInitialized) {
+      return const MainScreen();
+    }
+    
+    // Firebase가 초기화된 경우 인증 상태 확인
     try {
       return StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
