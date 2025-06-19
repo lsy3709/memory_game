@@ -44,10 +44,13 @@ class _FriendManagementScreenState extends State<FriendManagementScreen>
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(text: '친구 목록'),
-            Tab(text: '받은 요청'),
-            Tab(text: '친구 추가'),
+            Tab(icon: Icon(Icons.people), text: '친구 목록'),
+            Tab(icon: Icon(Icons.mark_email_unread), text: '받은 요청'),
+            Tab(icon: Icon(Icons.person_add), text: '친구 추가'),
           ],
         ),
       ),
@@ -65,31 +68,25 @@ class _FriendManagementScreenState extends State<FriendManagementScreen>
             if (_errorMessage != null || _successMessage != null)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _errorMessage != null 
-                      ? Colors.red.shade50 
-                      : Colors.green.shade50,
+                  color: _errorMessage != null ? Colors.red.shade50 : Colors.green.shade50,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: _errorMessage != null 
-                        ? Colors.red.shade200 
-                        : Colors.green.shade200,
+                    color: _errorMessage != null ? Colors.red.shade200 : Colors.green.shade200,
                   ),
                 ),
                 child: Text(
-                  _errorMessage ?? _successMessage!,
+                  _errorMessage ?? _successMessage ?? '',
                   style: TextStyle(
-                    color: _errorMessage != null 
-                        ? Colors.red.shade700 
-                        : Colors.green.shade700,
+                    color: _errorMessage != null ? Colors.red.shade700 : Colors.green.shade700,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
             
-            // 탭 내용
+            // 탭 뷰 영역
             Expanded(
               child: TabBarView(
                 controller: _tabController,
@@ -186,8 +183,8 @@ class _FriendManagementScreenState extends State<FriendManagementScreen>
 
   /// 친구 추가 탭
   Widget _buildAddFriend() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           // 헤더
@@ -432,39 +429,44 @@ class _FriendManagementScreenState extends State<FriendManagementScreen>
     );
   }
 
-  /// 빈 목록 위젯
+  /// 빈 상태 위젯
   Widget _buildEmptyWidget({
     required IconData icon,
     required String title,
     required String subtitle,
   }) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 64,
-            color: Colors.white54,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              color: Colors.white70,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 14,
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 80,
               color: Colors.white54,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -472,24 +474,32 @@ class _FriendManagementScreenState extends State<FriendManagementScreen>
   /// 오류 위젯
   Widget _buildErrorWidget(String message) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.white54,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white70,
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 80,
+              color: Colors.red,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => setState(() {}),
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -497,7 +507,6 @@ class _FriendManagementScreenState extends State<FriendManagementScreen>
   /// 친구 요청 보내기
   Future<void> _sendFriendRequest() async {
     final email = _emailController.text.trim();
-    
     if (email.isEmpty) {
       setState(() {
         _errorMessage = '이메일을 입력해주세요.';
