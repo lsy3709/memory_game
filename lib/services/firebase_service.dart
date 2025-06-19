@@ -100,9 +100,21 @@ class FirebaseService {
         print('해결 방법: Firebase Console에서 iOS 앱을 등록하고 설정 파일을 다운로드하세요.');
       }
       
+      // Firebase가 실제로 초기화되었는지 확인
+      bool isFirebaseInitialized = false;
+      try {
+        // Firebase Auth 인스턴스에 접근 시도
+        final auth = FirebaseAuth.instance;
+        isFirebaseInitialized = true;
+      } catch (e) {
+        print('Firebase 인스턴스 접근 실패: $e');
+        isFirebaseInitialized = false;
+      }
+      
       // 모든 설정이 완료되었는지 확인
-      final isComplete = hasFirebaseOptions && hasAndroidConfig && hasIOSConfig;
+      final isComplete = hasFirebaseOptions && hasAndroidConfig && hasIOSConfig && isFirebaseInitialized;
       print('Firebase 설정 완료 상태: ${isComplete ? '완료' : '미완료'}');
+      print('Firebase 초기화 상태: ${isFirebaseInitialized ? '성공' : '실패'}');
       print('=== Firebase 설정 상태 확인 완료 ===');
       
       return isComplete;
