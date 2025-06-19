@@ -66,6 +66,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   /// 게임 완료 여부
   bool gameCompleted = false;
 
+  /// 현재 점수
+  int get score => scoreModel.score;
+
   /// 턴 변경 중복 방지 플래그
   bool _isChangingTurn = false;
 
