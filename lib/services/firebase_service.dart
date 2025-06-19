@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'dart:io';
 
 import '../models/game_record.dart';
 import '../models/player_stats.dart';
@@ -74,9 +75,68 @@ class FirebaseService {
   /// Firebase 사용 가능 여부 확인
   Future<bool> _checkFirebaseAvailability() async {
     try {
-      // Firebase Core가 초기화되었는지 확인
-      // 실제로는 compile-time에 결정되므로 항상 false 반환
+      // Firebase 설정 파일 존재 여부 확인
+      final hasFirebaseOptions = await _checkFirebaseOptionsFile();
+      final hasAndroidConfig = await _checkAndroidConfig();
+      final hasIOSConfig = await _checkIOSConfig();
+      
+      print('=== Firebase 설정 상태 확인 ===');
+      print('Firebase Options 파일: ${hasFirebaseOptions ? '있음' : '없음'}');
+      print('Android 설정 파일: ${hasAndroidConfig ? '있음' : '없음'}');
+      print('iOS 설정 파일: ${hasIOSConfig ? '있음' : '없음'}');
+      
+      if (!hasFirebaseOptions) {
+        print('누락된 설정: lib/firebase_options.dart 파일이 없습니다.');
+        print('해결 방법: flutterfire configure 명령어를 실행하세요.');
+      }
+      
+      if (!hasAndroidConfig) {
+        print('누락된 설정: android/app/google-services.json 파일이 없습니다.');
+        print('해결 방법: Firebase Console에서 Android 앱을 등록하고 설정 파일을 다운로드하세요.');
+      }
+      
+      if (!hasIOSConfig) {
+        print('누락된 설정: ios/Runner/GoogleService-Info.plist 파일이 없습니다.');
+        print('해결 방법: Firebase Console에서 iOS 앱을 등록하고 설정 파일을 다운로드하세요.');
+      }
+      
+      // 모든 설정이 완료되었는지 확인
+      final isComplete = hasFirebaseOptions && hasAndroidConfig && hasIOSConfig;
+      print('Firebase 설정 완료 상태: ${isComplete ? '완료' : '미완료'}');
+      print('=== Firebase 설정 상태 확인 완료 ===');
+      
+      return isComplete;
+    } catch (e) {
+      print('Firebase 설정 확인 중 오류: $e');
       return false;
+    }
+  }
+
+  /// Firebase Options 파일 확인
+  Future<bool> _checkFirebaseOptionsFile() async {
+    try {
+      final file = File('lib/firebase_options.dart');
+      return await file.exists();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Android 설정 파일 확인
+  Future<bool> _checkAndroidConfig() async {
+    try {
+      final file = File('android/app/google-services.json');
+      return await file.exists();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// iOS 설정 파일 확인
+  Future<bool> _checkIOSConfig() async {
+    try {
+      final file = File('ios/Runner/GoogleService-Info.plist');
+      return await file.exists();
     } catch (e) {
       return false;
     }

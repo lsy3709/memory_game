@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 
 import '../services/storage_service.dart';
 import '../models/player_stats.dart';
@@ -87,6 +88,9 @@ class _MainScreenState extends State<MainScreen> {
       final currentUser = _firebaseService.currentUser;
       print('현재 로그인된 사용자: ${currentUser?.email ?? '없음'}');
       
+      // Firebase 설정 파일 상태 확인
+      await _checkFirebaseConfigFiles();
+      
       print('=== Firebase 상태 확인 완료 ===');
       
       // 상태 확인 결과를 사용자에게 표시
@@ -94,6 +98,52 @@ class _MainScreenState extends State<MainScreen> {
     } catch (e) {
       print('Firebase 상태 확인 오류: $e');
       _showFirebaseErrorDialog();
+    }
+  }
+
+  /// Firebase 설정 파일 상태 확인
+  Future<void> _checkFirebaseConfigFiles() async {
+    try {
+      print('=== Firebase 설정 파일 확인 ===');
+      
+      final firebaseOptionsExists = await _checkFileExists('lib/firebase_options.dart');
+      final androidConfigExists = await _checkFileExists('android/app/google-services.json');
+      final iosConfigExists = await _checkFileExists('ios/Runner/GoogleService-Info.plist');
+      
+      print('Firebase Options 파일: ${firebaseOptionsExists ? '있음' : '없음'}');
+      print('Android 설정 파일: ${androidConfigExists ? '있음' : '없음'}');
+      print('iOS 설정 파일: ${iosConfigExists ? '있음' : '없음'}');
+      
+      if (!firebaseOptionsExists) {
+        print('❌ 누락: lib/firebase_options.dart');
+        print('   해결: flutterfire configure 실행');
+      }
+      
+      if (!androidConfigExists) {
+        print('❌ 누락: android/app/google-services.json');
+        print('   해결: Firebase Console에서 Android 앱 등록');
+      }
+      
+      if (!iosConfigExists) {
+        print('❌ 누락: ios/Runner/GoogleService-Info.plist');
+        print('   해결: Firebase Console에서 iOS 앱 등록');
+      }
+      
+      final allFilesExist = firebaseOptionsExists && androidConfigExists && iosConfigExists;
+      print('설정 완료 상태: ${allFilesExist ? '✅ 완료' : '❌ 미완료'}');
+      print('=== Firebase 설정 파일 확인 완료 ===');
+    } catch (e) {
+      print('설정 파일 확인 오류: $e');
+    }
+  }
+
+  /// 파일 존재 여부 확인
+  Future<bool> _checkFileExists(String path) async {
+    try {
+      final file = File(path);
+      return await file.exists();
+    } catch (e) {
+      return false;
     }
   }
 
@@ -335,7 +385,12 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   /// Firebase 상태 다이얼로그 표시
-  void _showFirebaseStatusDialog(bool isInitialized, dynamic currentUser) {
+  void _showFirebaseStatusDialog(bool isInitialized, dynamic currentUser) async {
+    // 설정 파일 상태 확인
+    final firebaseOptionsExists = await _checkFileExists('lib/firebase_options.dart');
+    final androidConfigExists = await _checkFileExists('android/app/google-services.json');
+    final iosConfigExists = await _checkFileExists('ios/Runner/GoogleService-Info.plist');
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -349,7 +404,16 @@ class _MainScreenState extends State<MainScreen> {
             Text('로그인 상태: ${currentUser != null ? '로그인됨' : '로그인 안됨'}'),
             if (currentUser != null) Text('사용자: ${currentUser.email}'),
             const SizedBox(height: 16),
+            const Text('설정 파일 상태:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('• Firebase Options: ${firebaseOptionsExists ? '✅' : '❌'}'),
+            Text('• Android Config: ${androidConfigExists ? '✅' : '❌'}'),
+            Text('• iOS Config: ${iosConfigExists ? '✅' : '❌'}'),
+            const SizedBox(height: 16),
             const Text('콘솔에서 자세한 정보를 확인할 수 있습니다.'),
+            if (!firebaseOptionsExists || !androidConfigExists || !iosConfigExists) ...[
+              const SizedBox(height: 8),
+              const Text('설정 > Firebase 설정 가이드에서 설정 방법을 확인하세요.'),
+            ],
           ],
         ),
         actions: [
@@ -375,21 +439,35 @@ class _MainScreenState extends State<MainScreen> {
             children: [
               Text('온라인 기능을 사용하려면 Firebase 설정을 완료해야 합니다.'),
               SizedBox(height: 16),
-              Text('1. Firebase 프로젝트 생성:'),
-              Text('   • Firebase Console에서 새 프로젝트 생성'),
-              Text('   • Authentication과 Firestore Database 활성화'),
+              Text('1. Firebase 프로젝트 생성:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('   • https://console.firebase.google.com 접속'),
+              Text('   • "프로젝트 만들기" 클릭'),
+              Text('   • 프로젝트 이름 입력 (예: memory-game)'),
+              Text('   • Google Analytics 활성화 (선택사항)'),
               SizedBox(height: 8),
-              Text('2. FlutterFire CLI 설치:'),
+              Text('2. Authentication 설정:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('   • 왼쪽 메뉴에서 "Authentication" 선택'),
+              Text('   • "시작하기" 클릭'),
+              Text('   • "이메일/비밀번호" 제공업체 활성화'),
+              SizedBox(height: 8),
+              Text('3. Firestore Database 설정:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('   • 왼쪽 메뉴에서 "Firestore Database" 선택'),
+              Text('   • "데이터베이스 만들기" 클릭'),
+              Text('   • "테스트 모드에서 시작" 선택'),
+              SizedBox(height: 8),
+              Text('4. FlutterFire CLI 설치:', style: TextStyle(fontWeight: FontWeight.bold)),
               Text('   • npm install -g firebase-tools'),
               Text('   • firebase login'),
               Text('   • dart pub global activate flutterfire_cli'),
               SizedBox(height: 8),
-              Text('3. Firebase 설정 파일 생성:'),
+              Text('5. Firebase 설정 파일 생성:', style: TextStyle(fontWeight: FontWeight.bold)),
               Text('   • flutterfire configure'),
-              Text('   • 생성된 파일들을 프로젝트에 추가'),
+              Text('   • 프로젝트 선택'),
+              Text('   • 플랫폼 선택 (Android, iOS)'),
               SizedBox(height: 8),
-              Text('4. 앱 재시작:'),
-              Text('   • 설정 완료 후 앱을 재시작하면 온라인 기능 사용 가능'),
+              Text('6. 앱 재시작:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('   • 설정 완료 후 앱을 재시작'),
+              Text('   • 온라인 기능 사용 가능'),
               SizedBox(height: 16),
               Text('자세한 설정 방법은 README.md 파일을 참조하세요.'),
             ],
