@@ -185,23 +185,30 @@ class FirebaseService {
     required String email,
     required String password,
   }) async {
+    print('FirebaseService: 로그인 시작');
     await _initialize();
     if (!_isInitialized || !_isFirebaseAvailable || _auth == null || _firestore == null) {
+      print('FirebaseService: Firebase 사용 불가');
       throw Exception('Firebase가 사용할 수 없습니다. 로컬 모드로 실행 중입니다.');
     }
 
     try {
+      print('FirebaseService: Firebase Auth 로그인 시도');
       final userCredential = await _auth!.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+      print('FirebaseService: Firebase Auth 로그인 성공');
 
       // 로그인 성공 후 추가 정보 처리는 완전히 선택적으로 수행
       // 어떤 오류가 발생하더라도 로그인 자체는 성공으로 처리
+      print('FirebaseService: 사용자 정보 처리 시작');
       _processUserDataAfterLogin(userCredential, email);
 
+      print('FirebaseService: 로그인 완료 - UserCredential 반환');
       return userCredential;
     } catch (e) {
+      print('FirebaseService: 로그인 중 예외 발생: $e');
       throw _handleAuthError(e);
     }
   }
@@ -594,6 +601,9 @@ class FirebaseService {
 
   /// Firebase 인증 오류 처리
   String _handleAuthError(dynamic error) {
+    print('FirebaseService: _handleAuthError 호출됨 - 오류 타입: ${error.runtimeType}');
+    print('FirebaseService: 오류 내용: $error');
+    
     // App Check 관련 오류는 무시 (개발 환경에서 정상적인 경고)
     if (error.toString().contains('No AppCheckProvider installed')) {
       print('App Check 경고 무시 (개발 환경에서 정상)');
@@ -601,6 +611,7 @@ class FirebaseService {
     }
     
     if (error is FirebaseAuthException) {
+      print('FirebaseService: FirebaseAuthException 처리');
       switch (error.code) {
         case 'weak-password':
           return '비밀번호가 너무 약합니다.';
@@ -618,6 +629,7 @@ class FirebaseService {
           return '인증 오류가 발생했습니다: ${error.message}';
       }
     } else if (error is FirebaseException) {
+      print('FirebaseService: FirebaseException 처리');
       // FirebaseException 처리
       if (error.message?.contains('permission-denied') == true) {
         return '권한이 없습니다. Firestore 보안 규칙을 확인해주세요.';
@@ -627,6 +639,8 @@ class FirebaseService {
         return 'Firebase 오류가 발생했습니다: ${error.message}';
       }
     }
+    
+    print('FirebaseService: 알 수 없는 오류 처리');
     return '알 수 없는 오류가 발생했습니다.';
   }
 
