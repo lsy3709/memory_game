@@ -196,25 +196,31 @@ class FirebaseService {
         password: password,
       );
 
-      // 사용자 정보 가져오기 (Auth 프로필 업데이트는 제거)
-      final userData = await getUserData(userCredential.user!.uid);
-      if (userData != null && userData['playerName'] != null) {
-        print('기존 플레이어 이름 발견: ${userData['playerName']}');
-      } else {
-        // 사용자 문서가 없으면 기본 정보로 생성
-        await _firestore!.collection('users').doc(userCredential.user!.uid).set({
-          'email': email,
-          'playerName': userCredential.user!.displayName ?? '플레이어',
-          'createdAt': FieldValue.serverTimestamp(),
+      // 로그인 성공 후 추가 정보 처리는 선택적으로 수행
+      try {
+        // 사용자 정보 가져오기 (Auth 프로필 업데이트는 제거)
+        final userData = await getUserData(userCredential.user!.uid);
+        if (userData != null && userData['playerName'] != null) {
+          print('기존 플레이어 이름 발견: ${userData['playerName']}');
+        } else {
+          // 사용자 문서가 없으면 기본 정보로 생성
+          await _firestore!.collection('users').doc(userCredential.user!.uid).set({
+            'email': email,
+            'playerName': userCredential.user!.displayName ?? '플레이어',
+            'createdAt': FieldValue.serverTimestamp(),
+            'lastLoginAt': FieldValue.serverTimestamp(),
+          });
+          print('새로운 사용자 문서 생성: ${userCredential.user!.uid}');
+        }
+
+        // 마지막 로그인 시간 업데이트
+        await _firestore!.collection('users').doc(userCredential.user!.uid).update({
           'lastLoginAt': FieldValue.serverTimestamp(),
         });
-        print('새로운 사용자 문서 생성: ${userCredential.user!.uid}');
+      } catch (e) {
+        // 추가 정보 처리 실패는 로그인 실패로 처리하지 않음
+        print('사용자 정보 처리 중 오류 (로그인은 성공): $e');
       }
-
-      // 마지막 로그인 시간 업데이트
-      await _firestore!.collection('users').doc(userCredential.user!.uid).update({
-        'lastLoginAt': FieldValue.serverTimestamp(),
-      });
 
       return userCredential;
     } catch (e) {
