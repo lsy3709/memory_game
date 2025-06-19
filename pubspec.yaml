@@ -43,7 +43,7 @@ dependencies:
   uuid: ^4.0.0 # 고유 ID 생성
   email_validator: ^2.1.17 # 이메일 유효성 검사
   crypto: ^3.0.3 # 비밀번호 해시화
-  firebase_core: ^2.24.2
+  firebase_core: ^2.32.0
   firebase_auth: ^4.15.3
   cloud_firestore: ^4.13.6
   firebase_storage: ^11.5.6
