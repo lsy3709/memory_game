@@ -79,6 +79,21 @@ service cloud.firestore {
     match /game_invites/{inviteId} {
       allow read, write: if request.auth != null;
     }
+
+    // 온라인 게임 상태 - 인증된 사용자만 읽기/쓰기 가능
+    match /online_rooms/{roomId}/game_state/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 카드 액션 - 인증된 사용자만 읽기/쓰기 가능
+    match /online_rooms/{roomId}/card_actions/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 턴 변경 - 인증된 사용자만 읽기/쓰기 가능
+    match /online_rooms/{roomId}/turn_changes/{docId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
 ```

@@ -1189,4 +1189,110 @@ class FirebaseService {
       throw Exception('친구 삭제에 실패했습니다.');
     }
   }
+
+  // ==================== 온라인 멀티플레이어 게임 동기화 ====================
+
+  /// 게임 상태 스트림 가져오기
+  Stream<Map<String, dynamic>?> getGameStateStream(String roomId) {
+    if (!_isInitialized || _firestore == null) {
+      return Stream.value(null);
+    }
+
+    return _firestore!.collection('online_rooms').doc(roomId)
+        .collection('game_state')
+        .doc('current')
+        .snapshots()
+        .map((doc) => doc.exists ? doc.data() : null);
+  }
+
+  /// 게임 상태 업데이트
+  Future<void> updateGameState(String roomId, Map<String, dynamic> gameState) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('game_state')
+          .doc('current')
+          .set(gameState, SetOptions(merge: true));
+    } catch (e) {
+      print('게임 상태 업데이트 오류: $e');
+      throw Exception('게임 상태 업데이트에 실패했습니다.');
+    }
+  }
+
+  /// 카드 플립 동기화
+  Future<void> syncCardFlip(String roomId, int cardIndex, bool isFlipped, String playerId) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('card_actions')
+          .add({
+        'cardIndex': cardIndex,
+        'isFlipped': isFlipped,
+        'playerId': playerId,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('카드 플립 동기화 오류: $e');
+      throw Exception('카드 플립 동기화에 실패했습니다.');
+    }
+  }
+
+  /// 카드 액션 스트림 가져오기
+  Stream<List<Map<String, dynamic>>> getCardActionsStream(String roomId) {
+    if (!_isInitialized || _firestore == null) {
+      return Stream.value([]);
+    }
+
+    return _firestore!.collection('online_rooms').doc(roomId)
+        .collection('card_actions')
+        .orderBy('timestamp', descending: true)
+        .limit(10)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => doc.data())
+            .toList());
+  }
+
+  /// 턴 변경 동기화
+  Future<void> syncTurnChange(String roomId, String currentPlayerId, String nextPlayerId) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('turn_changes')
+          .add({
+        'currentPlayerId': currentPlayerId,
+        'nextPlayerId': nextPlayerId,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('턴 변경 동기화 오류: $e');
+      throw Exception('턴 변경 동기화에 실패했습니다.');
+    }
+  }
+
+  /// 턴 변경 스트림 가져오기
+  Stream<Map<String, dynamic>?> getTurnChangeStream(String roomId) {
+    if (!_isInitialized || _firestore == null) {
+      return Stream.value(null);
+    }
+
+    return _firestore!.collection('online_rooms').doc(roomId)
+        .collection('turn_changes')
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.isNotEmpty ? snapshot.docs.first.data() : null);
+  }
 }

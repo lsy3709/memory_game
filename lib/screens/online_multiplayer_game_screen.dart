@@ -53,6 +53,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   int opponentPlayerScore = 0;            // 상대방 플레이어 점수
   int maxCombo = 0;                       // 최고 연속 매칭 기록
   DateTime gameStartTime = DateTime.now(); // 게임 시작 시간
+  
+  // 실시간 동기화 관련 변수
+  StreamSubscription? _cardActionsSubscription;
+  StreamSubscription? _turnChangeSubscription;
+  List<Map<String, dynamic>> recentCardActions = [];
+  String? lastTurnChangePlayerId;
 
   @override
   void initState() {
@@ -67,6 +73,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   @override
   void dispose() {
     gameTimer?.cancel();
+    _cardActionsSubscription?.cancel();
+    _turnChangeSubscription?.cancel();
     soundService.stopBackgroundMusic();
     super.dispose();
   }
@@ -125,8 +133,50 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         // 방 상태에 따른 처리
         if (room.status == RoomStatus.playing && !isGameRunning) {
           _startGame();
+          _setupRealtimeSync();
         } else if (room.status == RoomStatus.finished || room.status == RoomStatus.cancelled) {
           _gameOver();
+        }
+      }
+    });
+  }
+
+  /// 실시간 동기화 설정
+  void _setupRealtimeSync() {
+    // 카드 액션 리스너
+    _cardActionsSubscription = firebaseService.getCardActionsStream(currentRoom.id)
+        .listen((actions) {
+      if (actions.isNotEmpty) {
+        final latestAction = actions.first;
+        final actionPlayerId = latestAction['playerId'] as String;
+        
+        // 다른 플레이어의 액션만 처리
+        if (actionPlayerId != currentPlayerId) {
+          final cardIndex = latestAction['cardIndex'] as int;
+          final isFlipped = latestAction['isFlipped'] as bool;
+          
+          setState(() {
+            if (cardIndex < cards.length) {
+              cards[cardIndex].isFlipped = isFlipped;
+            }
+          });
+        }
+      }
+    });
+
+    // 턴 변경 리스너
+    _turnChangeSubscription = firebaseService.getTurnChangeStream(currentRoom.id)
+        .listen((turnChange) {
+      if (turnChange != null) {
+        final nextPlayerId = turnChange['nextPlayerId'] as String;
+        final changePlayerId = turnChange['currentPlayerId'] as String;
+        
+        // 다른 플레이어의 턴 변경만 처리
+        if (changePlayerId != currentPlayerId && lastTurnChangePlayerId != changePlayerId) {
+          setState(() {
+            isMyTurn = nextPlayerId == currentPlayerId;
+            lastTurnChangePlayerId = changePlayerId;
+          });
         }
       }
     });
@@ -147,13 +197,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     for (int i = 0; i < numPairs; i++) {
       tempCards.add(CardModel(
         id: i,
-        emoji: _getEmoji(i),
+        emoji: _getFlagEmoji(i),
         isMatched: false,
         isFlipped: false,
       ));
       tempCards.add(CardModel(
         id: i,
-        emoji: _getEmoji(i),
+        emoji: _getFlagEmoji(i),
         isMatched: false,
         isFlipped: false,
       ));
@@ -167,14 +217,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
   }
 
-  /// 이모지 가져오기
-  String _getEmoji(int index) {
-    final emojis = [
-      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
-      '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔',
-      '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺'
+  /// 이모지 가져오기 (국기로 변경)
+  String _getFlagEmoji(int index) {
+    final flags = [
+      '🇰🇷', '🇺🇸', '🇯🇵', '🇨🇳', '🇬🇧', '🇫🇷', '🇩🇪', '🇮🇹',
+      '🇪🇸', '🇨🇦', '🇦🇺', '🇧🇷', '🇦🇷', '🇲🇽', '🇮🇳', '🇷🇺',
+      '🇰🇵', '🇹🇭', '🇻🇳', '🇵🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇹🇼'
     ];
-    return emojis[index % emojis.length];
+    return flags[index % flags.length];
   }
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
@@ -226,6 +276,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         _checkMatch();
       }
     });
+    
+    // 실시간 동기화 - 카드 플립 정보 전송
+    firebaseService.syncCardFlip(currentRoom.id, index, true, currentPlayerId);
   }
 
   /// 카드 매칭 확인
@@ -294,13 +347,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   /// 턴 변경
   void _switchTurn() {
     // Firebase를 통해 턴 변경 정보를 상대방에게 전송
-    // TODO: 실시간 턴 동기화 구현
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          isMyTurn = true;
-        });
-      }
+    final nextPlayerId = currentRoom.isHost(currentPlayerId) 
+        ? currentRoom.guestId! 
+        : currentRoom.hostId;
+    
+    firebaseService.syncTurnChange(currentRoom.id, currentPlayerId, nextPlayerId);
+    
+    setState(() {
+      isMyTurn = false;
     });
   }
 
@@ -619,38 +673,50 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final screenHeight = screenSize.height;
     
     // 헤더와 컨트롤 영역을 제외한 사용 가능한 높이 계산
-    final availableHeight = screenHeight - 200; // 헤더 + 컨트롤 영역 대략적 계산
+    final availableHeight = screenHeight - 280; // 헤더 + 컨트롤 영역 더 정확한 계산
     
     // 카드 크기 계산 (화면에 맞게 조정)
-    final cardWidth = (screenWidth - 32 - (cols - 1) * 8) / cols; // 패딩과 간격 고려
-    final cardHeight = cardWidth * 1.4; // 카드 비율 조정
+    final horizontalPadding = 32.0; // 좌우 패딩
+    final cardSpacing = 8.0; // 카드 간격
+    final availableWidth = screenWidth - horizontalPadding - (cols - 1) * cardSpacing;
+    final cardWidth = availableWidth / cols;
+    
+    // 카드 높이 계산 (비율 고려)
+    final cardHeight = cardWidth * 1.2; // 카드 비율 조정
+    
+    // 전체 그리드 높이 계산
+    final totalGridHeight = cardHeight * rows + (rows - 1) * cardSpacing;
     
     // 그리드가 화면을 벗어나지 않도록 조정
-    final totalGridHeight = cardHeight * rows + (rows - 1) * 8;
     final adjustedCardHeight = totalGridHeight > availableHeight 
-        ? (availableHeight - (rows - 1) * 8) / rows 
+        ? (availableHeight - (rows - 1) * cardSpacing) / rows 
         : cardHeight;
     
-    return SingleChildScrollView(
+    return Container(
       padding: const EdgeInsets.all(16),
-      child: SizedBox(
-        height: totalGridHeight > availableHeight ? totalGridHeight : availableHeight,
-        child: GridView.builder(
-          physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            childAspectRatio: cardWidth / adjustedCardHeight,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
+      child: Column(
+        children: [
+          // 카드 그리드
+          SizedBox(
+            height: totalGridHeight > availableHeight ? totalGridHeight : availableHeight,
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cols,
+                childAspectRatio: cardWidth / adjustedCardHeight,
+                crossAxisSpacing: cardSpacing,
+                mainAxisSpacing: cardSpacing,
+              ),
+              itemCount: cards.length,
+              itemBuilder: (context, index) {
+                return MemoryCard(
+                  card: cards[index],
+                  onTap: () => _onCardTap(index),
+                );
+              },
+            ),
           ),
-          itemCount: cards.length,
-          itemBuilder: (context, index) {
-            return MemoryCard(
-              card: cards[index],
-              onTap: () => _onCardTap(index),
-            );
-          },
-        ),
+        ],
       ),
     );
   }
