@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -26,6 +27,16 @@ import 'firebase_options.dart'; // Firebase 옵션 파일
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  
+  // Impeller 렌더링 엔진 비활성화 (Skia 사용)
+  if (Platform.isAndroid) {
+    // Android에서 Impeller 비활성화
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+    ));
+  }
+  
   // Firebase 초기화
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -41,6 +52,16 @@ class MemoryGameApp extends StatelessWidget {
     return MaterialApp(
       title: 'Memory Card Game',
       debugShowCheckedModeBanner: false,
+      // 렌더링 성능 최적화
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            // 텍스트 스케일 고정으로 렌더링 안정성 향상
+            textScaleFactor: 1.0,
+          ),
+          child: child!,
+        );
+      },
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,

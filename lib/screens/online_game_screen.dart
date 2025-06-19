@@ -57,17 +57,30 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   @override
   void dispose() {
     // 타이머 정리
-    if (gameTimer.isActive) {
-      gameTimer.cancel();
+    try {
+      if (gameTimer.isActive) {
+        gameTimer.cancel();
+        print('게임 타이머 정리 완료');
+      }
+    } catch (e) {
+      print('타이머 정리 오류: $e');
     }
     
     // 사운드 리소스 해제
-    soundService.dispose();
+    try {
+      soundService.dispose();
+      print('사운드 서비스 정리 완료');
+    } catch (e) {
+      print('사운드 서비스 정리 오류: $e');
+    }
     
     // 상태 변수 초기화
     isGameRunning = false;
     isTimerPaused = false;
+    firstSelectedIndex = null;
+    secondSelectedIndex = null;
     
+    print('OnlineGameScreen dispose 완료');
     super.dispose();
   }
 
