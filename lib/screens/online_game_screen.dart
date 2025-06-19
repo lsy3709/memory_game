@@ -688,40 +688,34 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // 시작/계속하기 버튼
-                    ElevatedButton(
-                      onPressed: () {
-                        soundService.playButtonClickSound();
-                        _startGame();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
+                    if (!isGameRunning)
+                      ElevatedButton(
+                        onPressed: () {
+                          soundService.playButtonClickSound();
+                          _startGame();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('시작'),
                       ),
-                      child: Text(isGameRunning && isTimerPaused ? '계속하기' : '시작'),
-                    ),
-                    // 멈춤 버튼
+                    if (isGameRunning)
+                      ElevatedButton(
+                        onPressed: _resetGame,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('다시 시작'),
+                      ),
                     ElevatedButton(
-                      onPressed: isGameRunning && !isTimerPaused
-                          ? () {
-                              soundService.playButtonClickSound();
-                              _pauseGame();
-                            }
-                          : null,
+                      onPressed: () => Navigator.of(context).pop(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('멈춤'),
-                    ),
-                    // 다시하기 버튼
-                    ElevatedButton(
-                      onPressed: _resetGame,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('다시하기'),
+                      child: const Text('나가기'),
                     ),
                   ],
                 ),
