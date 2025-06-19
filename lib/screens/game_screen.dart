@@ -37,7 +37,7 @@ class _GameScreenState extends State<GameScreen> {
   int timeLeft = gameTimeSec;             // 남은 시간(초)
   bool isGameRunning = false;             // 게임 진행 여부
   bool isTimerPaused = false;             // 타이머 일시정지 여부
-  late Timer gameTimer;                   // 게임 타이머
+  Timer? gameTimer;                       // 게임 타이머 (nullable로 변경)
   final SoundService soundService = SoundService(); // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
   final StorageService storageService = StorageService(); // 저장소 관리
@@ -60,8 +60,8 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     // 타이머 정리
     try {
-      if (gameTimer.isActive) {
-        gameTimer.cancel();
+      if (gameTimer?.isActive == true) {
+        gameTimer?.cancel();
         print('로컬 게임 타이머 정리 완료');
       }
     } catch (e) {
@@ -129,8 +129,8 @@ class _GameScreenState extends State<GameScreen> {
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
   void _setupTimer() {
     // 기존 타이머가 있다면 취소
-    if (gameTimer.isActive) {
-      gameTimer.cancel();
+    if (gameTimer?.isActive == true) {
+      gameTimer?.cancel();
     }
     
     gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -213,7 +213,7 @@ class _GameScreenState extends State<GameScreen> {
   void _checkGameEnd() {
     if (cards.every((c) => c.isMatched)) {
       isGameRunning = false;
-      gameTimer.cancel(); // 타이머 중지
+      gameTimer?.cancel(); // 타이머 중지
       soundService.stopBackgroundMusic(); // 배경음악 중지
       soundService.playGameWin(); // 승리 사운드
       
@@ -310,7 +310,7 @@ class _GameScreenState extends State<GameScreen> {
       maxCombo = 0; // 최고 연속 매칭 기록 초기화
       gameStartTime = DateTime.now(); // 게임 시작 시간 기록
     });
-    if (gameTimer.isActive) gameTimer.cancel(); // 기존 타이머 중지
+    if (gameTimer?.isActive == true) gameTimer?.cancel(); // 기존 타이머 중지
     _setupTimer(); // 타이머 재설정
     soundService.startBackgroundMusic(); // 배경음악 시작
   }
@@ -335,7 +335,7 @@ class _GameScreenState extends State<GameScreen> {
       maxCombo = 0; // 최고 연속 매칭 기록 초기화
       scoreModel.reset(); // 점수 초기화
     });
-    if (gameTimer.isActive) gameTimer.cancel();
+    if (gameTimer?.isActive == true) gameTimer?.cancel();
     _setupTimer();
     soundService.stopBackgroundMusic();
   }
@@ -343,7 +343,7 @@ class _GameScreenState extends State<GameScreen> {
   /// 시간 초과 시 게임 오버 처리
   void _gameOver() {
     isGameRunning = false;
-    gameTimer.cancel();
+    gameTimer?.cancel();
     soundService.stopBackgroundMusic();
     
     // 게임 기록 저장 (미완료)

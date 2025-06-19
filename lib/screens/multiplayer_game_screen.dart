@@ -45,7 +45,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   int timeLeft = gameTimeSec;             // 남은 시간(초)
   bool isGameRunning = false;             // 게임 진행 여부
   bool isTimerPaused = false;             // 타이머 일시정지 여부
-  late Timer gameTimer;                   // 게임 타이머
+  Timer? gameTimer;                       // 게임 타이머 (nullable로 변경)
   final SoundService soundService = SoundService(); // 사운드 관리
   final StorageService storageService = StorageService(); // 저장소 관리
   
@@ -63,7 +63,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
 
   @override
   void dispose() {
-    if (gameTimer.isActive) gameTimer.cancel(); // 타이머 해제
+    if (gameTimer?.isActive == true) gameTimer?.cancel(); // 타이머 해제
     soundService.dispose(); // 사운드 리소스 해제
     super.dispose();
   }
@@ -119,6 +119,11 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
   void _setupTimer() {
+    // 기존 타이머가 있다면 취소
+    if (gameTimer?.isActive == true) {
+      gameTimer?.cancel();
+    }
+    
     gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (isGameRunning && !isTimerPaused) {
         setState(() {
@@ -218,7 +223,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   void _checkGameEnd() {
     if (cards.every((c) => c.isMatched)) {
       isGameRunning = false;
-      gameTimer.cancel(); // 타이머 중지
+      gameTimer?.cancel(); // 타이머 중지
       soundService.stopBackgroundMusic(); // 배경음악 중지
       soundService.playGameWin(); // 승리 사운드
       
@@ -412,7 +417,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       isTimerPaused = false;
       gameStartTime = DateTime.now(); // 게임 시작 시간 기록
     });
-    if (gameTimer.isActive) gameTimer.cancel(); // 기존 타이머 중지
+    if (gameTimer?.isActive == true) gameTimer?.cancel(); // 기존 타이머 중지
     _setupTimer(); // 타이머 재설정
     soundService.startBackgroundMusic(); // 배경음악 시작
   }
@@ -437,7 +442,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       isGameRunning = false;
       isTimerPaused = false;
     });
-    if (gameTimer.isActive) gameTimer.cancel();
+    if (gameTimer?.isActive == true) gameTimer?.cancel();
     _setupTimer();
     soundService.stopBackgroundMusic();
   }
@@ -445,7 +450,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   /// 시간 초과 시 게임 오버 처리
   void _gameOver() {
     isGameRunning = false;
-    gameTimer.cancel();
+    gameTimer?.cancel();
     soundService.stopBackgroundMusic();
     
     // 게임 기록 저장 (미완료)
