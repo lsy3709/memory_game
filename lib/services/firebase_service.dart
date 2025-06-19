@@ -1297,11 +1297,15 @@ class FirebaseService {
 
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('card_actions')
-        .orderBy('timestamp', descending: false) // 오래된 순서로 정렬하여 순차 처리
-        .limit(20) // 더 많은 액션을 가져와서 누락 방지
+        .orderBy('timestamp', descending: true) // 최신 순서로 정렬
+        .limit(5) // 최근 5개 액션만 가져오기
         .snapshots()
         .map((snapshot) {
-          final actions = snapshot.docs.map((doc) => doc.data()).toList();
+          final actions = snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id; // 문서 ID를 액션 ID로 사용
+            return data;
+          }).toList();
           print('카드 액션 스트림 데이터: ${actions.length}개 액션');
           return actions;
         });
@@ -1344,12 +1348,13 @@ class FirebaseService {
 
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('turn_changes')
-        .orderBy('timestamp', descending: true) // 클라이언트 타임스탬프로 정렬
-        .limit(1)
+        .orderBy('timestamp', descending: true) // 최신 순서로 정렬
+        .limit(1) // 최신 턴 변경만 가져오기
         .snapshots()
         .map((snapshot) {
           if (snapshot.docs.isNotEmpty) {
             final data = snapshot.docs.first.data();
+            data['id'] = snapshot.docs.first.id; // 문서 ID를 턴 변경 ID로 사용
             print('턴 변경 스트림 데이터: $data');
             return data;
           }
@@ -1403,11 +1408,15 @@ class FirebaseService {
 
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('card_matches')
-        .orderBy('timestamp', descending: false) // 오래된 순서로 정렬하여 순차 처리
-        .limit(20) // 더 많은 매칭을 가져와서 누락 방지
+        .orderBy('timestamp', descending: true) // 최신 순서로 정렬
+        .limit(5) // 최근 5개 매칭만 가져오기
         .snapshots()
         .map((snapshot) {
-          final matches = snapshot.docs.map((doc) => doc.data()).toList();
+          final matches = snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id; // 문서 ID를 매칭 ID로 사용
+            return data;
+          }).toList();
           print('카드 매칭 스트림 데이터: ${matches.length}개 매칭');
           return matches;
         });

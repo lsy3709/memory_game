@@ -58,12 +58,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   int maxCombo = 0;                       // 최고 연속 매칭 기록
   DateTime gameStartTime = DateTime.now(); // 게임 시작 시간
   
-  // 실시간 동기화 관련 변수들
-  StreamSubscription<List<Map<String, dynamic>>>? _cardActionsSubscription;
-  StreamSubscription<List<Map<String, dynamic>>>? _cardMatchesSubscription;
-  StreamSubscription<Map<String, dynamic>?>? _turnChangeSubscription;
-  StreamSubscription<Map<String, dynamic>?>? _gameStateSubscription;
+  // 실시간 동기화 관련 변수
+  StreamSubscription? _cardActionsSubscription;
+  StreamSubscription? _turnChangeSubscription;
+  StreamSubscription? _cardMatchesSubscription;
+  Set<String> _processedActionIds = {}; // 처리된 액션 ID 추적
   String? lastTurnChangePlayerId;
+  bool _isProcessingAction = false; // 액션 처리 중 플래그
   
   /// 게임 완료 여부
   bool gameCompleted = false;
@@ -88,7 +89,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _cardActionsSubscription?.cancel();
     _turnChangeSubscription?.cancel();
     _cardMatchesSubscription?.cancel();
-    _gameStateSubscription?.cancel();
     soundService.stopBackgroundMusic();
     super.dispose();
   }
@@ -143,8 +143,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         
         // 방 상태에 따른 처리
         if (room.status == RoomStatus.playing && !isGameRunning) {
+          print('방 상태가 playing으로 변경됨 - 게임 시작');
           _startGame();
         } else if (room.status == RoomStatus.finished || room.status == RoomStatus.cancelled) {
+          print('방 상태가 종료됨 - 게임 오버');
           _gameOver();
         }
       }
@@ -153,13 +155,22 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 실시간 동기화 설정
   void _setupRealtimeSync() {
-    print('=== 실시간 동기화 설정 시작 ===');
-    
-    // 카드 액션 리스너
+    // 카드 액션 리스너 - 개선된 버전
     _cardActionsSubscription = firebaseService.getCardActionsStream(currentRoom.id)
         .listen((actions) {
-      if (actions.isNotEmpty) {
-        final latestAction = actions.first;
+      if (actions.isNotEmpty && !_isProcessingAction) {
+        _isProcessingAction = true;
+        
+        // 가장 최신 액션만 처리
+        final latestAction = actions.last;
+        final actionId = latestAction['id'] ?? '${latestAction['timestamp']}_${latestAction['playerId']}_${latestAction['cardIndex']}';
+        
+        // 이미 처리된 액션이면 무시
+        if (_processedActionIds.contains(actionId)) {
+          _isProcessingAction = false;
+          return;
+        }
+        
         final actionPlayerId = latestAction['playerId'] as String;
         
         // 다른 플레이어의 액션만 처리
@@ -167,22 +178,43 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           final cardIndex = latestAction['cardIndex'] as int;
           final isFlipped = latestAction['isFlipped'] as bool;
           
-          print('다른 플레이어 카드 액션 감지: 플레이어=$actionPlayerId, 카드=$cardIndex, 뒤집힘=$isFlipped');
+          print('다른 플레이어 카드 액션 처리: 플레이어=$actionPlayerId, 카드=$cardIndex, 뒤집힘=$isFlipped');
           
           setState(() {
             if (cardIndex < cards.length) {
               cards[cardIndex].isFlipped = isFlipped;
             }
           });
+          
+          // 처리된 액션 ID 기록
+          _processedActionIds.add(actionId);
+          
+          // 처리된 액션 ID 목록이 너무 커지면 정리
+          if (_processedActionIds.length > 100) {
+            _processedActionIds.clear();
+          }
         }
+        
+        _isProcessingAction = false;
       }
     });
 
-    // 카드 매칭 리스너
+    // 카드 매칭 리스너 - 개선된 버전
     _cardMatchesSubscription = firebaseService.getCardMatchesStream(currentRoom.id)
         .listen((matches) {
-      if (matches.isNotEmpty) {
-        final latestMatch = matches.first;
+      if (matches.isNotEmpty && !_isProcessingAction) {
+        _isProcessingAction = true;
+        
+        // 가장 최신 매칭만 처리
+        final latestMatch = matches.last;
+        final matchId = latestMatch['id'] ?? '${latestMatch['timestamp']}_${latestMatch['playerId']}_${latestMatch['cardIndex1']}_${latestMatch['cardIndex2']}';
+        
+        // 이미 처리된 매칭이면 무시
+        if (_processedActionIds.contains(matchId)) {
+          _isProcessingAction = false;
+          return;
+        }
+        
         final matchPlayerId = latestMatch['playerId'] as String;
         
         // 다른 플레이어의 매칭만 처리
@@ -190,9 +222,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           final cardIndex1 = latestMatch['cardIndex1'] as int;
           final cardIndex2 = latestMatch['cardIndex2'] as int;
           final isMatched = latestMatch['isMatched'] as bool;
-          final score = latestMatch['score'] as int? ?? 0;
           
-          print('다른 플레이어 매칭 감지: 플레이어=$matchPlayerId, 카드1=$cardIndex1, 카드2=$cardIndex2, 매칭=$isMatched, 점수=$score');
+          print('다른 플레이어 매칭 처리: 플레이어=$matchPlayerId, 카드1=$cardIndex1, 카드2=$cardIndex2, 매칭=$isMatched');
           
           setState(() {
             if (cardIndex1 < cards.length && cardIndex2 < cards.length) {
@@ -201,13 +232,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               if (isMatched) {
                 cards[cardIndex1].isFlipped = true;
                 cards[cardIndex2].isFlipped = true;
-                
-                // 상대방 점수 업데이트
-                if (currentRoom.isHost(currentPlayerId)) {
-                  opponentPlayerScore = score;
-                } else {
-                  opponentPlayerScore = score;
-                }
               } else {
                 // 매칭 실패 시 카드 뒤집기 해제
                 Future.delayed(const Duration(milliseconds: 1000), () {
@@ -221,18 +245,32 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               }
             }
           });
+          
+          // 처리된 매칭 ID 기록
+          _processedActionIds.add(matchId);
         }
+        
+        _isProcessingAction = false;
       }
     });
 
-    // 턴 변경 리스너
+    // 턴 변경 리스너 - 개선된 버전
     _turnChangeSubscription = firebaseService.getTurnChangeStream(currentRoom.id)
         .listen((turnChange) {
-      if (turnChange != null) {
+      if (turnChange != null && !_isProcessingAction) {
+        _isProcessingAction = true;
+        
         final nextPlayerId = turnChange['nextPlayerId'] as String;
         final changePlayerId = turnChange['currentPlayerId'] as String;
+        final turnChangeId = turnChange['id'] ?? '${turnChange['timestamp']}_$changePlayerId';
         
-        print('턴 변경 감지: $changePlayerId -> $nextPlayerId');
+        // 이미 처리된 턴 변경이면 무시
+        if (_processedActionIds.contains(turnChangeId)) {
+          _isProcessingAction = false;
+          return;
+        }
+        
+        print('턴 변경 처리: $changePlayerId -> $nextPlayerId');
         print('현재 플레이어: $currentPlayerId, 내 턴: ${nextPlayerId == currentPlayerId}');
         
         // 다른 플레이어의 턴 변경만 처리
@@ -249,10 +287,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             secondSelectedIndex = null;
           }
         }
+        
+        // 처리된 턴 변경 ID 기록
+        _processedActionIds.add(turnChangeId);
+        
+        _isProcessingAction = false;
       }
     });
-    
-    print('=== 실시간 동기화 설정 완료 ===');
   }
 
   /// 게임 초기화
@@ -441,16 +482,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _startGame() {
     print('게임 시작 - 방장: ${currentRoom.isHost(currentPlayerId)}');
     
-    // 모든 플레이어가 동일한 시드로 카드 생성 (Firebase 로드 대신)
+    // 실시간 동기화 설정
+    _setupRealtimeSync();
+    
+    // 모든 플레이어가 동일한 시드로 카드 생성
     _createCards();
     
     setState(() {
       isGameRunning = true;
-      isMyTurn = currentRoom.isHost(currentPlayerId); // 방장이 먼저 시작
       gameStartTime = DateTime.now();
+      // 방장이 먼저 시작
+      isMyTurn = currentRoom.isHost(currentPlayerId);
       firstSelectedIndex = null;
       secondSelectedIndex = null;
-      lastTurnChangePlayerId = null; // 턴 변경 중복 방지 변수 초기화
+      // 처리된 액션 ID 목록 초기화
+      _processedActionIds.clear();
     });
     
     // 타이머 시작
@@ -464,20 +510,40 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 카드 선택 처리
   void _onCardTap(int index) {
-    if (!isGameRunning || !isMyTurn || isTimerPaused) return;
+    // 게임이 진행 중이 아니거나 내 턴이 아니거나 타이머가 일시정지된 경우 무시
+    if (!isGameRunning || !isMyTurn || isTimerPaused) {
+      print('카드 선택 무시: 게임진행=$isGameRunning, 내턴=$isMyTurn, 일시정지=$isTimerPaused');
+      return;
+    }
     
     final card = cards[index];
-    if (card.isMatched || card.isFlipped) return;
+    
+    // 이미 매칭되었거나 뒤집힌 카드는 선택 불가
+    if (card.isMatched || card.isFlipped) {
+      print('카드 선택 무시: 이미 매칭됨=${card.isMatched}, 이미 뒤집힘=${card.isFlipped}');
+      return;
+    }
+    
+    // 같은 카드를 두 번 선택하는 것 방지
+    if (firstSelectedIndex == index || secondSelectedIndex == index) {
+      print('카드 선택 무시: 이미 선택된 카드');
+      return;
+    }
     
     soundService.playCardFlipSound();
+    
+    print('카드 선택: 인덱스=$index, 카드ID=${card.id}');
     
     setState(() {
       card.isFlipped = true;
       
       if (firstSelectedIndex == null) {
         firstSelectedIndex = index;
+        print('첫 번째 카드 선택: $index');
       } else if (secondSelectedIndex == null && firstSelectedIndex != index) {
         secondSelectedIndex = index;
+        print('두 번째 카드 선택: $index');
+        // 매칭 검사는 즉시 실행
         _checkMatch();
       }
     });
@@ -512,6 +578,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
     
+    print('매칭 성공: 카드1=$firstIndex, 카드2=$secondIndex');
+    
     setState(() {
       cards[firstIndex].isMatched = true;
       cards[secondIndex].isMatched = true;
@@ -530,19 +598,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       secondSelectedIndex = null;
     });
     
-    // 실시간 동기화 - 매칭 성공 정보 전송 (점수 포함)
+    // 실시간 동기화 - 매칭 성공 정보 전송
     firebaseService.syncCardMatch(
       currentRoom.id, 
       firstIndex, 
       secondIndex, 
       true, 
-      currentPlayerId,
-      currentPlayerScore, // 점수 정보 추가
+      currentPlayerId
     );
     
     // 매칭 성공 시에도 턴 변경 (연속 매칭이 아닌 경우)
     if (scoreModel.currentCombo == 0) {
+      print('매칭 성공 후 턴 변경');
       _changeTurn();
+    } else {
+      print('연속 매칭으로 인해 턴 유지');
     }
     
     // 게임 완료 확인
@@ -567,7 +637,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       currentPlayerId
     );
     
-    // 1초 후 카드 뒤집기 해제
+    // 1초 후 카드 뒤집기 해제 및 턴 변경
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
         setState(() {
@@ -578,6 +648,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         });
         
         // 턴 변경
+        print('매칭 실패 후 턴 변경');
         _changeTurn();
       }
     });
@@ -711,25 +782,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
   }
 
-  /// 턴 변경 - 완전히 개선된 버전
+  /// 턴 변경
   void _changeTurn() {
-    if (!mounted) {
-      print('컴포넌트가 마운트되지 않아 턴 변경 취소');
-      return;
-    }
+    if (!mounted) return;
     
-    // 게임이 진행 중이 아닌 경우 턴 변경 취소
-    if (!isGameRunning) {
-      print('게임이 진행 중이 아니므로 턴 변경 취소');
-      return;
-    }
-    
-    print('=== 턴 변경 시작 ===');
-    print('현재 플레이어 ID: $currentPlayerId');
-    print('방장 ID: ${currentRoom.hostId}');
-    print('게스트 ID: ${currentRoom.guestId}');
-    print('현재 내 턴: $isMyTurn');
-    print('게임 진행 상태: $isGameRunning');
+    print('턴 변경 시작: 현재 플레이어=$currentPlayerId');
     
     // 현재 플레이어가 방장인지 게스트인지 확인
     final isCurrentPlayerHost = currentRoom.isHost(currentPlayerId);
@@ -739,46 +796,36 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (isCurrentPlayerHost) {
       // 방장인 경우 게스트로 턴 변경
       nextPlayerId = currentRoom.guestId ?? currentRoom.hostId;
-      print('방장 -> 게스트 턴 변경: $nextPlayerId');
+      print('방장 -> 게스트 턴 변경: $currentPlayerId -> $nextPlayerId');
     } else {
       // 게스트인 경우 방장으로 턴 변경
       nextPlayerId = currentRoom.hostId;
-      print('게스트 -> 방장 턴 변경: $nextPlayerId');
+      print('게스트 -> 방장 턴 변경: $currentPlayerId -> $nextPlayerId');
     }
     
-    // 다음 플레이어가 유효한지 확인
-    if (nextPlayerId.isEmpty) {
-      print('다음 플레이어 ID가 비어있어 턴 변경 취소');
-      return;
-    }
-    
-    print('턴 변경: $currentPlayerId -> $nextPlayerId');
-    print('다음 턴이 내 턴인가: ${nextPlayerId == currentPlayerId}');
-    
-    // 로컬 상태 업데이트
+    // 현재 플레이어의 턴을 종료
     setState(() {
-      isMyTurn = nextPlayerId == currentPlayerId;
+      isMyTurn = false;
     });
     
-    print('로컬 턴 상태 업데이트: 내 턴 = $isMyTurn');
+    print('내 턴 종료: $isMyTurn');
     
-    // Firebase에 턴 변경 정보 전송 (타임스탬프 포함)
-    try {
-      firebaseService.syncTurnChange(currentRoom.id, currentPlayerId, nextPlayerId);
-      print('Firebase 턴 변경 정보 전송 완료');
-      
-      // 게임 상태도 함께 업데이트
-      firebaseService.updateGameState(currentRoom.id, {
-        'currentTurn': nextPlayerId,
-        'lastTurnChange': FieldValue.serverTimestamp(),
+    // Firebase에 턴 변경 정보 전송
+    firebaseService.syncTurnChange(currentRoom.id, currentPlayerId, nextPlayerId);
+    
+    // 다음 플레이어가 자신인 경우 턴 시작
+    if (nextPlayerId == currentPlayerId) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            isMyTurn = true;
+            firstSelectedIndex = null;
+            secondSelectedIndex = null;
+          });
+          print('내 턴 시작: $isMyTurn');
+        }
       });
-      print('Firebase 게임 상태 업데이트 완료');
-    } catch (e) {
-      print('Firebase 턴 변경 정보 전송 실패: $e');
-      // 전송 실패 시에도 로컬 상태는 유지
     }
-    
-    print('=== 턴 변경 완료 ===');
   }
 
   /// 방 나가기 처리
@@ -796,7 +843,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       _cardActionsSubscription?.cancel();
       _turnChangeSubscription?.cancel();
       _cardMatchesSubscription?.cancel();
-      _gameStateSubscription?.cancel();
       
       // Firebase에서 방 나가기 처리
       await firebaseService.leaveOnlineRoom(currentRoom.id);
