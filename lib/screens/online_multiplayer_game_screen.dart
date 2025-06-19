@@ -473,6 +473,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _setupTimer();
   }
 
+  /// 타이머 정지
+  void _stopTimer() {
+    print('타이머 정지');
+    gameTimer?.cancel();
+    gameTimer = null;
+  }
+
   /// 게임 시작
   void _startGame() {
     if (!currentRoom.isHost(currentPlayerId)) {
