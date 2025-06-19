@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
 
 import '../widgets/memory_card.dart';
 import '../models/card_model.dart';
@@ -9,6 +10,8 @@ import '../models/game_record.dart';
 import '../models/player_stats.dart';
 import '../services/sound_service.dart';
 import '../services/storage_service.dart';
+import 'package:memory_game/firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 /// 메모리 카드 게임의 메인 화면을 담당하는 StatefulWidget
 class GameScreen extends StatefulWidget {
