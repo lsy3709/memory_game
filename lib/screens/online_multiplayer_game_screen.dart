@@ -409,11 +409,20 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 카드 선택 처리
   void _onCardTap(int index) {
-    if (!isGameRunning || !isMyTurn || isTimerPaused) return;
+    print('카드 탭: 인덱스=$index, 게임진행=$isGameRunning, 내턴=$isMyTurn, 타이머일시정지=$isTimerPaused');
+    
+    if (!isGameRunning || !isMyTurn || isTimerPaused) {
+      print('카드 선택 불가: 게임진행=$isGameRunning, 내턴=$isMyTurn, 타이머일시정지=$isTimerPaused');
+      return;
+    }
     
     final card = cards[index];
-    if (card.isMatched || card.isFlipped) return;
+    if (card.isMatched || card.isFlipped) {
+      print('카드 선택 불가: 매칭됨=${card.isMatched}, 뒤집힘=${card.isFlipped}');
+      return;
+    }
     
+    print('카드 선택 가능: 카드 ID=${card.id}, 이모지=${card.emoji}');
     soundService.playCardFlipSound();
     
     setState(() {
@@ -421,9 +430,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       
       if (firstSelectedIndex == null) {
         firstSelectedIndex = index;
+        print('첫 번째 카드 선택: 인덱스=$index');
       } else if (secondSelectedIndex == null && firstSelectedIndex != index) {
         secondSelectedIndex = index;
+        print('두 번째 카드 선택: 인덱스=$index, 매칭 확인 시작');
         _checkMatch();
+      } else {
+        print('이미 두 카드가 선택됨: 첫번째=$firstSelectedIndex, 두번째=$secondSelectedIndex');
       }
     });
     
@@ -433,6 +446,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 카드 매칭 확인
   void _checkMatch() {
+    if (firstSelectedIndex == null || secondSelectedIndex == null) {
+      print('매칭 확인 실패: 선택된 카드가 부족함');
+      return;
+    }
+    
     final firstCard = cards[firstSelectedIndex!];
     final secondCard = cards[secondSelectedIndex!];
     
@@ -450,56 +468,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
   }
 
-  /// 턴 변경
-  void _changeTurn() {
-    if (!mounted) return;
-    
-    print('=== 턴 변경 시작 ===');
-    print('현재 플레이어 ID: $currentPlayerId');
-    print('방장 ID: ${currentRoom.hostId}');
-    print('게스트 ID: ${currentRoom.guestId}');
-    print('현재 내 턴: $isMyTurn');
-    
-    // 현재 플레이어가 방장인지 게스트인지 확인
-    final isCurrentPlayerHost = currentRoom.isHost(currentPlayerId);
-    
-    // 다음 플레이어 ID 결정
-    String nextPlayerId;
-    if (isCurrentPlayerHost) {
-      // 방장인 경우 게스트로 턴 변경
-      nextPlayerId = currentRoom.guestId ?? currentRoom.hostId;
-      print('방장 -> 게스트 턴 변경: $nextPlayerId');
-    } else {
-      // 게스트인 경우 방장으로 턴 변경
-      nextPlayerId = currentRoom.hostId;
-      print('게스트 -> 방장 턴 변경: $nextPlayerId');
-    }
-    
-    print('턴 변경: $currentPlayerId -> $nextPlayerId');
-    print('다음 턴이 내 턴인가: ${nextPlayerId == currentPlayerId}');
-    
-    // 로컬 상태 업데이트
-    setState(() {
-      isMyTurn = nextPlayerId == currentPlayerId;
-    });
-    
-    print('로컬 턴 상태 업데이트: 내 턴 = $isMyTurn');
-    
-    // Firebase에 턴 변경 정보 전송
-    firebaseService.syncTurnChange(currentRoom.id, currentPlayerId, nextPlayerId);
-    
-    print('Firebase 턴 변경 정보 전송 완료');
-    print('=== 턴 변경 완료 ===');
-  }
-
   /// 매칭 성공 처리
   void _handleMatchSuccess() {
+    print('매칭 성공 처리 시작');
     soundService.playMatchSound();
     
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
     
-    print('매칭 성공 처리 시작');
     print('현재 콤보: ${scoreModel.currentCombo}');
     
     setState(() {
@@ -546,12 +522,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 매칭 실패 처리
   void _handleMatchFailure() {
+    print('매칭 실패 처리 시작');
     soundService.playMismatchSound();
     
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
     
-    print('매칭 실패 처리 시작');
     print('매칭 실패 - 카드 뒤집기 해제: $firstIndex, $secondIndex');
     
     // 실시간 동기화 - 매칭 실패 정보 전송
@@ -583,14 +559,19 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   /// 게임 완료 확인
   void _checkGameCompletion() {
     final matchedCards = cards.where((card) => card.isMatched).length;
+    print('게임 완료 확인: 매칭된 카드=$matchedCards, 전체 카드=$totalCards');
+    
     if (matchedCards == totalCards) {
+      print('게임 완료! 모든 카드가 매칭됨');
       _gameOver();
     }
   }
 
   /// 게임 오버 처리
   void _gameOver() {
+    print('게임 오버 처리 시작');
     isGameRunning = false;
+    gameCompleted = true;
     gameTimer?.cancel();
     soundService.stopBackgroundMusic();
     
@@ -705,12 +686,55 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   /// Firebase에 게임 상태 업데이트
-  void _updateGameState() {
-    // 게임 시작 상태를 Firebase에 업데이트
-    if (currentRoom.isHost(currentPlayerId)) {
-      firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
-      print('게임 시작 상태를 Firebase에 업데이트 완료');
+  Future<void> _updateGameState() async {
+    try {
+      await firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
+      print('Firebase 게임 상태 업데이트 완료');
+    } catch (e) {
+      print('Firebase 게임 상태 업데이트 실패: $e');
     }
+  }
+
+  /// 턴 변경
+  void _changeTurn() {
+    if (!mounted) return;
+    
+    print('=== 턴 변경 시작 ===');
+    print('현재 플레이어 ID: $currentPlayerId');
+    print('방장 ID: ${currentRoom.hostId}');
+    print('게스트 ID: ${currentRoom.guestId}');
+    print('현재 내 턴: $isMyTurn');
+    
+    // 현재 플레이어가 방장인지 게스트인지 확인
+    final isCurrentPlayerHost = currentRoom.isHost(currentPlayerId);
+    
+    // 다음 플레이어 ID 결정
+    String nextPlayerId;
+    if (isCurrentPlayerHost) {
+      // 방장인 경우 게스트로 턴 변경
+      nextPlayerId = currentRoom.guestId ?? currentRoom.hostId;
+      print('방장 -> 게스트 턴 변경: $nextPlayerId');
+    } else {
+      // 게스트인 경우 방장으로 턴 변경
+      nextPlayerId = currentRoom.hostId;
+      print('게스트 -> 방장 턴 변경: $nextPlayerId');
+    }
+    
+    print('턴 변경: $currentPlayerId -> $nextPlayerId');
+    print('다음 턴이 내 턴인가: ${nextPlayerId == currentPlayerId}');
+    
+    // 로컬 상태 업데이트
+    setState(() {
+      isMyTurn = nextPlayerId == currentPlayerId;
+    });
+    
+    print('로컬 턴 상태 업데이트: 내 턴 = $isMyTurn');
+    
+    // Firebase에 턴 변경 정보 전송
+    firebaseService.syncTurnChange(currentRoom.id, currentPlayerId, nextPlayerId);
+    
+    print('Firebase 턴 변경 정보 전송 완료');
+    print('=== 턴 변경 완료 ===');
   }
 
   @override
@@ -924,34 +948,33 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   ),
                 ),
               
-              // 카드 그리드 (고정 크기, 스크롤 없음)
-              if (isGameRunning)
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    child: GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: gridColumns,
-                        childAspectRatio: 0.8,
-                        crossAxisSpacing: cardSpacing,
-                        mainAxisSpacing: cardSpacing,
-                      ),
-                      itemCount: cards.length,
-                      itemBuilder: (context, index) {
-                        return SizedBox(
-                          width: finalCardSize,
-                          height: finalCardSize,
-                          child: MemoryCard(
-                            card: cards[index],
-                            onTap: () => _onCardTap(index),
-                            isEnabled: isMyTurn && isGameRunning,
-                          ),
-                        );
-                      },
+              // 카드 그리드 (항상 표시)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: gridColumns,
+                      childAspectRatio: 0.8,
+                      crossAxisSpacing: cardSpacing,
+                      mainAxisSpacing: cardSpacing,
                     ),
+                    itemCount: cards.length,
+                    itemBuilder: (context, index) {
+                      return SizedBox(
+                        width: finalCardSize,
+                        height: finalCardSize,
+                        child: MemoryCard(
+                          card: cards[index],
+                          onTap: () => _onCardTap(index),
+                          isEnabled: isMyTurn && isGameRunning,
+                        ),
+                      );
+                    },
                   ),
                 ),
+              ),
               
               // 게임 완료 메시지
               if (!isGameRunning && gameCompleted)

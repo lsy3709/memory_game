@@ -685,7 +685,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                 ),
               ),
               
-              // 카드 그리드 (고정 크기, 스크롤 없음)
+              // 카드 그리드 (항상 표시)
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.all(4),
