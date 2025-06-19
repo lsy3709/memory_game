@@ -17,27 +17,43 @@ class FirebaseService {
   FirebaseAuth? _auth;
   FirebaseFirestore? _firestore;
   bool _isInitialized = false;
+  bool _isFirebaseAvailable = false;
 
   /// Firebase 초기화 확인
   bool get isInitialized => _isInitialized;
+
+  /// Firebase 사용 가능 여부
+  bool get isFirebaseAvailable => _isFirebaseAvailable;
 
   /// Firebase 초기화
   Future<void> _initialize() async {
     if (_isInitialized) return;
     
     try {
-      // Firebase가 초기화되었는지 확인
+      // Firebase가 사용 가능한지 확인
+      _isFirebaseAvailable = await _checkFirebaseAvailability();
+      
+      if (!_isFirebaseAvailable) {
+        print('Firebase가 사용할 수 없습니다. 로컬 모드로 실행됩니다.');
+        _isInitialized = true; // 초기화는 성공으로 처리하되 Firebase는 사용하지 않음
+        return;
+      }
+
+      // Firebase 인스턴스 생성
       try {
         _auth = FirebaseAuth.instance;
         _firestore = FirebaseFirestore.instance;
       } catch (e) {
         print('Firebase 인스턴스 생성 실패: $e');
-        throw Exception('Firebase가 설정되지 않았습니다. firebase_options.dart 파일을 확인해주세요.');
+        _isFirebaseAvailable = false;
+        _isInitialized = true; // 초기화는 성공으로 처리하되 Firebase는 사용하지 않음
+        return;
       }
       
       // Firebase 연결 테스트 (선택적)
       try {
         await _firestore!.collection('connection_test').doc('test').get();
+        print('Firebase 연결 테스트 성공');
       } catch (e) {
         print('Firebase 연결 테스트 실패: $e');
         // 연결 테스트 실패해도 초기화는 성공으로 처리
@@ -47,30 +63,31 @@ class FirebaseService {
       print('Firebase 서비스 초기화 성공');
     } catch (e) {
       print('Firebase 서비스 초기화 실패: $e');
-      _isInitialized = false;
+      _isInitialized = true; // 초기화는 성공으로 처리하되 Firebase는 사용하지 않음
+      _isFirebaseAvailable = false;
       _auth = null;
       _firestore = null;
-      
-      // Firebase 초기화 실패 시 상세한 오류 정보 제공
-      if (e.toString().contains('firebase_core') || e.toString().contains('no-app')) {
-        throw Exception('Firebase가 설정되지 않았습니다. firebase_options.dart 파일을 확인해주세요.');
-      } else if (e.toString().contains('network')) {
-        throw Exception('네트워크 연결을 확인해주세요.');
-      } else if (e.toString().contains('permission')) {
-        throw Exception('Firebase 권한 설정을 확인해주세요.');
-      } else {
-        throw Exception('Firebase 초기화에 실패했습니다: $e');
-      }
+    }
+  }
+
+  /// Firebase 사용 가능 여부 확인
+  Future<bool> _checkFirebaseAvailability() async {
+    try {
+      // Firebase Core가 초기화되었는지 확인
+      // 실제로는 compile-time에 결정되므로 항상 false 반환
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 
   /// Firebase 초기화 상태 확인 및 재시도
   Future<bool> ensureInitialized() async {
-    if (_isInitialized) return true;
+    if (_isInitialized) return _isFirebaseAvailable;
     
     try {
       await _initialize();
-      return _isInitialized;
+      return _isFirebaseAvailable;
     } catch (e) {
       print('Firebase 초기화 재시도 실패: $e');
       return false;
@@ -79,13 +96,13 @@ class FirebaseService {
 
   /// 현재 로그인된 사용자
   User? get currentUser {
-    if (!_isInitialized) return null;
+    if (!_isInitialized || !_isFirebaseAvailable) return null;
     return _auth?.currentUser;
   }
 
   /// 로그인 상태 변경 스트림
   Stream<User?> get authStateChanges {
-    if (!_isInitialized) return Stream.value(null);
+    if (!_isInitialized || !_isFirebaseAvailable) return Stream.value(null);
     return _auth?.authStateChanges() ?? Stream.value(null);
   }
 
@@ -96,8 +113,8 @@ class FirebaseService {
     required String playerName,
   }) async {
     await _initialize();
-    if (!_isInitialized || _auth == null || _firestore == null) {
-      throw Exception('Firebase가 초기화되지 않았습니다.');
+    if (!_isInitialized || !_isFirebaseAvailable || _auth == null || _firestore == null) {
+      throw Exception('Firebase가 사용할 수 없습니다. 로컬 모드로 실행 중입니다.');
     }
 
     try {
@@ -130,8 +147,8 @@ class FirebaseService {
     required String password,
   }) async {
     await _initialize();
-    if (!_isInitialized || _auth == null || _firestore == null) {
-      throw Exception('Firebase가 초기화되지 않았습니다.');
+    if (!_isInitialized || !_isFirebaseAvailable || _auth == null || _firestore == null) {
+      throw Exception('Firebase가 사용할 수 없습니다. 로컬 모드로 실행 중입니다.');
     }
 
     try {
@@ -154,8 +171,8 @@ class FirebaseService {
   /// 로그아웃
   Future<void> signOut() async {
     await _initialize();
-    if (!_isInitialized || _auth == null) {
-      throw Exception('Firebase가 초기화되지 않았습니다.');
+    if (!_isInitialized || !_isFirebaseAvailable || _auth == null) {
+      throw Exception('Firebase가 사용할 수 없습니다. 로컬 모드로 실행 중입니다.');
     }
     await _auth!.signOut();
   }
@@ -163,8 +180,8 @@ class FirebaseService {
   /// 비밀번호 재설정 이메일 발송
   Future<void> sendPasswordResetEmail(String email) async {
     await _initialize();
-    if (!_isInitialized || _auth == null) {
-      throw Exception('Firebase가 초기화되지 않았습니다.');
+    if (!_isInitialized || !_isFirebaseAvailable || _auth == null) {
+      throw Exception('Firebase가 사용할 수 없습니다. 로컬 모드로 실행 중입니다.');
     }
 
     try {

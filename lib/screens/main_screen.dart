@@ -74,6 +74,29 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  /// Firebase 상태 확인 (콘솔 체크)
+  void _checkFirebaseStatus() async {
+    try {
+      print('=== Firebase 상태 확인 ===');
+      print('Firebase 초기화 상태: ${_firebaseService.isInitialized}');
+      print('Firebase 사용 가능: ${_firebaseService.isFirebaseAvailable}');
+      
+      final isInitialized = await _firebaseService.ensureInitialized();
+      print('Firebase 초기화 재확인: $isInitialized');
+      
+      final currentUser = _firebaseService.currentUser;
+      print('현재 로그인된 사용자: ${currentUser?.email ?? '없음'}');
+      
+      print('=== Firebase 상태 확인 완료 ===');
+      
+      // 상태 확인 결과를 사용자에게 표시
+      _showFirebaseStatusDialog(isInitialized, currentUser);
+    } catch (e) {
+      print('Firebase 상태 확인 오류: $e');
+      _showFirebaseErrorDialog();
+    }
+  }
+
   /// 랭킹 보드 열기
   void _openRanking() {
     Navigator.of(context).pushNamed('/ranking');
@@ -94,6 +117,14 @@ class _MainScreenState extends State<MainScreen> {
               onTap: () {
                 Navigator.of(context).pop();
                 _showAccountDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud),
+              title: const Text('Firebase 상태 확인'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _checkFirebaseStatus();
               },
             ),
             ListTile(
@@ -261,18 +292,48 @@ class _MainScreenState extends State<MainScreen> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('온라인 모드 사용 불가'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('온라인 모드를 사용할 수 없습니다.'),
-            SizedBox(height: 8),
-            Text('가능한 원인:'),
-            Text('• Firebase 설정이 완료되지 않음'),
-            Text('• 네트워크 연결 문제'),
-            Text('• Firebase 프로젝트 설정 오류'),
-            SizedBox(height: 8),
-            Text('로컬 모드로 게임을 즐기실 수 있습니다.'),
+            const Text('온라인 모드를 사용할 수 없습니다.'),
+            const SizedBox(height: 8),
+            const Text('가능한 원인:'),
+            const Text('• Firebase 설정이 완료되지 않음'),
+            const Text('• 네트워크 연결 문제'),
+            const Text('• Firebase 프로젝트 설정 오류'),
+            const SizedBox(height: 8),
+            const Text('로컬 모드로 게임을 즐기실 수 있습니다.'),
+            const SizedBox(height: 16),
+            const Text('설정 > Firebase 상태 확인에서 자세한 정보를 확인할 수 있습니다.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Firebase 상태 다이얼로그 표시
+  void _showFirebaseStatusDialog(bool isInitialized, dynamic currentUser) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Firebase 상태'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('초기화 상태: ${isInitialized ? '성공' : '실패'}'),
+            Text('사용 가능: ${_firebaseService.isFirebaseAvailable ? '예' : '아니오'}'),
+            Text('로그인 상태: ${currentUser != null ? '로그인됨' : '로그인 안됨'}'),
+            if (currentUser != null) Text('사용자: ${currentUser.email}'),
+            const SizedBox(height: 16),
+            const Text('콘솔에서 자세한 정보를 확인할 수 있습니다.'),
           ],
         ),
         actions: [
