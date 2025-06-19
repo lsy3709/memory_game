@@ -19,7 +19,12 @@ import 'screens/online_ranking_screen.dart';
 import 'screens/online_my_records_screen.dart';
 import 'screens/online_multiplayer_setup_screen.dart';
 import 'screens/online_player_name_setup_screen.dart';
+import 'screens/online_room_list_screen.dart';
+import 'screens/online_room_creation_screen.dart';
+import 'screens/online_multiplayer_game_screen.dart';
+import 'screens/friend_management_screen.dart';
 import 'models/card_model.dart';
+import 'models/online_room.dart';
 import 'services/sound_service.dart';
 import 'services/firebase_service.dart';
 import 'firebase_options.dart'; // Firebase 옵션 파일
@@ -94,6 +99,9 @@ class MemoryGameApp extends StatelessWidget {
         '/online-my-records': (context) => const OnlineMyRecordsScreen(),
         '/online-multiplayer-setup': (context) => const OnlineMultiplayerSetupScreen(),
         '/online-player-name-setup': (context) => const OnlinePlayerNameSetupScreen(),
+        '/online-room-list': (context) => const OnlineRoomListScreen(),
+        '/online-room-creation': (context) => const OnlineRoomCreationScreen(),
+        '/friend-management': (context) => const FriendManagementScreen(),
       },
       onGenerateRoute: (settings) {
         // 멀티플레이어 게임 화면 - 동적 라우팅
@@ -118,6 +126,16 @@ class MemoryGameApp extends StatelessWidget {
                 player2: args['player2'],
                 gameTime: args['totalTime'] ?? 0,
               ),
+            );
+          }
+        }
+        // 온라인 멀티플레이어 게임 화면 - 동적 라우팅
+        if (settings.name == '/online-multiplayer-game') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          if (args != null && args['room'] != null) {
+            final room = args['room'] as OnlineRoom;
+            return MaterialPageRoute(
+              builder: (context) => OnlineMultiplayerGameScreen(room: room),
             );
           }
         }

@@ -1,104 +1,95 @@
 # Firebase 설정 가이드
 
-## 1. Firebase 프로젝트 생성
+## 1. Firebase 프로젝트 설정
+
+### 1.1 Firebase Console에서 프로젝트 생성
 
 1. [Firebase Console](https://console.firebase.google.com/)에 접속
 2. "프로젝트 추가" 클릭
-3. 프로젝트 이름을 "memory-game"으로 설정
-4. Google Analytics 활성화 (선택사항)
+3. 프로젝트 이름 입력 (예: memory-game-58c95)
+4. Google Analytics 설정 (선택사항)
 5. 프로젝트 생성 완료
 
-## 2. Android 앱 등록
+### 1.2 Android 앱 등록
 
-1. Firebase 콘솔에서 Android 아이콘 클릭
-2. Android 패키지 이름: `com.goldmagnetsoft.memory_game`
-3. 앱 닉네임: "Memory Game" (선택사항)
-4. SHA-1 인증서 지문 추가 (디버그용)
+1. 프로젝트 대시보드에서 Android 아이콘 클릭
+2. Android 패키지 이름 입력: `com.goldmagnetsoft.memory_game`
+3. 앱 닉네임 입력 (선택사항)
+4. SHA-1 인증서 지문 추가 (선택사항)
 5. `google-services.json` 파일 다운로드
+6. `android/app/` 폴더에 `google-services.json` 파일 복사
 
-## 3. iOS 앱 등록 (선택사항)
+### 1.3 iOS 앱 등록 (선택사항)
 
-1. Firebase 콘솔에서 iOS 아이콘 클릭
-2. iOS 번들 ID: `com.goldmagnetsoft.memoryGame`
-3. 앱 닉네임: "Memory Game" (선택사항)
-4. `GoogleService-Info.plist` 파일 다운로드
+1. 프로젝트 대시보드에서 iOS 아이콘 클릭
+2. iOS 번들 ID 입력
+3. `GoogleService-Info.plist` 파일 다운로드
+4. iOS 프로젝트에 파일 추가
 
-## 4. 파일 배치
+## 2. Firestore 데이터베이스 설정
 
-### Android
+### 2.1 Firestore 데이터베이스 생성
 
-- `google-services.json` 파일을 `android/app/` 폴더에 배치
-
-### iOS
-
-- `GoogleService-Info.plist` 파일을 `ios/Runner/` 폴더에 배치
-
-## 5. Firestore 데이터베이스 설정
-
-1. Firebase 콘솔에서 "Firestore Database" 선택
+1. Firebase Console에서 "Firestore Database" 선택
 2. "데이터베이스 만들기" 클릭
-3. 보안 규칙을 "테스트 모드에서 시작"으로 설정
-4. 위치 선택 (가까운 지역)
+3. 보안 규칙 선택: "테스트 모드에서 시작" (개발용)
+4. 위치 선택 (가까운 지역 선택)
 
-## 6. Firestore 보안 규칙
+### 2.2 보안 규칙 설정
+
+Firestore Database > 규칙 탭에서 다음 규칙 설정:
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 사용자 정보
+    // 사용자 데이터 - 본인만 읽기/쓰기 가능
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // 온라인 게임 기록
+    // 온라인 게임 기록 - 인증된 사용자만 읽기/쓰기 가능
     match /online_game_records/{recordId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
 
-    // 온라인 멀티플레이어 기록
+    // 온라인 멀티플레이어 기록 - 인증된 사용자만 읽기/쓰기 가능
     match /online_multiplayer_records/{recordId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
 
-    // 온라인 플레이어 통계
+    // 플레이어 통계 - 본인만 읽기/쓰기 가능
     match /online_player_stats/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // 연결 테스트용 컬렉션
-    match /connection_test/{docId} {
-      allow read: if true;
+    // 온라인 게임 방 - 인증된 사용자만 읽기/쓰기 가능
+    match /online_rooms/{roomId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 친구 관계 - 본인과 관련된 데이터만 읽기/쓰기 가능
+    match /friends/{friendId} {
+      allow read, write: if request.auth != null &&
+        (resource.data.userId == request.auth.uid ||
+         resource.data.friendId == request.auth.uid);
+    }
+
+    // 게임 초대 - 본인과 관련된 초대만 읽기/쓰기 가능
+    match /game_invites/{inviteId} {
+      allow read, write: if request.auth != null &&
+        (resource.data.fromUserId == request.auth.uid ||
+         resource.data.toUserId == request.auth.uid);
     }
   }
 }
 ```
 
-## 7. 인증 설정
-
-1. Firebase 콘솔에서 "Authentication" 선택
-2. "시작하기" 클릭
-3. "이메일/비밀번호" 제공업체 활성화
-4. "사용자 등록" 활성화
-
-## 8. 앱 실행
-
-설정이 완료되면 앱을 실행하여 온라인 기능을 테스트할 수 있습니다.
-
-## 주의사항
-
-- `google-services.json`과 `GoogleService-Info.plist` 파일은 민감한 정보를 포함하므로 Git에 커밋하지 마세요
-- 프로덕션 환경에서는 보안 규칙을 더 엄격하게 설정하세요
-- Firebase 사용량에 따라 요금이 발생할 수 있습니다
-
-## 9. Firestore 인덱스 설정 (중요!)
+## 3. Firestore 인덱스 설정 (중요!)
 
 온라인 랭킹 기능을 위해 다음 복합 인덱스들을 생성해야 합니다.
 
-### 9.1 Firebase Console에서 인덱스 생성
+### 3.1 Firebase Console에서 인덱스 생성
 
 1. Firebase Console에서 "Firestore Database" 선택
 2. "인덱스" 탭 클릭
@@ -148,93 +139,186 @@ service cloud.firestore {
   - `isCompleted` (오름차순)
   - `createdAt` (내림차순)
 
-### 9.2 인덱스 생성 방법
+**7. 온라인 게임 방 - 상태별 생성일 순**
 
-1. Firebase Console에서 "Firestore Database" > "인덱스" 탭
-2. "복합 인덱스 만들기" 클릭
-3. 컬렉션 ID 입력: `online_game_records`
-4. 필드 추가:
-   - 첫 번째 필드: `isCompleted`, 정렬: 오름차순
-   - 두 번째 필드: `score`, 정렬: 내림차순
+- 컬렉션: `online_rooms`
+- 필드:
+  - `status` (오름차순)
+  - `createdAt` (내림차순)
+
+**8. 친구 관계 - 사용자별 상태**
+
+- 컬렉션: `friends`
+- 필드:
+  - `userId` (오름차순)
+  - `status` (오름차순)
+
+**9. 친구 관계 - 친구별 상태**
+
+- 컬렉션: `friends`
+- 필드:
+  - `friendId` (오름차순)
+  - `status` (오름차순)
+
+**10. 게임 초대 - 수신자별 상태**
+
+- 컬렉션: `game_invites`
+- 필드:
+  - `toUserId` (오름차순)
+  - `status` (오름차순)
+
+**11. 게임 초대 - 발신자별 상태**
+
+- 컬렉션: `game_invites`
+- 필드:
+  - `fromUserId` (오름차순)
+  - `status` (오름차순)
+
+### 3.2 인덱스 생성 방법
+
+각 인덱스에 대해:
+
+1. "복합 인덱스 만들기" 클릭
+2. 컬렉션 ID 입력
+3. 필드 추가 (위의 필드들을 순서대로 추가)
+4. 정렬 순서 설정 (오름차순/내림차순)
 5. "인덱스 만들기" 클릭
-6. 위의 모든 인덱스를 동일한 방법으로 생성
 
-### 9.3 인덱스 생성 확인
+### 3.3 인덱스 생성 확인
 
-인덱스 생성 후 "빌드 중" 상태에서 "사용 가능" 상태로 변경될 때까지 기다려야 합니다 (보통 몇 분 소요).
+인덱스 생성 후 "상태"가 "사용 가능"으로 변경될 때까지 기다립니다 (보통 몇 분 소요).
 
-### 9.4 인덱스 없이도 작동
+## 4. Authentication 설정
 
-앱은 인덱스가 없어도 클라이언트 사이드 정렬로 작동하지만, 성능상 서버 사이드 정렬이 권장됩니다.
-
-## 10. Authentication 설정
-
-### 10.1 이메일/비밀번호 인증 활성화
+### 4.1 이메일/비밀번호 인증 활성화
 
 1. Firebase Console에서 "Authentication" 선택
-2. "시작하기" 클릭
-3. "로그인 방법" 탭에서 "이메일/비밀번호" 활성화
-4. "사용 설정" 체크박스 선택
+2. "로그인 방법" 탭 클릭
+3. "이메일/비밀번호" 선택
+4. "사용 설정" 체크
 5. "저장" 클릭
 
-## 11. 앱 테스트
+### 4.2 사용자 등록 테스트
 
-### 11.1 온라인 기능 테스트
+1. "사용자" 탭에서 "사용자 추가" 클릭
+2. 이메일과 비밀번호 입력하여 테스트 사용자 생성
+
+## 5. 앱 설정
+
+### 5.1 FlutterFire CLI 설치 (선택사항)
+
+```bash
+dart pub global activate flutterfire_cli
+```
+
+### 5.2 Firebase 설정 파일 생성
+
+```bash
+flutterfire configure
+```
+
+### 5.3 의존성 추가
+
+`pubspec.yaml`에 다음 의존성이 있는지 확인:
+
+```yaml
+dependencies:
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  cloud_firestore: ^4.13.6
+  crypto: ^3.0.3
+  email_validator: ^2.1.17
+```
+
+## 6. 테스트 및 확인
+
+### 6.1 Firebase 연결 테스트
 
 1. 앱 실행
-2. 온라인 로그인 화면에서 회원가입
-3. 온라인 게임 실행
-4. 게임 완료 후 온라인 랭킹 확인
+2. 온라인 로그인 시도
+3. Firebase Console에서 사용자 생성 확인
 
-### 11.2 문제 해결
+### 6.2 Firestore 데이터 확인
 
-**인덱스 오류가 발생하는 경우:**
+1. 게임 플레이 후 기록 저장
+2. Firebase Console > Firestore Database에서 데이터 확인
 
-- Firebase Console에서 필요한 인덱스가 모두 생성되었는지 확인
-- 인덱스 상태가 "사용 가능"인지 확인
-- 앱을 재시작하여 새로운 인덱스 적용
+### 6.3 인덱스 오류 확인
 
-**로그인 오류가 발생하는 경우:**
+1. 온라인 랭킹 화면 접속
+2. 콘솔에서 인덱스 오류 메시지 확인
+3. 필요한 인덱스 생성
 
-- Authentication에서 이메일/비밀번호 인증이 활성화되었는지 확인
-- `google-services.json` 파일이 올바른 위치에 있는지 확인
+## 7. 문제 해결
 
-**데이터 저장 오류가 발생하는 경우:**
+### 7.1 일반적인 오류들
 
-- Firestore 보안 규칙이 올바르게 설정되었는지 확인
-- 사용자가 로그인되어 있는지 확인
+**"No AppCheckProvider installed"**
 
-## 12. 프로덕션 배포 시 주의사항
+- 개발 환경에서는 무시해도 됨
+- 프로덕션에서는 App Check 설정 필요
 
-### 12.1 보안 규칙 업데이트
+**"The query requires an index"**
 
-프로덕션 환경에서는 더 엄격한 보안 규칙을 사용하세요:
+- Firebase Console에서 해당 인덱스 생성
+- 인덱스 생성 완료까지 몇 분 대기
+
+**"Permission denied"**
+
+- Firestore 보안 규칙 확인
+- 사용자 인증 상태 확인
+
+### 7.2 성능 최적화
+
+**인덱스 최적화**
+
+- 자주 사용되는 쿼리에 대한 인덱스 생성
+- 불필요한 인덱스 제거
+
+**쿼리 최적화**
+
+- 필요한 필드만 선택
+- 적절한 제한 설정
+
+## 8. 프로덕션 배포
+
+### 8.1 보안 규칙 강화
 
 ```javascript
+// 프로덕션용 보안 규칙 예시
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 프로덕션용 보안 규칙
-    // 필요에 따라 추가 제한사항 설정
+    // 더 엄격한 규칙 적용
+    match /users/{userId} {
+      allow read, write: if request.auth != null &&
+        request.auth.uid == userId &&
+        request.auth.token.email_verified == true;
+    }
   }
 }
 ```
 
-### 12.2 App Check 설정 (권장)
+### 8.2 App Check 설정
 
-1. Firebase Console에서 "App Check" 활성화
+1. Firebase Console에서 App Check 활성화
 2. 앱에서 App Check 구현
-3. 보안 강화
 
-### 12.3 모니터링 설정
+### 8.3 모니터링 설정
 
-1. Firebase Console에서 "Crashlytics" 활성화
-2. 앱 성능 모니터링 설정
-3. 사용자 분석 설정
+1. Firebase Console에서 모니터링 활성화
+2. 오류 알림 설정
 
-## 13. 추가 리소스
+## 9. 추가 기능
 
-- [Firebase 공식 문서](https://firebase.google.com/docs)
-- [Flutter Firebase 플러그인](https://firebase.flutter.dev/)
-- [Firestore 보안 규칙 가이드](https://firebase.google.com/docs/firestore/security/get-started)
-- [Firestore 인덱스 가이드](https://firebase.google.com/docs/firestore/query-data/indexing)
+### 9.1 푸시 알림 (선택사항)
+
+1. Firebase Cloud Messaging 설정
+2. 앱에서 푸시 알림 구현
+
+### 9.2 분석 (선택사항)
+
+1. Firebase Analytics 설정
+2. 사용자 행동 분석 구현
+
+이 설정을 완료하면 온라인 멀티플레이어 게임, 친구 시스템, 실시간 게임 초대 등의 모든 기능을 사용할 수 있습니다.
