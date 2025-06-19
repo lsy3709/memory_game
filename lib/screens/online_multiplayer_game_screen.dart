@@ -265,20 +265,30 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       ));
     }
     
-    // 카드 섞기
-    tempCards.shuffle(Random());
+    // 방 ID를 시드로 사용하여 카드 섞기 (모든 플레이어가 동일한 순서)
+    final roomIdHash = currentRoom.id.hashCode;
+    final random = Random(roomIdHash);
+    
+    // Fisher-Yates 셔플 알고리즘 사용
+    for (int i = tempCards.length - 1; i > 0; i--) {
+      final j = random.nextInt(i + 1);
+      final temp = tempCards[i];
+      tempCards[i] = tempCards[j];
+      tempCards[j] = temp;
+    }
     
     setState(() {
       cards = tempCards;
     });
     
     print('카드 생성 완료: ${cards.length}개 카드, ${numPairs}개 쌍');
+    print('방 ID 시드: $roomIdHash');
     // 디버깅을 위해 카드 정보 출력
     for (int i = 0; i < cards.length; i++) {
       print('카드 $i: ID=${cards[i].id}, 국기=${cards[i].emoji}, 이름=${cards[i].name}');
     }
     
-    // 방장인 경우 Firebase에 카드 데이터 저장
+    // 방장인 경우 Firebase에 카드 데이터 저장 (백업용)
     if (currentRoom.isHost(currentPlayerId)) {
       _saveCardsToFirebase();
     }
@@ -296,34 +306,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         return cardData;
       }).toList();
       
+      print('Firebase에 저장할 카드 데이터:');
+      for (int i = 0; i < cardsData.length; i++) {
+        print('  인덱스 $i: ID=${cardsData[i]['id']}, 국기=${cardsData[i]['emoji']}, 이름=${cardsData[i]['name']}');
+      }
+      
       await firebaseService.saveGameCards(currentRoom.id, cardsData);
       print('Firebase에 카드 데이터 저장 완료: ${cards.length}개 카드');
     } catch (e) {
       print('Firebase에 카드 데이터 저장 실패: $e');
-    }
-  }
-
-  /// Firebase에서 카드 데이터 로드
-  Future<void> _loadCardsFromFirebase() async {
-    try {
-      final loadedCardsData = await firebaseService.loadGameCards(currentRoom.id);
-      if (loadedCardsData.isNotEmpty) {
-        // 순서 정보에 따라 정렬
-        loadedCardsData.sort((a, b) => (a['orderIndex'] ?? 0).compareTo(b['orderIndex'] ?? 0));
-        
-        final loadedCards = loadedCardsData.map((data) => CardModel.fromJson(data)).toList();
-        
-        setState(() {
-          cards = loadedCards;
-        });
-        print('Firebase에서 카드 데이터 로드 완료: ${cards.length}개 카드');
-      } else {
-        print('Firebase에 저장된 카드 데이터가 없습니다. 새로 생성합니다.');
-        _createCards();
-      }
-    } catch (e) {
-      print('Firebase에서 카드 데이터 로드 실패: $e');
-      _createCards();
     }
   }
 
@@ -384,13 +375,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _startGame() {
     print('게임 시작 - 방장: ${currentRoom.isHost(currentPlayerId)}');
     
-    // 방장이 아닌 경우 Firebase에서 카드 데이터 로드
-    if (!currentRoom.isHost(currentPlayerId)) {
-      _loadCardsFromFirebase();
-    } else {
-      // 방장인 경우 새로 카드 생성
-      _createCards();
-    }
+    // 모든 플레이어가 동일한 시드로 카드 생성 (Firebase 로드 대신)
+    _createCards();
     
     setState(() {
       isGameRunning = true;
@@ -686,8 +672,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// Firebase에 게임 상태 업데이트
   void _updateGameState() {
-    // 게임 상태 업데이트 로직 (필요시 구현)
-    print('게임 상태 업데이트 완료');
+    // 게임 시작 상태를 Firebase에 업데이트
+    if (currentRoom.isHost(currentPlayerId)) {
+      firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
+      print('게임 시작 상태를 Firebase에 업데이트 완료');
+    }
   }
 
   @override
