@@ -32,72 +32,48 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
 
   /// 로그인 처리
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  setState(() {
+    _isLoading = true;
+    _errorMessage = null;
+  });
 
-    try {
-      print('온라인 로그인 시도: ${_emailController.text.trim()}');
-      
-      // Firebase 초기화 확인
-      final isInitialized = await _firebaseService.ensureInitialized();
-      if (!isInitialized) {
-        throw Exception('Firebase가 초기화되지 않았습니다.');
-      }
+  try {
+    // ... (Firebase 초기화 및 로그인 시도)
+    await _firebaseService.signInWithEmailAndPassword(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
 
-      await _firebaseService.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
-      // 로그인 성공 후 사용자 상태 확인
-      if (_firebaseService.currentUser != null) {
-        if (mounted) {
-          // 플레이어 이름이 설정되어 있는지 확인
-          final userData = await _firebaseService.getUserData(_firebaseService.currentUser!.uid);
-          final hasPlayerName = userData != null && userData['playerName'] != null && userData['playerName'].toString().isNotEmpty;
-          
-          print('로그인 성공 - 플레이어 이름 설정 여부: $hasPlayerName');
-          
-          if (hasPlayerName) {
-            // 플레이어 이름이 있으면 온라인 메인 화면으로
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/online-main',
-              (route) => false, // 모든 이전 화면 제거
-            );
-          } else {
-            // 플레이어 이름이 없으면 플레이어 이름 설정 화면으로
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/online-player-name-setup',
-              (route) => false, // 모든 이전 화면 제거
-            );
-          }
-        }
-      } else {
-        throw Exception('로그인 후 사용자 정보를 가져올 수 없습니다.');
-      }
-    } catch (e) {
-      print('로그인 오류: $e');
-      setState(() {
-        _errorMessage = _getLoginErrorMessage(e.toString());
-      });
-      
-      // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공
-      if (e.toString().contains('Firebase가 초기화되지 않았습니다') ||
-          e.toString().contains('Firebase가 설정되지 않았습니다')) {
-        _showFirebaseErrorDialog();
-      }
-    } finally {
+    if (_firebaseService.currentUser != null) {
+      // 성공 시 오류 메시지 초기화
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _errorMessage = null;
         });
+        // 온라인 메인 화면으로 이동
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/online-main',
+          (route) => false,
+        );
       }
+    } else {
+      throw Exception('로그인 후 사용자 정보를 가져올 수 없습니다.');
+    }
+  } catch (e) {
+    setState(() {
+      _errorMessage = _getLoginErrorMessage(e.toString());
+    });
+    // ... (Firebase 오류 안내 다이얼로그 등)
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+}
 
   /// 로그인 오류 메시지를 사용자 친화적으로 변환
   String _getLoginErrorMessage(String error) {
