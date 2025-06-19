@@ -524,10 +524,13 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     final padding = 32.0; // 전체 패딩
     final availableHeight = screenHeight - headerHeight - controlHeight - padding;
     
-    // 카드 개수에 따른 그리드 계산
+    // 카드 개수에 따른 그리드 계산 (6x8 = 48개 카드 고려)
     final totalCards = cards.length;
     int gridColumns;
     int gridRows;
+    
+    // 화면 비율과 카드 개수를 고려한 그리드 계산
+    final aspectRatio = screenWidth / screenHeight;
     
     if (screenWidth < 400) {
       // 작은 화면 (세로 모드)
@@ -535,12 +538,26 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       gridRows = (totalCards / gridColumns).ceil();
     } else if (screenWidth < 600) {
       // 중간 화면
-      gridColumns = 5;
-      gridRows = (totalCards / gridColumns).ceil();
+      if (aspectRatio < 1.0) {
+        // 세로 모드
+        gridColumns = 5;
+        gridRows = (totalCards / gridColumns).ceil();
+      } else {
+        // 가로 모드
+        gridColumns = 6;
+        gridRows = (totalCards / gridColumns).ceil();
+      }
     } else {
       // 큰 화면 (가로 모드)
-      gridColumns = 6;
-      gridRows = (totalCards / gridColumns).ceil();
+      if (aspectRatio > 1.5) {
+        // 매우 넓은 화면
+        gridColumns = 8;
+        gridRows = (totalCards / gridColumns).ceil();
+      } else {
+        // 일반적인 가로 모드
+        gridColumns = 6;
+        gridRows = (totalCards / gridColumns).ceil();
+      }
     }
     
     // 카드 크기 계산 (가로/세로 모두 고려)
@@ -551,8 +568,14 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     final cardWidth = availableGridWidth / gridColumns;
     final cardHeight = availableGridHeight / gridRows;
     
-    // 카드 크기 제한 (최소 50px, 최대 100px)
-    final cardSize = cardWidth.clamp(50.0, 100.0);
+    // 카드 크기 제한 (최소 40px, 최대 80px로 줄임)
+    final cardSize = cardWidth.clamp(40.0, 80.0);
+    
+    // 그리드가 화면을 벗어나지 않도록 추가 검증
+    final actualGridHeight = (cardSize * gridRows) + ((gridRows - 1) * cardSpacing);
+    final finalCardSize = actualGridHeight > availableHeight 
+        ? (availableHeight - (gridRows - 1) * cardSpacing) / gridRows
+        : cardSize;
     
     return Scaffold(
       appBar: AppBar(
@@ -590,7 +613,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
               // 게임 정보 헤더 (고정 높이)
               Container(
                 height: headerHeight,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -676,8 +699,8 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                   itemCount: cards.length,
                   itemBuilder: (context, index) {
                     return SizedBox(
-                      width: cardSize,
-                      height: cardSize,
+                      width: finalCardSize,
+                      height: finalCardSize,
                       child: MemoryCard(
                         card: cards[index],
                         onTap: () => _onCardTap(index),
