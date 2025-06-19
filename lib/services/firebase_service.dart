@@ -1420,7 +1420,7 @@ class FirebaseService {
         throw Exception('Firestore가 초기화되지 않았습니다.');
       }
       
-      await _firestore!.collection('rooms').doc(roomId).update({
+      await _firestore!.collection('online_rooms').doc(roomId).update({
         'cards': cardsData,
         'lastUpdated': FieldValue.serverTimestamp(),
       });
@@ -1438,7 +1438,7 @@ class FirebaseService {
         throw Exception('Firestore가 초기화되지 않았습니다.');
       }
       
-      final doc = await _firestore!.collection('rooms').doc(roomId).get();
+      final doc = await _firestore!.collection('online_rooms').doc(roomId).get();
       if (doc.exists && doc.data()!.containsKey('cards')) {
         final cardsData = doc.data()!['cards'] as List;
         final cards = cardsData.map((data) => Map<String, dynamic>.from(data)).toList();

@@ -63,7 +63,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   StreamSubscription<List<Map<String, dynamic>>>? _cardMatchesSubscription;
   StreamSubscription<Map<String, dynamic>?>? _turnChangeSubscription;
   StreamSubscription<Map<String, dynamic>?>? _gameStateSubscription;
-  bool _isChangingTurn = false;
   String? lastTurnChangePlayerId;
   
   // 처리된 액션 추적을 위한 변수들
@@ -178,8 +177,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             gameStartTime = DateTime.now();
             firstSelectedIndex = null;
             secondSelectedIndex = null;
-            _isChangingTurn = false;
-            lastTurnChangePlayerId = null;
+            lastTurnChangePlayerId = null; // 턴 변경 중복 방지 변수 초기화
           });
           
           // 타이머 시작
@@ -362,16 +360,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         print('턴 변경 스트림 수신: $changePlayerId -> $nextPlayerId (시간: $timestamp)');
         print('현재 플레이어: $currentPlayerId, 내 턴: ${nextPlayerId == currentPlayerId}');
         
-        // 중복 턴 변경 방지 - 더 유연한 검증
-        if (lastTurnChangePlayerId == changePlayerId && 
-            DateTime.now().millisecondsSinceEpoch - timestamp < 1000) {
-          print('중복 턴 변경 무시: $changePlayerId (1초 이내)');
-          return;
-        }
-        
         // 다른 플레이어의 턴 변경만 처리
         if (changePlayerId != currentPlayerId) {
           print('다른 플레이어의 턴 변경 처리 중...');
+          
+          // 중복 턴 변경 방지 - 더 유연한 검증 (시간 제한 완화)
+          if (lastTurnChangePlayerId == changePlayerId && 
+              DateTime.now().millisecondsSinceEpoch - timestamp < 500) {
+            print('중복 턴 변경 무시: $changePlayerId (0.5초 이내)');
+            return;
+          }
           
           setState(() {
             isMyTurn = nextPlayerId == currentPlayerId;
@@ -388,7 +386,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           }
           
           // 턴 변경 후 일정 시간 후에 lastTurnChangePlayerId 초기화 (시간 단축)
-          Future.delayed(const Duration(milliseconds: 1000), () {
+          Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted && lastTurnChangePlayerId == changePlayerId) {
               print('턴 변경 중복 방지 변수 초기화');
               lastTurnChangePlayerId = null;
@@ -404,14 +402,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   /// 게임 초기화
-  void _initGame() {
-    _createCards();
+  void _initGame() async {
+    await _createCards();
     _setupTimer();
     soundService.playBackgroundMusic();
   }
 
-  /// 카드 생성 및 섞기
-  void _createCards() {
+  /// 카드 생성 및 섞기 - 개선된 버전
+  void _createCards() async {
     final List<CardModel> tempCards = [];
     
     // 카드 쌍 생성 - 각 쌍에 고유한 ID 부여
@@ -436,16 +434,56 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       ));
     }
     
-    // 방 ID를 시드로 사용하여 카드 섞기 (모든 플레이어가 동일한 순서)
-    final roomIdHash = currentRoom.id.hashCode;
-    final random = Random(roomIdHash);
-    
-    // Fisher-Yates 셔플 알고리즘 사용
-    for (int i = tempCards.length - 1; i > 0; i--) {
-      final j = random.nextInt(i + 1);
-      final temp = tempCards[i];
-      tempCards[i] = tempCards[j];
-      tempCards[j] = temp;
+    // 방장인 경우 카드 순서를 결정하고 Firebase에 저장
+    if (currentRoom.isHost(currentPlayerId)) {
+      // 방 ID를 시드로 사용하여 카드 섞기
+      final roomIdHash = currentRoom.id.hashCode;
+      final random = Random(roomIdHash);
+      
+      // Fisher-Yates 셔플 알고리즘 사용
+      for (int i = tempCards.length - 1; i > 0; i--) {
+        final j = random.nextInt(i + 1);
+        final temp = tempCards[i];
+        tempCards[i] = tempCards[j];
+        tempCards[j] = temp;
+      }
+      
+      // Firebase에 카드 순서 저장
+      await _saveCardsToFirebase(tempCards);
+    } else {
+      // 게스트인 경우 Firebase에서 카드 순서를 가져옴
+      try {
+        final cardsData = await firebaseService.loadGameCards(currentRoom.id);
+        if (cardsData.isNotEmpty) {
+          // Firebase에서 가져온 순서로 카드 재구성
+          final orderedCards = List<CardModel>.filled(tempCards.length, tempCards[0]);
+          
+          for (int i = 0; i < cardsData.length && i < tempCards.length; i++) {
+            final cardData = cardsData[i];
+            final originalIndex = cardData['orderIndex'] as int? ?? i;
+            final cardId = cardData['id'] as int? ?? i ~/ 2;
+            final flagData = _getFlagWithName(cardId);
+            
+            orderedCards[originalIndex] = CardModel(
+              id: cardId,
+              emoji: flagData['flag']!,
+              name: flagData['name'],
+              isMatched: false,
+              isFlipped: false,
+            );
+          }
+          
+          tempCards.clear();
+          tempCards.addAll(orderedCards);
+          print('Firebase에서 카드 순서 로드 완료');
+        } else {
+          // Firebase에 데이터가 없으면 기본 순서 사용
+          print('Firebase에 카드 데이터가 없어 기본 순서 사용');
+        }
+      } catch (e) {
+        print('Firebase에서 카드 순서 로드 실패: $e');
+        // 오류 발생 시 기본 순서 사용
+      }
     }
     
     setState(() {
@@ -453,23 +491,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
     
     print('카드 생성 완료: ${cards.length}개 카드, ${numPairs}개 쌍');
-    print('방 ID 시드: $roomIdHash');
     // 디버깅을 위해 카드 정보 출력
     for (int i = 0; i < cards.length; i++) {
       print('카드 $i: ID=${cards[i].id}, 국기=${cards[i].emoji}, 이름=${cards[i].name}');
     }
-    
-    // 방장인 경우 Firebase에 카드 데이터 저장 (백업용)
-    if (currentRoom.isHost(currentPlayerId)) {
-      _saveCardsToFirebase();
-    }
   }
 
-  /// Firebase에 카드 데이터 저장
-  Future<void> _saveCardsToFirebase() async {
+  /// Firebase에 카드 데이터 저장 - 개선된 버전
+  Future<void> _saveCardsToFirebase(List<CardModel> cardsToSave) async {
     try {
       // 카드 데이터에 순서 정보 추가
-      final cardsData = cards.asMap().entries.map((entry) {
+      final cardsData = cardsToSave.asMap().entries.map((entry) {
         final index = entry.key;
         final card = entry.value;
         final cardData = card.toJson();
@@ -483,7 +515,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       }
       
       await firebaseService.saveGameCards(currentRoom.id, cardsData);
-      print('Firebase에 카드 데이터 저장 완료: ${cards.length}개 카드');
+      print('Firebase에 카드 데이터 저장 완료: ${cardsToSave.length}개 카드');
     } catch (e) {
       print('Firebase에 카드 데이터 저장 실패: $e');
     }
@@ -567,7 +599,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       gameStartTime = DateTime.now();
       firstSelectedIndex = null;
       secondSelectedIndex = null;
-      _isChangingTurn = false; // 턴 변경 플래그 초기화
       lastTurnChangePlayerId = null; // 턴 변경 중복 방지 변수 초기화
     });
 
@@ -593,8 +624,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 카드 선택 처리 - 개선된 버전
   void _onCardTap(int index) {
-    if (!isMyTurn || !isGameRunning || _isChangingTurn) {
-      print('카드 선택 무시: 내 턴=$isMyTurn, 게임 진행=$isGameRunning, 턴 변경 중=$_isChangingTurn');
+    if (!isMyTurn || !isGameRunning) {
+      print('카드 선택 무시: 내 턴=$isMyTurn, 게임 진행=$isGameRunning');
       return;
     }
 
@@ -900,9 +931,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       return;
     }
     
-    // 이미 턴 변경 중인지 확인
-    if (_isChangingTurn) {
-      print('이미 턴 변경 중이므로 취소');
+    // 게임이 진행 중이 아닌 경우 턴 변경 취소
+    if (!isGameRunning) {
+      print('게임이 진행 중이 아니므로 턴 변경 취소');
       return;
     }
     
@@ -912,15 +943,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     print('게스트 ID: ${currentRoom.guestId}');
     print('현재 내 턴: $isMyTurn');
     print('게임 진행 상태: $isGameRunning');
-    
-    // 게임이 진행 중이 아닌 경우 턴 변경 취소
-    if (!isGameRunning) {
-      print('게임이 진행 중이 아니므로 턴 변경 취소');
-      return;
-    }
-    
-    // 턴 변경 중 플래그 설정
-    _isChangingTurn = true;
     
     // 현재 플레이어가 방장인지 게스트인지 확인
     final isCurrentPlayerHost = currentRoom.isHost(currentPlayerId);
@@ -940,7 +962,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 다음 플레이어가 유효한지 확인
     if (nextPlayerId.isEmpty) {
       print('다음 플레이어 ID가 비어있어 턴 변경 취소');
-      _isChangingTurn = false;
       return;
     }
     
@@ -969,14 +990,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       print('Firebase 턴 변경 정보 전송 실패: $e');
       // 전송 실패 시에도 로컬 상태는 유지
     }
-    
-    // 턴 변경 완료 후 플래그 해제 (더 짧은 시간으로 조정)
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        _isChangingTurn = false;
-        print('턴 변경 플래그 해제');
-      }
-    });
     
     print('=== 턴 변경 완료 ===');
   }
