@@ -35,7 +35,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   bool isGameRunning = false;             // 게임 진행 여부
   bool isTimerPaused = false;             // 타이머 일시정지 여부
   Timer? gameTimer;                       // 게임 타이머 (nullable로 변경)
-  final SoundService soundService = SoundService(); // 사운드 관리
+  final SoundService soundService = SoundService.instance; // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
   final FirebaseService firebaseService = FirebaseService.instance; // Firebase 서비스
   

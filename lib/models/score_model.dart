@@ -9,6 +9,8 @@ class ScoreModel {
   int _totalTime = 0;
   bool _isCompleted = false;
 
+  ScoreModel();
+
   /// 현재 점수
   int get score => _score;
 

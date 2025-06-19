@@ -393,7 +393,7 @@ class _MainScreenState extends State<MainScreen> {
             Text('초기화 상태: ${isInitialized ? '성공' : '실패'}'),
             Text('사용 가능: ${_firebaseService.isFirebaseAvailable ? '예' : '아니오'}'),
             Text('온라인 상태: ${_firebaseService.currentUser != null ? '로그인됨' : '로그인 안됨'}'),
-            if (_firebaseService.currentUser != null) Text('사용자: ${_firebaseService.currentUser.email}'),
+            if (_firebaseService.currentUser != null) Text('사용자: ${_firebaseService.currentUser?.email}'),
             const SizedBox(height: 16),
             const Text('설정 파일 상태:', style: TextStyle(fontWeight: FontWeight.bold)),
             Text('• Firebase Options: ${firebaseOptionsExists ? '✅' : '❌'}'),

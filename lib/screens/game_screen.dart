@@ -31,19 +31,19 @@ class _GameScreenState extends State<GameScreen> {
   static const int gameTimeSec = 15 * 60; // 게임 제한 시간(초 단위, 15분)
 
   // 게임 상태 변수
-  late List<CardModel> cards;             // 카드 목록
-  int? firstSelectedIndex;                // 첫 번째로 선택된 카드 인덱스
-  int? secondSelectedIndex;               // 두 번째로 선택된 카드 인덱스
-  int timeLeft = gameTimeSec;             // 남은 시간(초)
-  bool isGameRunning = false;             // 게임 진행 여부
-  bool isTimerPaused = false;             // 타이머 일시정지 여부
-  Timer? gameTimer;                       // 게임 타이머 (nullable로 변경)
-  final SoundService soundService = SoundService(); // 사운드 관리
+  List<CardModel> cards = [];
+  int? firstSelectedIndex;
+  int? secondSelectedIndex;
+  bool isGameRunning = false;
+  bool isTimerPaused = false;
+  Timer? gameTimer;
+  int timeLeft = 180; // 3분
+  int maxCombo = 0;
+  final SoundService soundService = SoundService.instance; // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
-  final StorageService storageService = StorageService(); // 저장소 관리
+  final StorageService storageService = StorageService.instance; // 저장소 관리
   
   // 기록 관련 변수
-  int maxCombo = 0;                       // 최고 연속 매칭 기록
   String currentPlayerName = '게스트';     // 현재 플레이어 이름
   String currentPlayerEmail = '';         // 현재 플레이어 이메일
   DateTime gameStartTime = DateTime.now(); // 게임 시작 시간
@@ -53,7 +53,9 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     scoreModel = ScoreModel();
     _loadPlayerInfo();
-    _initGame();
+    _createCards();
+    _setupTimer();
+    soundService.playBackgroundMusic();
   }
 
   @override
@@ -101,29 +103,32 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  /// 게임 시작 시 카드 생성 및 타이머 설정
-  void _initGame() {
-    cards = [];
-    _createCards();
-    _setupTimer();
-  }
-
-  /// 카드 쌍을 생성하고 셔플
+  /// 카드 생성 및 섞기
   void _createCards() {
-    cards.clear(); // 기존 카드 리스트 초기화
-
-    // 카드 쌍의 개수만큼 반복
+    final List<CardModel> tempCards = [];
+    
+    // 카드 쌍 생성
     for (int i = 0; i < numPairs; i++) {
-      // 각 쌍마다 두 장의 카드를 생성
-      for (int j = 0; j < 2; j++) {
-        cards.add(CardModel(
-          id: i * 2 + j, // 고유 id
-          pairId: i, // 쌍 id
-          imagePath: 'assets/flag_image/img${i + 1}.png', // 이미지 경로
-        ));
-      }
+      tempCards.add(CardModel(
+        id: i,
+        emoji: _getEmoji(i),
+        isMatched: false,
+        isFlipped: false,
+      ));
+      tempCards.add(CardModel(
+        id: i,
+        emoji: _getEmoji(i),
+        isMatched: false,
+        isFlipped: false,
+      ));
     }
-    cards.shuffle(); // 카드 순서 섞기
+    
+    // 카드 섞기
+    tempCards.shuffle(Random());
+    
+    setState(() {
+      cards = tempCards;
+    });
   }
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
@@ -174,43 +179,69 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  /// 두 카드가 매칭되는지 검사
+  /// 카드 매칭 확인
   void _checkMatch() {
-    if (firstSelectedIndex == null || secondSelectedIndex == null) return;
-    final a = firstSelectedIndex!, b = secondSelectedIndex!;
+    final firstCard = cards[firstSelectedIndex!];
+    final secondCard = cards[secondSelectedIndex!];
+    
+    if (firstCard.id == secondCard.id) {
+      // 매칭 성공
+      _handleMatchSuccess();
+    } else {
+      // 매칭 실패
+      _handleMatchFailure();
+    }
+  }
+
+  /// 매칭 성공 처리
+  void _handleMatchSuccess() {
+    soundService.playMatchSound();
+    
+    setState(() {
+      cards[firstSelectedIndex!].isMatched = true;
+      cards[secondSelectedIndex!].isMatched = true;
+      
+      // 점수 증가
+      scoreModel.addMatch();
+      
+      // 연속 매칭 기록 업데이트
+      if (scoreModel.currentCombo > maxCombo) {
+        maxCombo = scoreModel.currentCombo;
+      }
+    });
+    
+    // 선택된 카드 초기화
     firstSelectedIndex = null;
     secondSelectedIndex = null;
+    
+    // 게임 완료 확인
+    _checkGameCompletion();
+  }
 
-    // 0.7초 후 매칭 결과 처리(뒤집힌 카드 보여주기)
-    Future.delayed(const Duration(milliseconds: 700), () {
-      // mounted 상태 확인 후 setState 호출
+  /// 매칭 실패 처리
+  void _handleMatchFailure() {
+    soundService.playMismatchSound();
+    
+    setState(() {
+      // 실패 횟수 증가
+      scoreModel.addFail();
+    });
+    
+    // 1초 후 카드 뒤집기
+    Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
         setState(() {
-          if (cards[a].pairId == cards[b].pairId) {
-            soundService.playCardMatch();
-            cards[a] = cards[a].copyWith(isMatched: true);
-            cards[b] = cards[b].copyWith(isMatched: true);
-            scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
-            
-            // 최고 연속 매칭 기록 업데이트
-            if (scoreModel.comboCount > maxCombo) {
-              maxCombo = scoreModel.comboCount;
-            }
-            
-            _checkGameEnd();
-          } else {
-            soundService.playCardMismatch();
-            cards[a] = cards[a].copyWith(isFlipped: false);
-            cards[b] = cards[b].copyWith(isFlipped: false);
-            scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
-          }
+          cards[firstSelectedIndex!].isFlipped = false;
+          cards[secondSelectedIndex!].isFlipped = false;
+          firstSelectedIndex = null;
+          secondSelectedIndex = null;
         });
       }
     });
   }
 
   /// 모든 카드가 매칭되었는지 확인 후 게임 종료 처리
-  void _checkGameEnd() {
+  void _checkGameCompletion() {
     if (cards.every((c) => c.isMatched)) {
       isGameRunning = false;
       gameTimer?.cancel(); // 타이머 중지
@@ -233,7 +264,7 @@ class _GameScreenState extends State<GameScreen> {
               children: [
                 const Text('모든 카드를 맞췄어요!'),
                 const SizedBox(height: 8),
-                Text('최종 점수: ${scoreModel.currentScore}점'),
+                Text('최종 점수: ${scoreModel.score}점'),
                 Text('최고 연속 매칭: ${maxCombo}회'),
                 Text('완료 시간: ${_formatTime()}'),
               ],
@@ -257,7 +288,7 @@ class _GameScreenState extends State<GameScreen> {
         id: storageService.generateId(),
         playerName: currentPlayerName,
         email: currentPlayerEmail,
-        score: scoreModel.currentScore,
+        score: scoreModel.score,
         matchCount: scoreModel.matchCount,
         failCount: scoreModel.failCount,
         maxCombo: maxCombo,
@@ -275,7 +306,7 @@ class _GameScreenState extends State<GameScreen> {
         final playerStats = await storageService.loadPlayerStats();
         if (playerStats != null) {
           final updatedStats = playerStats.updateWithGameResult(
-            score: scoreModel.currentScore,
+            score: scoreModel.score,
             gameTime: gameTimeSec - timeLeft,
             maxCombo: maxCombo,
             matchCount: scoreModel.matchCount,
@@ -290,41 +321,88 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  /// 게임 시작 또는 일시정지 해제
-  void _startGame() {
-    // 일시정지 상태에서 계속하기
-    if (isGameRunning && isTimerPaused) {
-      setState(() => isTimerPaused = false);
-      soundService.resumeBackgroundMusic();
-      return;
-    }
-    
-    soundService.playGameStart(); // 게임 시작 사운드
-    setState(() {
-      _createCards(); // 카드 새로 생성
-      firstSelectedIndex = null;
-      secondSelectedIndex = null;
-      timeLeft = gameTimeSec; // 시간 초기화
-      isGameRunning = true;
-      isTimerPaused = false;
-      maxCombo = 0; // 최고 연속 매칭 기록 초기화
-      gameStartTime = DateTime.now(); // 게임 시작 시간 기록
-    });
-    if (gameTimer?.isActive == true) gameTimer?.cancel(); // 기존 타이머 중지
-    _setupTimer(); // 타이머 재설정
-    soundService.startBackgroundMusic(); // 배경음악 시작
+  /// 이모지 가져오기
+  String _getEmoji(int index) {
+    final emojis = [
+      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
+      '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔',
+      '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺'
+    ];
+    return emojis[index % emojis.length];
+  }
+
+  /// 게임 결과 다이얼로그 표시
+  void _showGameResultDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('게임 완료!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('모든 카드를 맞췄어요!'),
+            const SizedBox(height: 8),
+            Text('최종 점수: ${scoreModel.score}점'),
+            Text('최고 연속 매칭: ${maxCombo}회'),
+            Text('완료 시간: ${_formatTime()}'),
+            if (scoreModel.score > 0)
+              const Text('새로운 최고 점수!', style: TextStyle(color: Colors.green)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 게임 일시정지
   void _pauseGame() {
-    if (!isGameRunning || isTimerPaused) return;
-    setState(() => isTimerPaused = true);
-    soundService.pauseBackgroundMusic(); // 배경음악 일시정지
+    setState(() {
+      isTimerPaused = true;
+    });
+    soundService.stopAllSounds();
+  }
+
+  /// 게임 재개
+  void _resumeGame() {
+    setState(() {
+      isTimerPaused = false;
+    });
+    soundService.playBackgroundMusic();
+  }
+
+  /// 게임 시작
+  void _startGame() {
+    soundService.playGameStartSound();
+    setState(() {
+      _createCards();
+      timeLeft = 180;
+      isGameRunning = true;
+      isTimerPaused = false;
+      scoreModel.reset();
+      maxCombo = 0;
+    });
+    soundService.playBackgroundMusic();
+  }
+
+  /// 게임 일시정지/재개 토글
+  void _togglePause() {
+    if (isTimerPaused) {
+      _resumeGame();
+    } else {
+      _pauseGame();
+    }
   }
 
   /// 게임 리셋(카드, 시간, 상태 초기화)
   void _resetGame() {
-    soundService.playButtonSound();
+    soundService.playButtonClickSound();
     setState(() {
       _createCards();
       firstSelectedIndex = null;
@@ -342,40 +420,18 @@ class _GameScreenState extends State<GameScreen> {
 
   /// 시간 초과 시 게임 오버 처리
   void _gameOver() {
-    isGameRunning = false;
-    gameTimer?.cancel();
-    soundService.stopBackgroundMusic();
+    setState(() {
+      isGameRunning = false;
+    });
     
-    // 게임 기록 저장 (미완료)
+    soundService.stopAllSounds();
+    soundService.playGameOverSound();
+    
+    // 게임 기록 저장
     _saveGameRecord(false);
     
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('시간 초과!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('게임 오버'),
-            const SizedBox(height: 8),
-            Text('최종 점수: ${scoreModel.currentScore}점'),
-            Text('매칭 성공: ${scoreModel.matchCount}회'),
-            Text('매칭 실패: ${scoreModel.failCount}회'),
-            Text('최고 연속 매칭: ${maxCombo}회'),
-            if (scoreModel.currentScore > scoreModel.bestScore)
-              const Text('새로운 최고 점수!', style: TextStyle(color: Colors.green)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
+    // 게임 결과 다이얼로그 표시
+    _showGameResultDialog();
   }
 
   @override
@@ -415,15 +471,15 @@ class _GameScreenState extends State<GameScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '점수: ${scoreModel.currentScore}',
+                      '점수: ${scoreModel.score}',
                       style: const TextStyle(
                         fontSize: 18.0,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (scoreModel.comboCount > 1)
+                    if (scoreModel.currentCombo > 1)
                       Text(
-                        '${scoreModel.comboCount}콤보!',
+                        '${scoreModel.currentCombo}콤보!',
                         style: const TextStyle(
                           color: Colors.orange,
                           fontWeight: FontWeight.bold,
@@ -497,7 +553,7 @@ class _GameScreenState extends State<GameScreen> {
                 // 시작/계속하기 버튼
                 ElevatedButton(
                   onPressed: () {
-                    soundService.playButtonSound();
+                    soundService.playButtonClickSound();
                     _startGame();
                   },
                   child: Text(isGameRunning && isTimerPaused
@@ -508,8 +564,8 @@ class _GameScreenState extends State<GameScreen> {
                 ElevatedButton(
                   onPressed: isGameRunning && !isTimerPaused
                       ? () {
-                    soundService.playButtonSound();
-                    _pauseGame();
+                    soundService.playButtonClickSound();
+                    _togglePause();
                   }
                       : null,
                   child: const Text('멈춤'),

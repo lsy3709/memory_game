@@ -80,10 +80,10 @@ class MultiplayerGameRecord {
       
       if (firstPlayerRate == secondPlayerRate) {
         // 매칭 성공률도 같으면 완료 시간으로 비교
-        if (sortedPlayers[0].gameTime == sortedPlayers[1].gameTime) {
+        if (sortedPlayers[0].timeLeft == sortedPlayers[1].timeLeft) {
           return null; // 무승부
         }
-        return sortedPlayers[0].gameTime < sortedPlayers[1].gameTime 
+        return sortedPlayers[0].timeLeft < sortedPlayers[1].timeLeft 
             ? sortedPlayers[0] 
             : sortedPlayers[1];
       }

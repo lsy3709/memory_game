@@ -34,7 +34,7 @@ class SoundService {
     if (!value) {
       _stopBackgroundMusic();
     } else {
-      _playBackgroundMusic();
+      playBackgroundMusic();
     }
   }
 

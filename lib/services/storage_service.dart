@@ -10,6 +10,11 @@ import '../models/player_stats.dart';
 /// 로컬 저장소 서비스 클래스
 /// 게임 기록과 플레이어 통계를 로컬에 저장하고 관리
 class StorageService {
+  static StorageService? _instance;
+  static StorageService get instance => _instance ??= StorageService._();
+  
+  StorageService._();
+
   static const String _gameRecordsKey = 'game_records';
   static const String _playerStatsKey = 'player_stats';
   static const String _currentPlayerKey = 'current_player';

@@ -53,6 +53,9 @@ class FirebaseService {
   /// 현재 사용자 가져오기
   User? get currentUser => _currentUser;
 
+  /// Firebase 사용 가능 여부
+  bool get isFirebaseAvailable => _isInitialized;
+
   /// 이메일/비밀번호로 로그인
   Future<UserCredential> signInWithEmailAndPassword({
     required String email,
@@ -783,6 +786,7 @@ class FirebaseService {
       final friendDoc = friendQuery.docs.first;
       final friendId = friendDoc.id;
       final friendData = friendDoc.data();
+      final friendEmailFromData = friendData['email'] ?? '';
 
       if (friendId == currentUser!.uid) {
         throw Exception('자기 자신에게 친구 요청을 보낼 수 없습니다.');
@@ -804,7 +808,6 @@ class FirebaseService {
       final userEmail = userData?['email'] ?? currentUser!.email ?? '';
 
       final friendName = friendData['playerName'] ?? '플레이어';
-      final friendEmail = friendData['email'] ?? '';
 
       final friendDocId = _firestore!.collection('friends').doc().id;
       final friend = Friend(
@@ -814,7 +817,7 @@ class FirebaseService {
         userName: userName,
         userEmail: userEmail,
         friendName: friendName,
-        friendEmail: friendEmail,
+        friendEmail: friendEmailFromData,
         status: FriendStatus.pending,
         createdAt: DateTime.now(),
       );
