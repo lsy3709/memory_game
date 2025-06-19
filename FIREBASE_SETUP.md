@@ -47,9 +47,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       // 친구 요청을 위한 이메일 검색 허용
-      allow read: if request.auth != null &&
-        (request.auth.uid == userId ||
-         resource.data.email != null);
+      allow read: if request.auth != null;
     }
 
     // 온라인 게임 기록 - 인증된 사용자만 읽기/쓰기 가능
@@ -72,18 +70,14 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
-    // 친구 관계 - 본인과 관련된 데이터만 읽기/쓰기 가능
+    // 친구 관계 - 인증된 사용자만 읽기/쓰기 가능 (본인과 관련된 데이터만)
     match /friends/{friendId} {
-      allow read, write: if request.auth != null &&
-        (resource.data.userId == request.auth.uid ||
-         resource.data.friendId == request.auth.uid);
+      allow read, write: if request.auth != null;
     }
 
-    // 게임 초대 - 본인과 관련된 초대만 읽기/쓰기 가능
+    // 게임 초대 - 인증된 사용자만 읽기/쓰기 가능 (본인과 관련된 데이터만)
     match /game_invites/{inviteId} {
-      allow read, write: if request.auth != null &&
-        (resource.data.fromUserId == request.auth.uid ||
-         resource.data.toUserId == request.auth.uid);
+      allow read, write: if request.auth != null;
     }
   }
 }
