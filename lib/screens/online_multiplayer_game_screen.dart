@@ -825,7 +825,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         ),
       ),
     );
-  }
+  }//
 
   /// 게임 정보 헤더 위젯
   Widget _buildGameHeader() {
