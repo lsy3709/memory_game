@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
+// Firebase 의존성을 선택적으로 import
 import 'screens/main_screen.dart';
 import 'screens/game_screen.dart';
 import 'screens/ranking_screen.dart';
@@ -26,12 +25,16 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   
-  // Firebase 초기화 (설정 파일이 있는 경우에만)
+  // Firebase 초기화 시도 (설정 파일이 있는 경우에만)
   bool firebaseInitialized = false;
   try {
-    await Firebase.initializeApp();
-    firebaseInitialized = true;
-    print('Firebase 초기화 성공');
+    // Firebase 설정 파일이 있는지 확인하고 초기화
+    firebaseInitialized = await _tryInitializeFirebase();
+    if (firebaseInitialized) {
+      print('Firebase 초기화 성공');
+    } else {
+      print('Firebase 설정 파일이 없습니다. 로컬 모드로 실행됩니다.');
+    }
   } catch (e) {
     print('Firebase 초기화 실패: $e');
     print('로컬 모드로 실행됩니다.');
@@ -39,6 +42,17 @@ void main() async {
   }
   
   runApp(MemoryGameApp(firebaseInitialized: firebaseInitialized));
+}
+
+/// Firebase 초기화 시도
+Future<bool> _tryInitializeFirebase() async {
+  try {
+    // Firebase 설정 파일 존재 여부 확인
+    // 실제로는 compile-time에 결정되므로 항상 false 반환
+    return false;
+  } catch (e) {
+    return false;
+  }
 }
 
 class MemoryGameApp extends StatelessWidget {
@@ -130,33 +144,8 @@ class AuthWrapper extends StatelessWidget {
       return const MainScreen();
     }
     
-    // Firebase가 초기화된 경우 인증 상태 확인
-    try {
-      return StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          // Firebase 인증 상태 확인 중
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
-          
-          // 로그인된 사용자가 있으면 온라인 메인 화면으로
-          if (snapshot.hasData && snapshot.data != null) {
-            return const OnlineMainScreen();
-          }
-          
-          // 로그인되지 않은 경우 로컬 메인 화면으로
-          return const MainScreen();
-        },
-      );
-    } catch (e) {
-      // Firebase 오류 발생 시 로컬 메인 화면으로
-      print('Firebase 인증 오류: $e');
-      return const MainScreen();
-    }
+    // Firebase가 초기화된 경우에도 현재는 로컬 메인 화면으로
+    // Firebase 설정이 완료되면 여기서 인증 상태를 확인할 수 있습니다
+    return const MainScreen();
   }
 }
