@@ -378,9 +378,15 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          Text('점수: ${player.scoreModel.score}점'),
-          Text('매칭: ${player.scoreModel.matchCount}성공 / ${player.scoreModel.failCount}실패'),
-          Text('최고 콤보: ${player.maxCombo}회'),
+          Text(
+            '점수: ${players[1].scoreModel.score}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+            ),
+          ),
+          Text('매칭: ${players[1].scoreModel.matchCount}성공 / ${players[1].scoreModel.failCount}실패'),
+          Text('최고 콤보: ${players[1].maxCombo}회'),
         ],
       ),
     );
@@ -508,331 +514,218 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentPlayer = players[currentPlayerIndex];
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    
+    // 화면 크기에 따라 카드 크기와 그리드 열 수 조절
+    int gridColumns;
+    double cardSize;
+    double cardSpacing;
+    
+    if (screenWidth < 400) {
+      // 작은 화면 (세로 모드)
+      gridColumns = 4;
+      cardSize = (screenWidth - 40) / 4 - 8;
+      cardSpacing = 4;
+    } else if (screenWidth < 600) {
+      // 중간 화면
+      gridColumns = 5;
+      cardSize = (screenWidth - 50) / 5 - 8;
+      cardSpacing = 6;
+    } else {
+      // 큰 화면 (가로 모드)
+      gridColumns = 6;
+      cardSize = (screenWidth - 60) / 6 - 8;
+      cardSpacing = 8;
+    }
+    
+    // 카드 크기 최소/최대 제한
+    cardSize = cardSize.clamp(60.0, 120.0);
     
     return Scaffold(
       appBar: AppBar(
         title: const Text('멀티플레이어 게임'),
-        centerTitle: true,
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        actions: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.timer, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  '${timeLeft ~/ 60}:${(timeLeft % 60).toString().padLeft(2, '0')}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      body: Column(
-        children: [
-          // 플레이어 정보 영역
-          Container(
-            padding: EdgeInsets.symmetric(
-              vertical: screenHeight * 0.01, 
-              horizontal: screenWidth * 0.04
-            ),
-            child: Row(
-              children: [
-                // 플레이어 1 정보
-                Expanded(
-                  child: _buildPlayerInfoCard(players[0], 0),
-                ),
-                SizedBox(width: screenWidth * 0.04),
-                // 플레이어 2 정보
-                Expanded(
-                  child: _buildPlayerInfoCard(players[1], 1),
-                ),
-              ],
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.blue, Colors.purple],
           ),
-
-          // 게임 정보 영역
-          Container(
-            padding: EdgeInsets.symmetric(
-              vertical: screenHeight * 0.01, 
-              horizontal: screenWidth * 0.04
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // 시간 표시
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                    ),
-                    child: Text(
-                      '남은 시간: ${_formatTime()}',
-                      style: const TextStyle(
-                        fontSize: 16.0,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-                SizedBox(width: screenWidth * 0.02),
-                // 현재 플레이어 표시
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: currentPlayerIndex == 0 ? Colors.blue : Colors.green,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // 게임 정보 헤더
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 플레이어 1 정보
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: currentPlayerIndex == 0 ? Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.person,
-                          color: Colors.white,
-                          size: screenWidth * 0.04,
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            '${currentPlayer.name} 턴',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                        child: Column(
+                          children: [
+                            Text(
+                              widget.player1Name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                            Text(
+                              '점수: ${players[0].scoreModel.score}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    // 플레이어 2 정보
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: currentPlayerIndex == 1 ? Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              widget.player2Name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              '점수: ${players[1].scoreModel.score}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-
-          // 카드 그리드 영역
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final gridWidth = constraints.maxWidth;
-                  final gridHeight = constraints.maxHeight;
-                  final spacing = screenWidth * 0.02; // 반응형 간격
-                  final itemWidth = (gridWidth - (cols - 1) * spacing) / cols;
-                  final itemHeight = (gridHeight - (rows - 1) * spacing) / rows;
-                  final aspectRatio = itemWidth / itemHeight;
-
-                  return GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
+              ),
+              
+              // 카드 그리드
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  child: GridView.builder(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: cols,
-                      childAspectRatio: aspectRatio,
-                      crossAxisSpacing: spacing,
-                      mainAxisSpacing: spacing,
+                      crossAxisCount: gridColumns,
+                      childAspectRatio: 0.8,
+                      crossAxisSpacing: cardSpacing,
+                      mainAxisSpacing: cardSpacing,
                     ),
-                    itemCount: totalCards,
+                    itemCount: cards.length,
                     itemBuilder: (context, index) {
-                      return MemoryCard(
-                        card: cards[index],
-                        onTap: () => _onCardTap(index),
-                        isEnabled: isGameRunning && !isTimerPaused,
+                      return SizedBox(
+                        width: cardSize,
+                        height: cardSize,
+                        child: MemoryCard(
+                          card: cards[index],
+                          onTap: () => _onCardTap(index),
+                          isEnabled: isGameRunning,
+                        ),
                       );
                     },
-                  );
-                },
+                  ),
+                ),
               ),
-            ),
-          ),
-
-          // 하단 버튼 영역
-          Container(
-            padding: EdgeInsets.symmetric(
-              vertical: screenHeight * 0.02, 
-              horizontal: screenWidth * 0.04
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // 시작/계속하기 버튼
-                Expanded(
-                  child: Container(
-                    height: screenHeight * 0.06,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        soundService.playButtonSound();
-                        _startGame();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: Text(
-                        isGameRunning && isTimerPaused ? '계속하기' : '시작',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // 멈춤 버튼
-                Expanded(
-                  child: Container(
-                    height: screenHeight * 0.06,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ElevatedButton(
-                      onPressed: isGameRunning && !isTimerPaused
-                          ? () {
-                        soundService.playButtonSound();
-                        _pauseGame();
-                      }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: const Text(
-                        '멈춤',
+              
+              // 게임 완료 메시지
+              if (!isGameRunning && players[0].isCompleted && players[1].isCompleted)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Text(
+                        '게임 완료!',
                         style: TextStyle(
-                          fontSize: 14,
+                          color: Colors.white,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '승자: ${players[0].scoreModel.score > players[1].scoreModel.score ? widget.player1Name : widget.player2Name}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                // 다시하기 버튼
-                Expanded(
-                  child: Container(
-                    height: screenHeight * 0.06,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ElevatedButton(
+              
+              // 게임 컨트롤
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
                       onPressed: _resetGame,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('다시 시작'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 2,
                       ),
-                      child: const Text(
-                        '다시하기',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: const Text('나가기'),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  /// 플레이어 정보 카드 위젯 생성
-  Widget _buildPlayerInfoCard(PlayerGameData player, int playerIndex) {
-    final isCurrentPlayer = currentPlayerIndex == playerIndex;
-    final screenWidth = MediaQuery.of(context).size.width;
-    
-    return Container(
-      padding: EdgeInsets.all(screenWidth * 0.02),
-      decoration: BoxDecoration(
-        color: isCurrentPlayer 
-            ? (playerIndex == 0 ? Colors.blue.withOpacity(0.15) : Colors.green.withOpacity(0.15))
-            : Colors.grey.withOpacity(0.1),
-        border: Border.all(
-          color: isCurrentPlayer 
-              ? (playerIndex == 0 ? Colors.blue : Colors.green)
-              : Colors.grey,
-          width: isCurrentPlayer ? 2 : 1,
         ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: isCurrentPlayer ? [
-          BoxShadow(
-            color: (playerIndex == 0 ? Colors.blue : Colors.green).withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ] : null,
-      ),
-      child: Column(
-        children: [
-          // 플레이어 이름
-          Text(
-            player.name,
-            style: TextStyle(
-              fontSize: screenWidth * 0.035,
-              fontWeight: FontWeight.bold,
-              color: isCurrentPlayer 
-                  ? (playerIndex == 0 ? Colors.blue : Colors.green)
-                  : Colors.black87,
-            ),
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-          SizedBox(height: screenWidth * 0.01),
-          // 점수
-          Text(
-            '${player.scoreModel.score}점',
-            style: TextStyle(
-              fontSize: screenWidth * 0.04,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
-          // 콤보 표시
-          if (player.scoreModel.currentCombo > 1) ...[
-            SizedBox(height: screenWidth * 0.005),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '${player.scoreModel.currentCombo}콤보!',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.bold,
-                  fontSize: screenWidth * 0.025,
-                ),
-              ),
-            ),
-          ],
-          // 최고 콤보 표시
-          if (player.maxCombo > 0) ...[
-            SizedBox(height: screenWidth * 0.005),
-            Text(
-              '최고: ${player.maxCombo}',
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: screenWidth * 0.025,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }

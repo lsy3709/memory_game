@@ -681,6 +681,35 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    
+    // 화면 크기에 따라 카드 크기와 그리드 열 수 조절
+    int gridColumns;
+    double cardSize;
+    double cardSpacing;
+    
+    if (screenWidth < 400) {
+      // 작은 화면 (세로 모드)
+      gridColumns = 4;
+      cardSize = (screenWidth - 40) / 4 - 8; // 패딩과 간격 고려
+      cardSpacing = 4;
+    } else if (screenWidth < 600) {
+      // 중간 화면
+      gridColumns = 5;
+      cardSize = (screenWidth - 50) / 5 - 8;
+      cardSpacing = 6;
+    } else {
+      // 큰 화면 (가로 모드)
+      gridColumns = 6;
+      cardSize = (screenWidth - 60) / 6 - 8;
+      cardSpacing = 8;
+    }
+    
+    // 카드 크기 최소/최대 제한
+    cardSize = cardSize.clamp(60.0, 120.0);
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(currentRoom.roomName),
@@ -703,21 +732,70 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             colors: [Colors.blue, Colors.purple],
           ),
         ),
-        child: Column(
-          children: [
-            // 게임 정보 헤더
-            _buildGameHeader(),
-            
-            // 게임 시작 전 대기 화면 또는 카드 그리드
-            Expanded(
-              child: currentRoom.status == RoomStatus.waiting 
-                  ? _buildWaitingScreen()
-                  : _buildCardGrid(),
-            ),
-            
-            // 게임 컨트롤
-            _buildGameControls(),
-          ],
+        child: SafeArea(
+          child: Column(
+            children: [
+              // 게임 정보 헤더
+              _buildGameHeader(),
+              
+              // 카드 그리드
+              if (isGameRunning)
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    child: GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: gridColumns,
+                        childAspectRatio: 0.8, // 카드 비율 조정
+                        crossAxisSpacing: cardSpacing,
+                        mainAxisSpacing: cardSpacing,
+                      ),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) {
+                        return SizedBox(
+                          width: cardSize,
+                          height: cardSize,
+                          child: MemoryCard(
+                            card: cards[index],
+                            onTap: () => _onCardTap(index),
+                            isEnabled: isMyTurn && isGameRunning,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              
+              // 게임 완료 메시지
+              if (!isGameRunning && gameCompleted)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Text(
+                        '게임 완료!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '최고 연속 매칭: $maxCombo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              // 게임 컨트롤
+              _buildGameControls(),
+            ],
+          ),
         ),
       ),
     );
@@ -865,96 +943,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     );
   }
 
-  /// 카드 그리드 위젯
-  Widget _buildCardGrid() {
-    // 화면 크기에 따라 카드 크기 조정
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-    
-    // 헤더와 컨트롤 영역을 제외한 사용 가능한 높이 계산 (더 정확한 계산)
-    final availableHeight = screenHeight - 200; // 헤더 + 컨트롤 영역 줄임
-    
-    // 카드 크기 계산 (화면에 맞게 조정)
-    final horizontalPadding = 16.0; // 좌우 패딩 줄임
-    final cardSpacing = 4.0; // 카드 간격 더 줄임
-    final availableWidth = screenWidth - horizontalPadding - (cols - 1) * cardSpacing;
-    final cardWidth = availableWidth / cols;
-    
-    // 카드 높이 계산 (비율 고려)
-    final cardHeight = cardWidth * 1.0; // 카드 비율 더 줄임
-    
-    // 전체 그리드 높이 계산
-    final totalGridHeight = cardHeight * rows + (rows - 1) * cardSpacing;
-    
-    // 그리드가 화면을 벗어나지 않도록 조정
-    final adjustedCardHeight = totalGridHeight > availableHeight 
-        ? (availableHeight - (rows - 1) * cardSpacing) / rows 
-        : cardHeight;
-    
-    return Container(
-      padding: const EdgeInsets.all(8), // 패딩 줄임
-      child: SizedBox(
-        height: totalGridHeight > availableHeight ? totalGridHeight : availableHeight,
-        child: GridView.builder(
-          physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            childAspectRatio: cardWidth / adjustedCardHeight,
-            crossAxisSpacing: cardSpacing,
-            mainAxisSpacing: cardSpacing,
-          ),
-          itemCount: cards.length,
-          itemBuilder: (context, index) {
-            return MemoryCard(
-              card: cards[index],
-              onTap: () => _onCardTap(index),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
   /// 게임 컨트롤 위젯
   Widget _buildGameControls() {
     return Container(
-      padding: const EdgeInsets.all(8), // 패딩 줄임
+      padding: const EdgeInsets.all(16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          ElevatedButton.icon(
-            onPressed: () => _showExitDialog(),
-            icon: const Icon(Icons.exit_to_app, size: 16), // 아이콘 크기 줄임
-            label: const Text('나가기', style: TextStyle(fontSize: 12)), // 폰트 크기 줄임
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // 패딩 줄임
             ),
+            child: const Text('방 나가기'),
           ),
-          if (currentRoom.status == RoomStatus.waiting && currentRoom.isHost(currentPlayerId) && currentRoom.isFull)
-            ElevatedButton.icon(
-              onPressed: _startGameAsHost,
-              icon: const Icon(Icons.play_arrow, size: 16), // 아이콘 크기 줄임
-              label: const Text('게임 시작', style: TextStyle(fontSize: 12)), // 폰트 크기 줄임
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // 패딩 줄임
-              ),
-            ),
-          if (currentRoom.status == RoomStatus.playing)
-            ElevatedButton.icon(
-              onPressed: isGameRunning ? null : _resetGame,
-              icon: const Icon(Icons.refresh, size: 16), // 아이콘 크기 줄임
-              label: const Text('다시 시작', style: TextStyle(fontSize: 12)), // 폰트 크기 줄임
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // 패딩 줄임
-              ),
-            ),
         ],
       ),
     );
@@ -994,69 +997,5 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         ],
       ),
     );
-  }
-
-  /// 대기 화면 위젯
-  Widget _buildWaitingScreen() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.people,
-            size: 80,
-            color: Colors.white,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            '게임 시작 대기 중...',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '상대방이 참가하면 게임이 시작됩니다.',
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white70,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          
-          // 방장만 시작 버튼 표시
-          if (currentRoom.isHost(currentPlayerId) && currentRoom.isFull)
-            ElevatedButton.icon(
-              onPressed: _startGameAsHost,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('게임 시작'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                textStyle: const TextStyle(fontSize: 18),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// 방장이 게임 시작
-  Future<void> _startGameAsHost() async {
-    try {
-      await firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
-      print('게임 시작 요청 완료');
-    } catch (e) {
-      print('게임 시작 오류: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('게임 시작에 실패했습니다: $e')),
-        );
-      }
-    }
   }
 } 
