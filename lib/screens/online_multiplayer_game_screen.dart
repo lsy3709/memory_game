@@ -1258,7 +1258,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 8),
                           ),
-                          child: const Text('게임 시작', style: TextStyle(fontSize: 12)),
+                          child: const Text(
+                            '게임 시작',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,  // 텍스트 색상 명시
+                            ),
+                          ),
                         ),
                       ),
                     ),

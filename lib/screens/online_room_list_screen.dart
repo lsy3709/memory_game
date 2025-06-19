@@ -294,9 +294,10 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
   /// 방 액션 버튼 위젯
   Widget _buildRoomActions(OnlineRoom room) {
     final isMyRoom = room.isHost(_firebaseService.currentUser?.uid ?? '');
-    
+
     if (isMyRoom) {
       return Column(
+        mainAxisSize: MainAxisSize.min,  // ↓ 추가
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (room.isFull)
@@ -328,6 +329,7 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
       );
     }
   }
+
 
   /// 빈 상태 위젯
   Widget _buildEmptyWidget() {
