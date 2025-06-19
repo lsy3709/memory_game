@@ -32,48 +32,61 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
 
   /// 로그인 처리
   Future<void> _handleLogin() async {
-  if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  setState(() {
-    _isLoading = true;
-    _errorMessage = null;
-  });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-  try {
-    // ... (Firebase 초기화 및 로그인 시도)
-    await _firebaseService.signInWithEmailAndPassword(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
+    try {
+      print('온라인 로그인 시도: ${_emailController.text.trim()}');
+      
+      // Firebase 초기화 확인
+      final isInitialized = await _firebaseService.ensureInitialized();
+      if (!isInitialized) {
+        throw Exception('Firebase가 초기화되지 않았습니다.');
+      }
 
-    if (_firebaseService.currentUser != null) {
-      // 성공 시 오류 메시지 초기화
+      await _firebaseService.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (_firebaseService.currentUser != null) {
+        print('로그인 성공 - 온라인 메인 화면으로 이동');
+        // 성공 시 오류 메시지 초기화하고 즉시 화면 전환
+        if (mounted) {
+          setState(() {
+            _errorMessage = null;
+            _isLoading = false;
+          });
+          // 온라인 메인 화면으로 이동
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/online-main',
+            (route) => false,
+          );
+        }
+        return; // 성공 시 여기서 종료
+      } else {
+        throw Exception('로그인 후 사용자 정보를 가져올 수 없습니다.');
+      }
+    } catch (e) {
+      print('로그인 오류: $e');
       if (mounted) {
         setState(() {
-          _errorMessage = null;
+          _errorMessage = _getLoginErrorMessage(e.toString());
+          _isLoading = false;
         });
-        // 온라인 메인 화면으로 이동
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/online-main',
-          (route) => false,
-        );
       }
-    } else {
-      throw Exception('로그인 후 사용자 정보를 가져올 수 없습니다.');
-    }
-  } catch (e) {
-    setState(() {
-      _errorMessage = _getLoginErrorMessage(e.toString());
-    });
-    // ... (Firebase 오류 안내 다이얼로그 등)
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      
+      // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공
+      if (e.toString().contains('Firebase가 초기화되지 않았습니다') ||
+          e.toString().contains('Firebase가 설정되지 않았습니다')) {
+        _showFirebaseErrorDialog();
+      }
     }
   }
-}
 
   /// 로그인 오류 메시지를 사용자 친화적으로 변환
   String _getLoginErrorMessage(String error) {
