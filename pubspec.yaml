@@ -80,6 +80,9 @@ flutter:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
   assets:
+    # App icon
+    - assets/icon/
+
     # Card images
     - assets/flag_image/
 

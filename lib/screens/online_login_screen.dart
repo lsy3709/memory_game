@@ -102,6 +102,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
 
   /// 로그인 오류 메시지를 사용자 친화적으로 변환
   String _getLoginErrorMessage(String error) {
+    // App Check 관련 오류는 무시 (개발 환경에서 정상적인 경고)
+    if (error.contains('No AppCheckProvider installed')) {
+      print('App Check 경고 무시 (개발 환경에서 정상)');
+      return ''; // 빈 문자열 반환하여 오류 메시지 표시하지 않음
+    }
+    
     if (error.contains('user-not-found')) {
       return '등록되지 않은 이메일입니다.';
     } else if (error.contains('wrong-password')) {
