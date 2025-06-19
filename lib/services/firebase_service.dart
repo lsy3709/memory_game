@@ -1259,7 +1259,7 @@ class FirebaseService {
     }
   }
 
-  /// 카드 플립 동기화
+  /// 카드 플립 동기화 - 개선된 버전
   Future<void> syncCardFlip(String roomId, int cardIndex, bool isFlipped, String playerId) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
@@ -1267,21 +1267,29 @@ class FirebaseService {
     }
 
     try {
+      // 현재 시간을 밀리초로 기록
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      
+      print('카드 플립 동기화 시작: 카드=$cardIndex, 뒤집힘=$isFlipped, 플레이어=$playerId (시간: $timestamp)');
+      
       await _firestore!.collection('online_rooms').doc(roomId)
           .collection('card_actions')
           .add({
         'cardIndex': cardIndex,
         'isFlipped': isFlipped,
         'playerId': playerId,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': timestamp, // 클라이언트 타임스탬프 사용
+        'clientTimestamp': FieldValue.serverTimestamp(), // 서버 타임스탬프도 함께 저장
       });
+      
+      print('카드 플립 동기화 완료');
     } catch (e) {
       print('카드 플립 동기화 오류: $e');
       throw Exception('카드 플립 동기화에 실패했습니다.');
     }
   }
 
-  /// 카드 액션 스트림 가져오기
+  /// 카드 액션 스트림 가져오기 - 개선된 버전
   Stream<List<Map<String, dynamic>>> getCardActionsStream(String roomId) {
     if (!_isInitialized || _firestore == null) {
       return Stream.value([]);
@@ -1289,12 +1297,14 @@ class FirebaseService {
 
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('card_actions')
-        .orderBy('timestamp', descending: true)
+        .orderBy('timestamp', descending: true) // 클라이언트 타임스탬프로 정렬
         .limit(10)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => doc.data())
-            .toList());
+        .map((snapshot) {
+          final actions = snapshot.docs.map((doc) => doc.data()).toList();
+          print('카드 액션 스트림 데이터: ${actions.length}개 액션');
+          return actions;
+        });
   }
 
   /// 턴 변경 동기화 - 개선된 버전
@@ -1347,7 +1357,7 @@ class FirebaseService {
         });
   }
 
-  /// 카드 매칭 동기화
+  /// 카드 매칭 동기화 - 개선된 버전
   Future<void> syncCardMatch(String roomId, int cardIndex1, int cardIndex2, bool isMatched, String playerId, [int? score]) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
@@ -1355,12 +1365,18 @@ class FirebaseService {
     }
 
     try {
+      // 현재 시간을 밀리초로 기록
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      
+      print('카드 매칭 동기화 시작: 카드1=$cardIndex1, 카드2=$cardIndex2, 매칭=$isMatched, 플레이어=$playerId, 점수=$score (시간: $timestamp)');
+      
       final matchData = {
         'cardIndex1': cardIndex1,
         'cardIndex2': cardIndex2,
         'isMatched': isMatched,
         'playerId': playerId,
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': timestamp, // 클라이언트 타임스탬프 사용
+        'clientTimestamp': FieldValue.serverTimestamp(), // 서버 타임스탬프도 함께 저장
       };
       
       // 점수 정보가 있으면 추가
@@ -1372,14 +1388,14 @@ class FirebaseService {
           .collection('card_matches')
           .add(matchData);
       
-      print('카드 매칭 동기화 완료: $cardIndex1, $cardIndex2, $isMatched, 점수: $score');
+      print('카드 매칭 동기화 완료');
     } catch (e) {
       print('카드 매칭 동기화 오류: $e');
       throw Exception('카드 매칭 동기화에 실패했습니다.');
     }
   }
 
-  /// 카드 매칭 스트림 가져오기
+  /// 카드 매칭 스트림 가져오기 - 개선된 버전
   Stream<List<Map<String, dynamic>>> getCardMatchesStream(String roomId) {
     if (!_isInitialized || _firestore == null) {
       return Stream.value([]);
@@ -1387,12 +1403,14 @@ class FirebaseService {
 
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('card_matches')
-        .orderBy('timestamp', descending: true)
+        .orderBy('timestamp', descending: true) // 클라이언트 타임스탬프로 정렬
         .limit(10)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => doc.data())
-            .toList());
+        .map((snapshot) {
+          final matches = snapshot.docs.map((doc) => doc.data()).toList();
+          print('카드 매칭 스트림 데이터: ${matches.length}개 매칭');
+          return matches;
+        });
   }
 
   /// 게임 방의 카드 데이터를 Firestore에 저장

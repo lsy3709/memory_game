@@ -151,6 +151,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 실시간 동기화 설정
   void _setupRealtimeSync() {
+    print('=== 실시간 동기화 설정 시작 ===');
+    
     // 게임 상태 리스너
     _gameStateSubscription = firebaseService.getGameStateStream(currentRoom.id)
         .listen((gameState) {
@@ -204,21 +206,30 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _cardActionsSubscription = firebaseService.getCardActionsStream(currentRoom.id)
         .listen((actions) {
       if (actions.isNotEmpty) {
+        // 가장 최신 액션을 가져오기 (Firebase에서 이미 최신순으로 정렬됨)
         final latestAction = actions.first;
         final actionPlayerId = latestAction['playerId'] as String;
+        
+        print('카드 액션 스트림 수신: ${actions.length}개 액션');
+        print('최신 액션: 플레이어=$actionPlayerId, 카드=${latestAction['cardIndex']}, 뒤집힘=${latestAction['isFlipped']}');
         
         // 다른 플레이어의 액션만 처리
         if (actionPlayerId != currentPlayerId) {
           final cardIndex = latestAction['cardIndex'] as int;
           final isFlipped = latestAction['isFlipped'] as bool;
           
-          print('다른 플레이어 카드 액션 감지: 플레이어=$actionPlayerId, 카드=$cardIndex, 뒤집힘=$isFlipped');
+          print('다른 플레이어 카드 액션 처리: 플레이어=$actionPlayerId, 카드=$cardIndex, 뒤집힘=$isFlipped');
           
           setState(() {
             if (cardIndex < cards.length) {
               cards[cardIndex].isFlipped = isFlipped;
+              print('카드 $cardIndex 뒤집기 상태 업데이트: $isFlipped');
+            } else {
+              print('잘못된 카드 인덱스: $cardIndex (총 ${cards.length}개 카드)');
             }
           });
+        } else {
+          print('내가 보낸 카드 액션이므로 무시');
         }
       }
     });
@@ -227,8 +238,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _cardMatchesSubscription = firebaseService.getCardMatchesStream(currentRoom.id)
         .listen((matches) {
       if (matches.isNotEmpty) {
+        // 가장 최신 매칭을 가져오기
         final latestMatch = matches.first;
         final matchPlayerId = latestMatch['playerId'] as String;
+        
+        print('카드 매칭 스트림 수신: ${matches.length}개 매칭');
+        print('최신 매칭: 플레이어=$matchPlayerId, 카드1=${latestMatch['cardIndex1']}, 카드2=${latestMatch['cardIndex2']}, 매칭=${latestMatch['isMatched']}');
         
         // 다른 플레이어의 매칭만 처리
         if (matchPlayerId != currentPlayerId) {
@@ -237,7 +252,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           final isMatched = latestMatch['isMatched'] as bool;
           final score = latestMatch['score'] as int? ?? 0;
           
-          print('다른 플레이어 매칭 감지: 플레이어=$matchPlayerId, 카드1=$cardIndex1, 카드2=$cardIndex2, 매칭=$isMatched, 점수=$score');
+          print('다른 플레이어 매칭 처리: 플레이어=$matchPlayerId, 카드1=$cardIndex1, 카드2=$cardIndex2, 매칭=$isMatched, 점수=$score');
           
           setState(() {
             if (cardIndex1 < cards.length && cardIndex2 < cards.length) {
@@ -253,19 +268,27 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 } else {
                   opponentPlayerScore = score;
                 }
+                print('매칭 성공 - 상대방 점수 업데이트: $opponentPlayerScore');
               } else {
                 // 매칭 실패 시 카드 뒤집기 해제
+                print('매칭 실패 - 1초 후 카드 뒤집기 해제 예정');
                 Future.delayed(const Duration(milliseconds: 1000), () {
                   if (mounted) {
                     setState(() {
                       cards[cardIndex1].isFlipped = false;
                       cards[cardIndex2].isFlipped = false;
+                      firstSelectedIndex = null;
+                      secondSelectedIndex = null;
                     });
                   }
                 });
               }
+            } else {
+              print('잘못된 카드 인덱스: $cardIndex1, $cardIndex2 (총 ${cards.length}개 카드)');
             }
           });
+        } else {
+          print('내가 보낸 매칭이므로 무시');
         }
       }
     });
@@ -293,7 +316,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           timestamp = DateTime.now().millisecondsSinceEpoch;
         }
         
-        print('턴 변경 감지: $changePlayerId -> $nextPlayerId (시간: $timestamp)');
+        print('턴 변경 스트림 수신: $changePlayerId -> $nextPlayerId (시간: $timestamp)');
         print('현재 플레이어: $currentPlayerId, 내 턴: ${nextPlayerId == currentPlayerId}');
         
         // 중복 턴 변경 방지 - 더 엄격한 검증
@@ -320,8 +343,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             secondSelectedIndex = null;
           }
           
-          // 턴 변경 후 일정 시간 후에 lastTurnChangePlayerId 초기화
-          Future.delayed(const Duration(milliseconds: 3000), () {
+          // 턴 변경 후 일정 시간 후에 lastTurnChangePlayerId 초기화 (시간 단축)
+          Future.delayed(const Duration(milliseconds: 1500), () {
             if (mounted && lastTurnChangePlayerId == changePlayerId) {
               print('턴 변경 중복 방지 변수 초기화');
               lastTurnChangePlayerId = null;
@@ -332,6 +355,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         }
       }
     });
+    
+    print('=== 실시간 동기화 설정 완료 ===');
   }
 
   /// 게임 초기화
@@ -638,8 +663,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (scoreModel.currentCombo == 0) {
       print('콤보가 0이므로 턴 변경 실행');
       // 약간의 지연을 두고 턴 변경
-      Future.delayed(const Duration(milliseconds: 500), () {
+      Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted && isGameRunning) {
+          print('매칭 성공 후 턴 변경 실행');
           _changeTurn();
         }
       });
@@ -678,20 +704,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 1초 후 카드 뒤집기 해제
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
-        print('매칭 실패 후 카드 뒤집기 해제 및 턴 변경');
+        print('매칭 실패 후 카드 뒤집기 해제');
         setState(() {
           cards[firstIndex].isFlipped = false;
           cards[secondIndex].isFlipped = false;
           firstSelectedIndex = null;
           secondSelectedIndex = null;
         });
-        
-        // 턴 변경 - 약간의 지연을 두고 실행
-        Future.delayed(const Duration(milliseconds: 200), () {
-          if (mounted && isGameRunning) {
-            _changeTurn();
-          }
-        });
+      }
+    });
+    
+    // 턴 변경 - 약간의 지연을 두고 실행
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted && isGameRunning) {
+        print('매칭 실패 후 턴 변경 실행');
+        _changeTurn();
       }
     });
   }
@@ -912,8 +939,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       // 전송 실패 시에도 로컬 상태는 유지
     }
     
-    // 턴 변경 완료 후 플래그 해제
-    Future.delayed(const Duration(milliseconds: 1000), () {
+    // 턴 변경 완료 후 플래그 해제 (더 짧은 시간으로 조정)
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         _isChangingTurn = false;
         print('턴 변경 플래그 해제');
