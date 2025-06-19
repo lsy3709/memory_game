@@ -9,6 +9,7 @@ import '../models/multiplayer_game_record.dart';
 import '../models/online_room.dart';
 import '../services/sound_service.dart';
 import '../services/firebase_service.dart';
+import '../services/storage_service.dart';
 
 /// 온라인 멀티플레이어 메모리 카드 게임 화면
 class OnlineMultiplayerGameScreen extends StatefulWidget {
@@ -42,6 +43,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   final SoundService soundService = SoundService.instance; // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
   final FirebaseService firebaseService = FirebaseService.instance; // Firebase 서비스
+  final StorageService storageService = StorageService.instance; // 로컬 저장 서비스
   
   // 온라인 멀티플레이어 관련 변수
   late OnlineRoom currentRoom;            // 현재 방 정보
@@ -59,6 +61,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   StreamSubscription<List<Map<String, dynamic>>>? _cardActionsSubscription;
   StreamSubscription<List<Map<String, dynamic>>>? _cardMatchesSubscription;
   StreamSubscription<Map<String, dynamic>?>? _turnChangeSubscription;
+  StreamSubscription<Map<String, dynamic>?>? _gameStateSubscription;
   bool _isChangingTurn = false;
   String? lastTurnChangePlayerId;
   
@@ -88,6 +91,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _cardActionsSubscription?.cancel();
     _turnChangeSubscription?.cancel();
     _cardMatchesSubscription?.cancel();
+    _gameStateSubscription?.cancel();
     soundService.stopBackgroundMusic();
     super.dispose();
   }
@@ -1094,6 +1098,59 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (matchedCards == totalCards) {
       print('게임 완료! 모든 카드가 매칭됨');
       _endGame();
+    }
+  }
+
+  /// 게임 종료 처리
+  void _endGame() {
+    print('=== 게임 종료 처리 시작 ===');
+    
+    if (gameCompleted) {
+      print('이미 게임이 종료되어 있음');
+      return;
+    }
+    
+    setState(() {
+      gameCompleted = true;
+      isGameRunning = false;
+      isMyTurn = false;
+    });
+    
+    // 타이머 정지
+    _stopTimer();
+    
+    // 사운드 재생
+    soundService.playGameOverSound();
+    
+    // 게임 결과 저장
+    _saveGameResult();
+    
+    print('=== 게임 종료 처리 완료 ===');
+  }
+
+  /// 게임 결과 저장
+  Future<void> _saveGameResult() async {
+    try {
+      final gameDuration = DateTime.now().difference(gameStartTime);
+      final gameRecord = GameRecord(
+        playerName: currentPlayerName,
+        score: currentPlayerScore,
+        time: gameDuration.inSeconds,
+        date: DateTime.now(),
+        maxCombo: maxCombo,
+      );
+      
+      // 로컬 저장
+      await storageService.saveGameRecord(gameRecord);
+      
+      // 온라인 저장 (Firebase)
+      if (firebaseService.currentUser != null) {
+        await firebaseService.saveGameRecord(gameRecord);
+      }
+      
+      print('게임 결과 저장 완료: 점수=$currentPlayerScore, 시간=${gameDuration.inSeconds}초');
+    } catch (e) {
+      print('게임 결과 저장 오류: $e');
     }
   }
 
