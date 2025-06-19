@@ -89,7 +89,14 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     try {
       final user = firebaseService.currentUser;
       if (user != null) {
-        final userData = await firebaseService.getUserData(user.uid);
+        Map<String, dynamic>? userData;
+        try {
+          userData = await firebaseService.getUserData(user.uid);
+        } catch (e) {
+          print('사용자 데이터 로드 오류: $e');
+          // 오류가 발생해도 기본값 사용
+        }
+        
         if (userData != null) {
           setState(() {
             currentPlayerName = userData['playerName'] ?? user.displayName ?? '플레이어';

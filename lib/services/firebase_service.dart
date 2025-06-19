@@ -71,11 +71,48 @@ class FirebaseService {
         email: email,
         password: password,
       );
+      
+      // 사용자 정보 업데이트
       _currentUser = credential.user;
+      
+      // 로그인 성공 후 사용자 데이터 확인 및 생성
+      if (_currentUser != null) {
+        await _ensureUserDataExists(_currentUser!);
+      }
+      
       return credential;
     } catch (e) {
       print('로그인 오류: $e');
       rethrow;
+    }
+  }
+
+  /// 사용자 데이터가 존재하는지 확인하고 없으면 생성
+  Future<void> _ensureUserDataExists(User user) async {
+    if (!_isInitialized || _firestore == null) return;
+
+    try {
+      final userDoc = await _firestore!.collection('users').doc(user.uid).get();
+      
+      if (!userDoc.exists) {
+        // 사용자 데이터가 없으면 기본 데이터 생성
+        await _firestore!.collection('users').doc(user.uid).set({
+          'playerName': user.displayName ?? '플레이어',
+          'email': user.email ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastLoginAt': FieldValue.serverTimestamp(),
+        });
+        print('새로운 사용자 데이터 생성: ${user.uid}');
+      } else {
+        // 마지막 로그인 시간 업데이트
+        await _firestore!.collection('users').doc(user.uid).update({
+          'lastLoginAt': FieldValue.serverTimestamp(),
+        });
+        print('기존 사용자 데이터 확인: ${user.uid}');
+      }
+    } catch (e) {
+      print('사용자 데이터 확인/생성 오류: $e');
+      // 오류가 발생해도 로그인은 성공으로 처리
     }
   }
 

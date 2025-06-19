@@ -40,7 +40,14 @@ class _OnlinePlayerNameSetupScreenState extends State<OnlinePlayerNameSetupScree
         });
         
         // 기존 플레이어 이름이 있는지 확인
-        final userData = await _firebaseService.getUserData(user.uid);
+        Map<String, dynamic>? userData;
+        try {
+          userData = await _firebaseService.getUserData(user.uid);
+        } catch (e) {
+          print('사용자 데이터 로드 오류: $e');
+          // 오류가 발생해도 기본값 사용
+        }
+        
         if (userData != null && userData['playerName'] != null) {
           _playerNameController.text = userData['playerName'];
         }

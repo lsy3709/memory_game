@@ -99,6 +99,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         } catch (e) {
           // 사용자 데이터 로드 실패해도 로그인은 성공으로 처리
           print('사용자 데이터 로드 실패: $e');
+          // 오류가 발생해도 로그인 성공으로 처리
         }
         
         // 로그인 성공 후 화면 전환 - mounted 확인 중요

@@ -35,7 +35,13 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         // Firebase 서비스를 통해 사용자 정보 가져오기
-        final userData = await _firebaseService.getUserData(user.uid);
+        Map<String, dynamic>? userData;
+        try {
+          userData = await _firebaseService.getUserData(user.uid);
+        } catch (e) {
+          print('사용자 데이터 로드 오류: $e');
+          // 오류가 발생해도 기본값 사용
+        }
         
         setState(() {
           if (userData != null && userData['playerName'] != null) {

@@ -43,9 +43,13 @@ Firestore Database > 규칙 탭에서 다음 규칙 설정:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 사용자 데이터 - 본인만 읽기/쓰기 가능
+    // 사용자 데이터 - 본인만 읽기/쓰기 가능, 이메일 검색은 인증된 사용자만 가능
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      // 친구 요청을 위한 이메일 검색 허용
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId ||
+         resource.data.email != null);
     }
 
     // 온라인 게임 기록 - 인증된 사용자만 읽기/쓰기 가능
@@ -247,38 +251,32 @@ dependencies:
 
 1. 온라인 랭킹 화면 접속
 2. 콘솔에서 인덱스 오류 메시지 확인
-3. 필요한 인덱스 생성
 
 ## 7. 문제 해결
 
-### 7.1 일반적인 오류들
+### 7.1 권한 오류 해결
 
-**"No AppCheckProvider installed"**
+만약 "Missing or insufficient permissions" 오류가 발생한다면:
 
-- 개발 환경에서는 무시해도 됨
-- 프로덕션에서는 App Check 설정 필요
+1. Firebase Console > Firestore Database > 규칙 탭에서 위의 보안 규칙이 정확히 설정되었는지 확인
+2. 규칙 변경 후 "게시" 버튼 클릭
+3. 앱을 다시 실행하여 테스트
 
-**"The query requires an index"**
+### 7.2 친구 요청 오류 해결
 
-- Firebase Console에서 해당 인덱스 생성
-- 인덱스 생성 완료까지 몇 분 대기
+친구 요청 시 권한 오류가 발생하는 경우:
 
-**"Permission denied"**
+1. 사용자가 로그인되어 있는지 확인
+2. Firestore 규칙에서 `users` 컬렉션에 대한 읽기 권한이 올바르게 설정되었는지 확인
+3. 친구로 요청하려는 사용자가 실제로 존재하는지 확인
 
-- Firestore 보안 규칙 확인
-- 사용자 인증 상태 확인
+### 7.3 인덱스 오류 해결
 
-### 7.2 성능 최적화
+복합 인덱스 오류가 발생하는 경우:
 
-**인덱스 최적화**
-
-- 자주 사용되는 쿼리에 대한 인덱스 생성
-- 불필요한 인덱스 제거
-
-**쿼리 최적화**
-
-- 필요한 필드만 선택
-- 적절한 제한 설정
+1. Firebase Console > Firestore Database > 인덱스 탭에서 필요한 인덱스들이 모두 생성되었는지 확인
+2. 인덱스 상태가 "사용 가능"인지 확인
+3. 인덱스 생성 후 몇 분 기다린 후 다시 시도
 
 ## 8. 프로덕션 배포
 
