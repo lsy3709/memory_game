@@ -40,6 +40,8 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     });
 
     try {
+      print('온라인 로그인 시도: ${_emailController.text.trim()}');
+      
       // Firebase 초기화 확인
       final isInitialized = await _firebaseService.ensureInitialized();
       if (!isInitialized) {
@@ -57,6 +59,8 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
           // 플레이어 이름이 설정되어 있는지 확인
           final userData = await _firebaseService.getUserData(_firebaseService.currentUser!.uid);
           final hasPlayerName = userData != null && userData['playerName'] != null && userData['playerName'].toString().isNotEmpty;
+          
+          print('로그인 성공 - 플레이어 이름 설정 여부: $hasPlayerName');
           
           if (hasPlayerName) {
             // 플레이어 이름이 있으면 온라인 메인 화면으로
@@ -76,8 +80,9 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         throw Exception('로그인 후 사용자 정보를 가져올 수 없습니다.');
       }
     } catch (e) {
+      print('로그인 오류: $e');
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = _getLoginErrorMessage(e.toString());
       });
       
       // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공
@@ -94,6 +99,27 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     }
   }
 
+  /// 로그인 오류 메시지를 사용자 친화적으로 변환
+  String _getLoginErrorMessage(String error) {
+    if (error.contains('user-not-found')) {
+      return '등록되지 않은 이메일입니다.';
+    } else if (error.contains('wrong-password')) {
+      return '비밀번호가 올바르지 않습니다.';
+    } else if (error.contains('invalid-email')) {
+      return '올바르지 않은 이메일 형식입니다.';
+    } else if (error.contains('user-disabled')) {
+      return '비활성화된 계정입니다.';
+    } else if (error.contains('too-many-requests')) {
+      return '너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요.';
+    } else if (error.contains('network-request-failed')) {
+      return '네트워크 연결을 확인해주세요.';
+    } else if (error.contains('Firebase가 사용할 수 없습니다')) {
+      return '온라인 서비스에 연결할 수 없습니다. 로컬 모드로 실행됩니다.';
+    } else {
+      return '로그인에 실패했습니다: ${error.replaceAll('Exception: ', '')}';
+    }
+  }
+
   /// 회원가입 처리
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
@@ -104,6 +130,8 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     });
 
     try {
+      print('온라인 회원가입 시도: ${_emailController.text.trim()}');
+      
       // Firebase 초기화 확인
       final isInitialized = await _firebaseService.ensureInitialized();
       if (!isInitialized) {
@@ -119,6 +147,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       // 회원가입 성공 후 사용자 상태 확인
       if (_firebaseService.currentUser != null) {
         if (mounted) {
+          print('회원가입 성공 - 온라인 메인 화면으로 이동');
           // 회원가입 시에는 이미 플레이어 이름이 설정되었으므로 온라인 메인 화면으로
           Navigator.of(context).pushNamedAndRemoveUntil(
             '/online-main',
@@ -129,8 +158,9 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         throw Exception('회원가입 후 사용자 정보를 가져올 수 없습니다.');
       }
     } catch (e) {
+      print('회원가입 오류: $e');
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = _getSignUpErrorMessage(e.toString());
       });
       
       // Firebase 초기화 오류인 경우 로컬 모드 전환 옵션 제공
@@ -144,6 +174,25 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  /// 회원가입 오류 메시지를 사용자 친화적으로 변환
+  String _getSignUpErrorMessage(String error) {
+    if (error.contains('email-already-in-use')) {
+      return '이미 사용 중인 이메일입니다.';
+    } else if (error.contains('weak-password')) {
+      return '비밀번호가 너무 약합니다. 6자 이상으로 설정해주세요.';
+    } else if (error.contains('invalid-email')) {
+      return '올바르지 않은 이메일 형식입니다.';
+    } else if (error.contains('operation-not-allowed')) {
+      return '이메일/비밀번호 회원가입이 비활성화되어 있습니다.';
+    } else if (error.contains('network-request-failed')) {
+      return '네트워크 연결을 확인해주세요.';
+    } else if (error.contains('Firebase가 사용할 수 없습니다')) {
+      return '온라인 서비스에 연결할 수 없습니다. 로컬 모드로 실행됩니다.';
+    } else {
+      return '회원가입에 실패했습니다: ${error.replaceAll('Exception: ', '')}';
     }
   }
 

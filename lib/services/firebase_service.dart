@@ -278,14 +278,39 @@ class FirebaseService {
     }
 
     try {
-      await _firestore!.collection('users').doc(uid).update({
-        'playerName': playerName,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      print('플레이어 이름 업데이트 시작: $uid -> $playerName');
+      
+      // 사용자 문서가 존재하는지 확인
+      final userDoc = await _firestore!.collection('users').doc(uid).get();
+      
+      if (userDoc.exists) {
+        // 기존 문서 업데이트
+        await _firestore!.collection('users').doc(uid).update({
+          'playerName': playerName,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        print('기존 사용자 문서 업데이트 완료');
+      } else {
+        // 새 문서 생성
+        await _firestore!.collection('users').doc(uid).set({
+          'playerName': playerName,
+          'email': _auth?.currentUser?.email ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        print('새 사용자 문서 생성 완료');
+      }
+      
       print('플레이어 이름 업데이트 완료: $playerName');
     } catch (e) {
       print('플레이어 이름 업데이트 오류: $e');
-      throw Exception('플레이어 이름 업데이트에 실패했습니다.');
+      if (e.toString().contains('permission-denied')) {
+        throw Exception('권한이 없습니다. Firestore 보안 규칙을 확인해주세요.');
+      } else if (e.toString().contains('unavailable')) {
+        throw Exception('네트워크 연결을 확인해주세요.');
+      } else {
+        throw Exception('플레이어 이름 업데이트에 실패했습니다: ${e.toString().replaceAll('Exception: ', '')}');
+      }
     }
   }
 

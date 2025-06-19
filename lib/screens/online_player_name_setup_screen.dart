@@ -66,12 +66,23 @@ class _OnlinePlayerNameSetupScreenState extends State<OnlinePlayerNameSetupScree
       }
 
       final playerName = _playerNameController.text.trim();
+      print('플레이어 이름 저장 시도: $playerName');
+      
+      // Firebase 연결 상태 확인
+      final isFirebaseAvailable = await _firebaseService.ensureInitialized();
+      if (!isFirebaseAvailable) {
+        throw Exception('Firebase가 사용할 수 없습니다. 네트워크 연결을 확인해주세요.');
+      }
       
       // Firestore에 플레이어 이름 저장
+      print('Firestore에 플레이어 이름 저장 중...');
       await _firebaseService.updatePlayerName(user.uid, playerName);
+      print('Firestore 저장 완료');
       
       // Firebase Auth 프로필도 업데이트
+      print('Firebase Auth 프로필 업데이트 중...');
       await user.updateDisplayName(playerName);
+      print('Firebase Auth 업데이트 완료');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -81,12 +92,17 @@ class _OnlinePlayerNameSetupScreenState extends State<OnlinePlayerNameSetupScree
           ),
         );
         
-        // 온라인 메인 화면으로 이동
-        Navigator.of(context).pushReplacementNamed('/online-main');
+        // 잠시 후 온라인 메인 화면으로 이동
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/online-main');
+          }
+        });
       }
     } catch (e) {
+      print('플레이어 이름 저장 오류: $e');
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = _getErrorMessage(e.toString());
       });
     } finally {
       if (mounted) {
@@ -94,6 +110,21 @@ class _OnlinePlayerNameSetupScreenState extends State<OnlinePlayerNameSetupScree
           _isLoading = false;
         });
       }
+    }
+  }
+
+  /// 오류 메시지를 사용자 친화적으로 변환
+  String _getErrorMessage(String error) {
+    if (error.contains('permission-denied')) {
+      return '권한이 없습니다. 다시 로그인해주세요.';
+    } else if (error.contains('unavailable')) {
+      return '네트워크 연결을 확인해주세요.';
+    } else if (error.contains('not-found')) {
+      return '사용자 정보를 찾을 수 없습니다.';
+    } else if (error.contains('already-exists')) {
+      return '이미 존재하는 플레이어 이름입니다.';
+    } else {
+      return '플레이어 이름 저장에 실패했습니다: ${error.replaceAll('Exception: ', '')}';
     }
   }
 

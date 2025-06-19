@@ -47,8 +47,9 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
         
         // 플레이어 이름이 기본값이면 설정 화면으로 이동
         if (_playerName == '플레이어' && mounted) {
-          // 잠시 후 설정 화면으로 이동
-          Future.delayed(const Duration(milliseconds: 500), () {
+          print('플레이어 이름이 기본값입니다. 설정 화면으로 이동합니다.');
+          // 잠시 후 설정 화면으로 이동 (UI가 완전히 로드된 후)
+          Future.delayed(const Duration(milliseconds: 1000), () {
             if (mounted) {
               Navigator.of(context).pushReplacementNamed('/online-player-name-setup');
             }
