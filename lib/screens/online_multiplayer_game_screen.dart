@@ -534,14 +534,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _changeTurn() {
     if (!mounted) return;
     
-    // 현재 방에서 다음 플레이어 찾기
-    final currentPlayerIndex = currentRoom.players.indexWhere((p) => p.id == currentPlayerId);
-    if (currentPlayerIndex == -1) return;
+    // 현재 플레이어가 방장인지 게스트인지 확인
+    final isCurrentPlayerHost = currentRoom.isHost(currentPlayerId);
     
-    final nextPlayerIndex = (currentPlayerIndex + 1) % currentRoom.players.length;
-    final nextPlayerId = currentRoom.players[nextPlayerIndex].id;
+    // 다음 플레이어 ID 결정
+    String nextPlayerId;
+    if (isCurrentPlayerHost) {
+      // 방장인 경우 게스트로 턴 변경
+      nextPlayerId = currentRoom.guestId ?? currentRoom.hostId;
+    } else {
+      // 게스트인 경우 방장으로 턴 변경
+      nextPlayerId = currentRoom.hostId;
+    }
     
     print('턴 변경: $currentPlayerId -> $nextPlayerId');
+    print('현재 플레이어가 방장: $isCurrentPlayerHost');
     
     setState(() {
       isMyTurn = nextPlayerId == currentPlayerId;
