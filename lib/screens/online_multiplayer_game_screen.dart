@@ -61,6 +61,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   List<Map<String, dynamic>> recentCardActions = [];
   String? lastTurnChangePlayerId;
 
+  /// 게임 완료 여부
+  bool gameCompleted = false;
+
   @override
   void initState() {
     super.initState();
@@ -177,8 +180,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           final cardIndex1 = latestMatch['cardIndex1'] as int;
           final cardIndex2 = latestMatch['cardIndex2'] as int;
           final isMatched = latestMatch['isMatched'] as bool;
+          final score = latestMatch['score'] as int? ?? 0;
           
-          print('다른 플레이어 매칭 감지: 플레이어=$matchPlayerId, 카드1=$cardIndex1, 카드2=$cardIndex2, 매칭=$isMatched');
+          print('다른 플레이어 매칭 감지: 플레이어=$matchPlayerId, 카드1=$cardIndex1, 카드2=$cardIndex2, 매칭=$isMatched, 점수=$score');
           
           setState(() {
             if (cardIndex1 < cards.length && cardIndex2 < cards.length) {
@@ -187,6 +191,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               if (isMatched) {
                 cards[cardIndex1].isFlipped = true;
                 cards[cardIndex2].isFlipped = true;
+                
+                // 상대방 점수 업데이트
+                if (currentRoom.isHost(currentPlayerId)) {
+                  opponentPlayerScore = score;
+                } else {
+                  opponentPlayerScore = score;
+                }
               } else {
                 // 매칭 실패 시 카드 뒤집기 해제
                 Future.delayed(const Duration(milliseconds: 1000), () {
@@ -464,13 +475,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       secondSelectedIndex = null;
     });
     
-    // 실시간 동기화 - 매칭 성공 정보 전송
+    // 실시간 동기화 - 매칭 성공 정보 전송 (점수 포함)
     firebaseService.syncCardMatch(
       currentRoom.id, 
       firstIndex, 
       secondIndex, 
       true, 
-      currentPlayerId
+      currentPlayerId,
+      currentPlayerScore, // 점수 정보 추가
     );
     
     // 매칭 성공 시에도 턴 변경 (연속 매칭이 아닌 경우)

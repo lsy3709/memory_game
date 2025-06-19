@@ -1299,22 +1299,31 @@ class FirebaseService {
   }
 
   /// 카드 매칭 동기화
-  Future<void> syncCardMatch(String roomId, int cardIndex1, int cardIndex2, bool isMatched, String playerId) async {
+  Future<void> syncCardMatch(String roomId, int cardIndex1, int cardIndex2, bool isMatched, String playerId, [int? score]) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
       throw Exception('Firebase가 초기화되지 않았습니다.');
     }
 
     try {
-      await _firestore!.collection('online_rooms').doc(roomId)
-          .collection('card_matches')
-          .add({
+      final matchData = {
         'cardIndex1': cardIndex1,
         'cardIndex2': cardIndex2,
         'isMatched': isMatched,
         'playerId': playerId,
         'timestamp': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      // 점수 정보가 있으면 추가
+      if (score != null) {
+        matchData['score'] = score;
+      }
+      
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('card_matches')
+          .add(matchData);
+      
+      print('카드 매칭 동기화 완료: $cardIndex1, $cardIndex2, $isMatched, 점수: $score');
     } catch (e) {
       print('카드 매칭 동기화 오류: $e');
       throw Exception('카드 매칭 동기화에 실패했습니다.');

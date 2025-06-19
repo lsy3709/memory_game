@@ -48,6 +48,12 @@ class _GameScreenState extends State<GameScreen> {
   String currentPlayerEmail = '';         // 현재 플레이어 이메일
   DateTime gameStartTime = DateTime.now(); // 게임 시작 시간
 
+  /// 게임 완료 여부
+  bool gameCompleted = false;
+
+  /// 현재 점수
+  int get score => scoreModel.score;
+
   @override
   void initState() {
     super.initState();
