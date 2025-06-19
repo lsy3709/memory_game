@@ -99,8 +99,8 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
         
         if (userData != null) {
           setState(() {
-            currentPlayerName = userData['playerName'] ?? user.displayName ?? '플레이어';
-            currentPlayerEmail = userData['email'] ?? user.email ?? '';
+            currentPlayerName = (userData as Map<String, dynamic>)['playerName'] ?? user.displayName ?? '플레이어';
+            currentPlayerEmail = (userData as Map<String, dynamic>)['email'] ?? user.email ?? '';
           });
           print('게임 화면 - 플레이어 이름: $currentPlayerName');
           print('게임 화면 - 플레이어 이메일: $currentPlayerEmail');
