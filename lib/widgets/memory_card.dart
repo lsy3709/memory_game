@@ -14,6 +14,9 @@ class MemoryCard extends StatelessWidget {
     this.isEnabled = true,
   });
 
+  /// 카드 내용이 이미지인지 이모지인지 확인
+  bool get _isImage => card.emoji.startsWith('assets/');
+
   @override
   Widget build(BuildContext context) {
     // 카드 전체를 GestureDetector로 감싸 터치 이벤트 처리
@@ -51,13 +54,18 @@ class MemoryCard extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               opacity: card.isFlipped || card.isMatched ? 1.0 : 0.0,
               child: card.isMatched || card.isFlipped
-                  ? Text(
-                      card.emoji,
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
+                  ? _isImage
+                      ? Image.asset(
+                          card.emoji,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            // 이미지 로드 실패 시 이모지로 대체
+                            return _buildCardContent();
+                          },
+                        )
+                      : _buildCardContent()
                   : const Text(
                       '?',
                       style: TextStyle(
@@ -70,6 +78,38 @@ class MemoryCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// 카드 내용 위젯 (국기와 이름)
+  Widget _buildCardContent() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // 국기 이모지
+        Text(
+          card.emoji,
+          style: const TextStyle(
+            fontSize: 24, // 국기 크기 조정
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        // 이름 (있는 경우에만 표시)
+        if (card.name != null && card.name!.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            card.name!,
+            style: const TextStyle(
+              fontSize: 8, // 이름 크기 (작게)
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
     );
   }
 }

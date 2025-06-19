@@ -6,6 +6,9 @@ class CardModel {
   /// 카드의 이모지
   final String emoji;
 
+  /// 카드의 이름 (국기 이름 등)
+  final String? name;
+
   /// 카드가 뒤집혀 있는지 여부
   bool isFlipped;
 
@@ -19,6 +22,7 @@ class CardModel {
   CardModel({
     required this.id,
     required this.emoji,
+    this.name,
     this.isFlipped = false,
     this.isMatched = false,
     this.isEnabled = true,
@@ -48,6 +52,7 @@ class CardModel {
   CardModel copyWith({
     int? id,
     String? emoji,
+    String? name,
     bool? isFlipped,
     bool? isMatched,
     bool? isEnabled,
@@ -55,6 +60,7 @@ class CardModel {
     return CardModel(
       id: id ?? this.id,
       emoji: emoji ?? this.emoji,
+      name: name ?? this.name,
       isFlipped: isFlipped ?? this.isFlipped,
       isMatched: isMatched ?? this.isMatched,
       isEnabled: isEnabled ?? this.isEnabled,
@@ -66,6 +72,7 @@ class CardModel {
     return {
       'id': id,
       'emoji': emoji,
+      'name': name,
       'isFlipped': isFlipped,
       'isMatched': isMatched,
       'isEnabled': isEnabled,
@@ -77,6 +84,7 @@ class CardModel {
     return CardModel(
       id: json['id'] ?? 0,
       emoji: json['emoji'] ?? '❓',
+      name: json['name'],
       isFlipped: json['isFlipped'] ?? false,
       isMatched: json['isMatched'] ?? false,
       isEnabled: json['isEnabled'] ?? true,

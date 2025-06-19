@@ -101,31 +101,52 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
 
   /// 카드 쌍을 생성하고 셔플
   void _createCards() {
-    cards.clear(); // 기존 카드 리스트 초기화
+    final List<CardModel> tempCards = [];
     
-    // 카드 쌍의 개수만큼 반복
+    // 카드 쌍 생성
     for (int i = 0; i < numPairs; i++) {
-      // 각 쌍마다 두 장의 카드를 생성
-      for (int j = 0; j < 2; j++) {
-        cards.add(CardModel(
-          id: i, // 쌍 id
-          emoji: _getEmoji(i), // 이모지
-          isMatched: false,
-          isFlipped: false,
-        ));
-      }
+      tempCards.add(CardModel(
+        id: i,
+        emoji: _getEmoji(i),
+        name: _getFlagName(i),
+        isMatched: false,
+        isFlipped: false,
+      ));
+      tempCards.add(CardModel(
+        id: i,
+        emoji: _getEmoji(i),
+        name: _getFlagName(i),
+        isMatched: false,
+        isFlipped: false,
+      ));
     }
-    cards.shuffle(); // 카드 순서 섞기
+    
+    // 카드 섞기
+    tempCards.shuffle(Random());
+    
+    setState(() {
+      cards = tempCards;
+    });
   }
 
-  /// 이모지 가져오기
+  /// 이모지 가져오기 (국기로 변경)
   String _getEmoji(int index) {
-    final emojis = [
-      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
-      '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔',
-      '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺'
+    final flags = [
+      '🇰🇷', '🇺🇸', '🇯🇵', '🇨🇳', '🇬🇧', '🇫🇷', '🇩🇪', '🇮🇹',
+      '🇪🇸', '🇨🇦', '🇦🇺', '🇧🇷', '🇦🇷', '🇲🇽', '🇮🇳', '🇷🇺',
+      '🇰🇵', '🇹🇭', '🇻🇳', '🇵🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇹🇼'
     ];
-    return emojis[index % emojis.length];
+    return flags[index % flags.length];
+  }
+
+  /// 국기 한글 이름 가져오기
+  String _getFlagName(int index) {
+    final names = [
+      '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
+      '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
+      '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
+    ];
+    return names[index % names.length];
   }
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정

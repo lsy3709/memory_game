@@ -103,6 +103,26 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// 이모지 가져오기 (국기로 변경)
+  String _getEmoji(int index) {
+    final flags = [
+      '🇰🇷', '🇺🇸', '🇯🇵', '🇨🇳', '🇬🇧', '🇫🇷', '🇩🇪', '🇮🇹',
+      '🇪🇸', '🇨🇦', '🇦🇺', '🇧🇷', '🇦🇷', '🇲🇽', '🇮🇳', '🇷🇺',
+      '🇰🇵', '🇹🇭', '🇻🇳', '🇵🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇹🇼'
+    ];
+    return flags[index % flags.length];
+  }
+
+  /// 국기 한글 이름 가져오기
+  String _getFlagName(int index) {
+    final names = [
+      '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
+      '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
+      '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
+    ];
+    return names[index % names.length];
+  }
+
   /// 카드 생성 및 섞기
   void _createCards() {
     final List<CardModel> tempCards = [];
@@ -112,12 +132,14 @@ class _GameScreenState extends State<GameScreen> {
       tempCards.add(CardModel(
         id: i,
         emoji: _getEmoji(i),
+        name: _getFlagName(i),
         isMatched: false,
         isFlipped: false,
       ));
       tempCards.add(CardModel(
         id: i,
         emoji: _getEmoji(i),
+        name: _getFlagName(i),
         isMatched: false,
         isFlipped: false,
       ));
@@ -319,16 +341,6 @@ class _GameScreenState extends State<GameScreen> {
     } catch (e) {
       print('게임 기록 저장 오류: $e');
     }
-  }
-
-  /// 이모지 가져오기
-  String _getEmoji(int index) {
-    final emojis = [
-      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
-      '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔',
-      '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺'
-    ];
-    return emojis[index % emojis.length];
   }
 
   /// 게임 결과 다이얼로그 표시
