@@ -8,6 +8,7 @@ import '../models/multiplayer_game_record.dart';
 import '../models/online_room.dart';
 import '../services/sound_service.dart';
 import '../services/firebase_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// 온라인 멀티플레이어 메모리 카드 게임 화면
 class OnlineMultiplayerGameScreen extends StatefulWidget {
@@ -221,7 +222,22 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       if (turnChange != null) {
         final nextPlayerId = turnChange['nextPlayerId'] as String;
         final changePlayerId = turnChange['currentPlayerId'] as String;
-        final timestamp = turnChange['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+        
+        // Timestamp 타입 안전하게 처리
+        int timestamp;
+        try {
+          final timestampData = turnChange['timestamp'];
+          if (timestampData is Timestamp) {
+            timestamp = timestampData.millisecondsSinceEpoch;
+          } else if (timestampData is int) {
+            timestamp = timestampData;
+          } else {
+            timestamp = DateTime.now().millisecondsSinceEpoch;
+          }
+        } catch (e) {
+          print('타임스탬프 처리 오류: $e');
+          timestamp = DateTime.now().millisecondsSinceEpoch;
+        }
         
         print('턴 변경 감지: $changePlayerId -> $nextPlayerId (시간: $timestamp)');
         print('현재 플레이어: $currentPlayerId, 내 턴: ${nextPlayerId == currentPlayerId}');
@@ -763,11 +779,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     const int gridRows = 8;
     const int totalCards = gridColumns * gridRows; // 48개 카드
     
-    // 레이아웃 영역 정의
+    // 레이아웃 영역 정의 - 오버플로우 방지를 위해 조정
     final headerHeight = 60.0; // 부분1: 제목 영역
-    final playerInfoHeight = 80.0; // 부분2: 플레이어 정보 영역
-    final buttonAreaHeight = 80.0; // 부분4: 버튼 영역
-    final padding = 16.0; // 전체 패딩
+    final playerInfoHeight = 70.0; // 부분2: 플레이어 정보 영역 (줄임)
+    final buttonAreaHeight = 70.0; // 부분4: 버튼 영역 (줄임)
+    final padding = 8.0; // 전체 패딩 (줄임)
     
     // 부분3: 카드 레이아웃 영역 높이 계산
     final cardLayoutHeight = screenHeight - headerHeight - playerInfoHeight - buttonAreaHeight - padding;
@@ -838,99 +854,98 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             colors: [Colors.blue, Colors.purple],
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // 부분2: 플레이어 정보 영역 (고정 높이)
-              Container(
-                height: playerInfoHeight,
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // 방장 정보
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: currentRoom.isHost(currentPlayerId) && isMyTurn ? 
-                              Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: currentRoom.isHost(currentPlayerId) ? Colors.blue : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '방장: ${currentRoom.hostName}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '점수: ${currentRoom.isHost(currentPlayerId) ? currentPlayerScore : opponentPlayerScore}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
+        child: Column(
+          children: [
+            // 부분2: 플레이어 정보 영역 (고정 높이)
+            Container(
+              height: playerInfoHeight,
+              padding: const EdgeInsets.all(4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // 방장 정보
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: currentRoom.isHost(currentPlayerId) && isMyTurn ? 
+                            Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: currentRoom.isHost(currentPlayerId) ? Colors.blue : Colors.transparent,
+                          width: 2,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    // 참가자 정보
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: !currentRoom.isHost(currentPlayerId) && isMyTurn ? 
-                              Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: !currentRoom.isHost(currentPlayerId) ? Colors.blue : Colors.transparent,
-                            width: 2,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '방장: ${currentRoom.hostName}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '참가자: ${currentRoom.guestName ?? '대기 중...'}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          const SizedBox(height: 2),
+                          Text(
+                            '점수: ${currentRoom.isHost(currentPlayerId) ? currentPlayerScore : opponentPlayerScore}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '점수: ${!currentRoom.isHost(currentPlayerId) ? currentPlayerScore : opponentPlayerScore}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 4),
+                  // 참가자 정보
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: !currentRoom.isHost(currentPlayerId) && isMyTurn ? 
+                            Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: !currentRoom.isHost(currentPlayerId) ? Colors.blue : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '참가자: ${currentRoom.guestName ?? '대기 중...'}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '점수: ${!currentRoom.isHost(currentPlayerId) ? currentPlayerScore : opponentPlayerScore}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              
-              // 부분3: 카드 레이아웃 영역 (고정 6x8 레이아웃)
-              Container(
-                height: cardLayoutHeight,
-                padding: const EdgeInsets.all(4),
+            ),
+            
+            // 부분3: 카드 레이아웃 영역 (고정 6x8 레이아웃)
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(2),
                 child: needsScroll ? 
                   // 스크롤이 필요한 경우
                   SingleChildScrollView(
@@ -992,72 +1007,72 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     ),
                   ),
               ),
-              
-              // 부분4: 버튼 영역 (고정 높이)
-              Container(
-                height: buttonAreaHeight,
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // 게임 시작 버튼 (방장만, 게임 시작 전에만)
-                    if (!isGameRunning && currentRoom.isHost(currentPlayerId))
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: ElevatedButton(
-                            onPressed: _startGame,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: const Text('게임 시작'),
-                          ),
-                        ),
-                      ),
-                    
-                    // 대기 메시지 (게스트만, 게임 시작 전에만)
-                    if (!isGameRunning && !currentRoom.isHost(currentPlayerId))
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            '방장이 게임을 시작할 때까지 기다려주세요...',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    
-                    // 방 나가기 버튼
+            ),
+            
+            // 부분4: 버튼 영역 (고정 높이)
+            Container(
+              height: buttonAreaHeight,
+              padding: const EdgeInsets.all(4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // 게임 시작 버튼 (방장만, 게임 시작 전에만)
+                  if (!isGameRunning && currentRoom.isHost(currentPlayerId))
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: _startGame,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                            backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                           ),
-                          child: const Text('방 나가기'),
+                          child: const Text('게임 시작', style: TextStyle(fontSize: 12)),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  
+                  // 대기 메시지 (게스트만, 게임 시작 전에만)
+                  if (!isGameRunning && !currentRoom.isHost(currentPlayerId))
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          '방장이 게임을 시작할 때까지 기다려주세요...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  
+                  // 방 나가기 버튼
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        child: const Text('방 나가기', style: TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
