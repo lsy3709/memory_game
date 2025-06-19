@@ -196,9 +196,22 @@ class FirebaseService {
         password: password,
       );
 
-      // 로그인 성공 후 추가 정보 처리는 선택적으로 수행
+      // 로그인 성공 후 추가 정보 처리는 완전히 선택적으로 수행
+      // 어떤 오류가 발생하더라도 로그인 자체는 성공으로 처리
+      _processUserDataAfterLogin(userCredential, email);
+
+      return userCredential;
+    } catch (e) {
+      throw _handleAuthError(e);
+    }
+  }
+
+  /// 로그인 후 사용자 정보 처리 (선택적)
+  void _processUserDataAfterLogin(UserCredential userCredential, String email) {
+    // 비동기로 처리하되 결과를 기다리지 않음
+    Future.microtask(() async {
       try {
-        // 사용자 정보 가져오기 (Auth 프로필 업데이트는 제거)
+        // 사용자 정보 가져오기
         final userData = await getUserData(userCredential.user!.uid);
         if (userData != null && userData['playerName'] != null) {
           print('기존 플레이어 이름 발견: ${userData['playerName']}');
@@ -221,11 +234,7 @@ class FirebaseService {
         // 추가 정보 처리 실패는 로그인 실패로 처리하지 않음
         print('사용자 정보 처리 중 오류 (로그인은 성공): $e');
       }
-
-      return userCredential;
-    } catch (e) {
-      throw _handleAuthError(e);
-    }
+    });
   }
 
   /// 로그아웃
