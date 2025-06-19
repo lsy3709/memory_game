@@ -50,10 +50,20 @@ class ScoreModel {
     addScore(10);
   }
 
+  /// 매치 성공 (기존 메서드명 호환성)
+  void addMatchScore() {
+    addMatch();
+  }
+
   /// 매치 실패
   void addFail() {
     _failCount++;
     _currentCombo = 0;
+  }
+
+  /// 매치 실패 (기존 메서드명 호환성)
+  void addFailPenalty() {
+    addFail();
   }
 
   /// 시간 설정
@@ -106,4 +116,13 @@ class ScoreModel {
     model._isCompleted = json['isCompleted'] ?? false;
     return model;
   }
+
+  /// 현재 점수 (기존 getter명 호환성)
+  int get currentScore => _score;
+
+  /// 콤보 카운트 (기존 getter명 호환성)
+  int get comboCount => _currentCombo;
+
+  /// 최고 점수 (기존 getter명 호환성)
+  int get bestScore => _score; // 단순화를 위해 현재 점수 반환
 } 

@@ -88,10 +88,20 @@ class SoundService {
     await _playSound('sounds/card_flip.mp3');
   }
 
+  /// 카드 뒤집기 사운드 (기존 메서드명 호환성)
+  Future<void> playCardFlip() async {
+    await playCardFlipSound();
+  }
+
   /// 카드 매치 사운드
   Future<void> playMatchSound() async {
     if (!_isSoundEnabled) return;
     await _playSound('sounds/match.mp3');
+  }
+
+  /// 카드 매치 사운드 (기존 메서드명 호환성)
+  Future<void> playCardMatch() async {
+    await playMatchSound();
   }
 
   /// 카드 매치 실패 사운드
@@ -100,16 +110,56 @@ class SoundService {
     await _playSound('sounds/mismatch.mp3');
   }
 
+  /// 카드 매치 실패 사운드 (기존 메서드명 호환성)
+  Future<void> playCardMismatch() async {
+    await playMismatchSound();
+  }
+
   /// 게임 종료 사운드
   Future<void> playGameOverSound() async {
     if (!_isSoundEnabled) return;
     await _playSound('sounds/game_over.mp3');
   }
 
+  /// 게임 승리 사운드 (기존 메서드명 호환성)
+  Future<void> playGameWin() async {
+    await playGameOverSound();
+  }
+
   /// 버튼 클릭 사운드
   Future<void> playButtonClickSound() async {
     if (!_isSoundEnabled) return;
     await _playSound('sounds/button_click.mp3');
+  }
+
+  /// 버튼 클릭 사운드 (기존 메서드명 호환성)
+  Future<void> playButtonSound() async {
+    await playButtonClickSound();
+  }
+
+  /// 배경 음악 정지 (기존 메서드명 호환성)
+  Future<void> stopBackgroundMusic() async {
+    await _stopBackgroundMusic();
+  }
+
+  /// 배경 음악 재개 (기존 메서드명 호환성)
+  Future<void> resumeBackgroundMusic() async {
+    await playBackgroundMusic();
+  }
+
+  /// 배경 음악 시작 (기존 메서드명 호환성)
+  Future<void> startBackgroundMusic() async {
+    await playBackgroundMusic();
+  }
+
+  /// 배경 음악 일시정지 (기존 메서드명 호환성)
+  Future<void> pauseBackgroundMusic() async {
+    await _stopBackgroundMusic();
+  }
+
+  /// 게임 시작 사운드 (기존 메서드명 호환성)
+  Future<void> playGameStart() async {
+    await playGameStartSound();
   }
 
   /// 효과음 재생 (내부 메서드)

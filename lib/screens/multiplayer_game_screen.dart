@@ -46,8 +46,8 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   bool isGameRunning = false;             // 게임 진행 여부
   bool isTimerPaused = false;             // 타이머 일시정지 여부
   Timer? gameTimer;                       // 게임 타이머 (nullable로 변경)
-  final SoundService soundService = SoundService(); // 사운드 관리
-  final StorageService storageService = StorageService(); // 저장소 관리
+  final SoundService soundService = SoundService.instance; // 사운드 관리
+  final StorageService storageService = StorageService.instance; // 저장소 관리
   
   // 플레이어 관련 변수
   int currentPlayerIndex = 0;             // 현재 플레이어 인덱스 (0: 플레이어1, 1: 플레이어2)
@@ -73,20 +73,20 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     players = [
       PlayerGameData(
         name: widget.player1Name,
-        email: widget.player1Email ?? '',
+        email: widget.player1Email,
         scoreModel: ScoreModel(),
         maxCombo: 0,
         cardMatches: [],
-        gameTime: 0,
+        timeLeft: gameTimeSec,
         isCompleted: false,
       ),
       PlayerGameData(
         name: widget.player2Name,
-        email: widget.player2Email ?? '',
+        email: widget.player2Email,
         scoreModel: ScoreModel(),
         maxCombo: 0,
         cardMatches: [],
-        gameTime: 0,
+        timeLeft: gameTimeSec,
         isCompleted: false,
       ),
     ];
@@ -102,19 +102,30 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   /// 카드 쌍을 생성하고 셔플
   void _createCards() {
     cards.clear(); // 기존 카드 리스트 초기화
-
+    
     // 카드 쌍의 개수만큼 반복
     for (int i = 0; i < numPairs; i++) {
       // 각 쌍마다 두 장의 카드를 생성
       for (int j = 0; j < 2; j++) {
         cards.add(CardModel(
-          id: i * 2 + j, // 고유 id
-          pairId: i, // 쌍 id
-          imagePath: 'assets/flag_image/img${i + 1}.png', // 이미지 경로
+          id: i, // 쌍 id
+          emoji: _getEmoji(i), // 이모지
+          isMatched: false,
+          isFlipped: false,
         ));
       }
     }
     cards.shuffle(); // 카드 순서 섞기
+  }
+
+  /// 이모지 가져오기
+  String _getEmoji(int index) {
+    final emojis = [
+      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
+      '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔',
+      '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺'
+    ];
+    return emojis[index % emojis.length];
   }
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
@@ -170,45 +181,39 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     final a = firstSelectedIndex!, b = secondSelectedIndex!;
     firstSelectedIndex = null;
     secondSelectedIndex = null;
-
+    
     // 0.7초 후 매칭 결과 처리(뒤집힌 카드 보여주기)
     Future.delayed(const Duration(milliseconds: 700), () {
-      setState(() {
-        if (cards[a].pairId == cards[b].pairId) {
-          soundService.playCardMatch();
-          cards[a] = cards[a].copyWith(isMatched: true);
-          cards[b] = cards[b].copyWith(isMatched: true);
-          
-          // 현재 플레이어의 점수 추가
-          final currentPlayer = players[currentPlayerIndex];
-          currentPlayer.scoreModel.addMatchScore();
-          
-          // 최고 연속 매칭 기록 업데이트
-          if (currentPlayer.scoreModel.comboCount > currentPlayer.maxCombo) {
-            currentPlayer.maxCombo = currentPlayer.scoreModel.comboCount;
+      // mounted 상태 확인 후 setState 호출
+      if (mounted) {
+        setState(() {
+          if (cards[a].id == cards[b].id) {
+            soundService.playCardMatch();
+            cards[a] = cards[a].copyWith(isMatched: true);
+            cards[b] = cards[b].copyWith(isMatched: true);
+            currentPlayer.scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
+            
+            // 최고 연속 매칭 기록 업데이트
+            if (currentPlayer.scoreModel.currentCombo > currentPlayer.maxCombo) {
+              currentPlayer.maxCombo = currentPlayer.scoreModel.currentCombo;
+            }
+            
+            // 매칭된 카드 정보 추가
+            final cardMatch = CardMatch(
+              pairId: cards[a].id,
+              emoji: cards[a].emoji,
+              matchedAt: DateTime.now(),
+            );
+            
+            _checkGameEnd();
+          } else {
+            soundService.playCardMismatch();
+            cards[a] = cards[a].copyWith(isFlipped: false);
+            cards[b] = cards[b].copyWith(isFlipped: false);
+            players[currentPlayerIndex].scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
           }
-          
-          // 매칭된 카드 정보 저장
-          currentPlayer.cardMatches.add(CardMatch(
-            pairId: cards[a].pairId,
-            imagePath: cards[a].imagePath,
-            matchedAt: DateTime.now(),
-            matchNumber: currentPlayer.cardMatches.length + 1,
-          ));
-          
-          _checkGameEnd();
-        } else {
-          soundService.playCardMismatch();
-          cards[a] = cards[a].copyWith(isFlipped: false);
-          cards[b] = cards[b].copyWith(isFlipped: false);
-          
-          // 현재 플레이어의 패널티 추가
-          players[currentPlayerIndex].scoreModel.addFailPenalty();
-          
-          // 다음 플레이어로 턴 변경
-          _switchPlayer();
-        }
-      });
+        });
+      }
     });
   }
 
@@ -252,28 +257,27 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       final playerResults = players.map((playerData) => PlayerGameResult(
         playerName: playerData.name,
         email: playerData.email,
-        score: playerData.scoreModel.currentScore,
+        score: playerData.scoreModel.score,
         matchCount: playerData.scoreModel.matchCount,
         failCount: playerData.scoreModel.failCount,
         maxCombo: playerData.maxCombo,
-        gameTime: playerData.gameTime,
-        cardMatches: playerData.cardMatches,
-        isCompleted: playerData.isCompleted,
+        timeLeft: timeLeft,
+        isWinner: false, // 승자 판정은 나중에
       )).toList();
 
-      final gameRecord = MultiplayerGameRecord(
+      final multiplayerRecord = MultiplayerGameRecord(
         id: storageService.generateId(),
         gameTitle: '${widget.player1Name} vs ${widget.player2Name}',
         players: playerResults,
         createdAt: DateTime.now(),
         isCompleted: isCompleted,
-        totalTime: gameTimeSec,
+        totalTime: gameTimeSec - timeLeft,
         timeLeft: timeLeft,
       );
 
       // 멀티플레이어 게임 기록 저장 (간단한 구현)
       // 실제로는 storageService에 멀티플레이어 기록 저장 메서드 추가 필요
-      print('멀티플레이어 게임 기록 저장: ${gameRecord.toJson()}');
+      print('멀티플레이어 게임 기록 저장: ${multiplayerRecord.toJson()}');
     } catch (e) {
       print('멀티플레이어 게임 기록 저장 오류: $e');
     }
@@ -353,7 +357,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          Text('점수: ${player.scoreModel.currentScore}점'),
+          Text('점수: ${player.scoreModel.score}점'),
           Text('매칭: ${player.scoreModel.matchCount}성공 / ${player.scoreModel.failCount}실패'),
           Text('최고 콤보: ${player.maxCombo}회'),
         ],
@@ -366,9 +370,9 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     final player1 = players[0];
     final player2 = players[1];
     
-    if (player1.scoreModel.currentScore > player2.scoreModel.currentScore) {
+    if (player1.scoreModel.score > player2.scoreModel.score) {
       return player1;
-    } else if (player2.scoreModel.currentScore > player1.scoreModel.currentScore) {
+    } else if (player2.scoreModel.score > player1.scoreModel.score) {
       return player2;
     } else {
       // 점수가 같으면 매칭 성공률로 비교
@@ -467,8 +471,8 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
           children: [
             const Text('게임 오버'),
             const SizedBox(height: 8),
-            Text('${players[0].name}: ${players[0].scoreModel.currentScore}점'),
-            Text('${players[1].name}: ${players[1].scoreModel.currentScore}점'),
+            Text('${players[0].name}: ${players[0].scoreModel.score}점'),
+            Text('${players[1].name}: ${players[1].scoreModel.score}점'),
           ],
         ),
         actions: [
@@ -769,7 +773,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
           SizedBox(height: screenWidth * 0.01),
           // 점수
           Text(
-            '${player.scoreModel.currentScore}점',
+            '${player.scoreModel.score}점',
             style: TextStyle(
               fontSize: screenWidth * 0.04,
               fontWeight: FontWeight.bold,
@@ -777,7 +781,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
             ),
           ),
           // 콤보 표시
-          if (player.scoreModel.comboCount > 1) ...[
+          if (player.scoreModel.currentCombo > 1) ...[
             SizedBox(height: screenWidth * 0.005),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -786,7 +790,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${player.scoreModel.comboCount}콤보!',
+                '${player.scoreModel.currentCombo}콤보!',
                 style: TextStyle(
                   color: Colors.orange,
                   fontWeight: FontWeight.bold,

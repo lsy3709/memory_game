@@ -199,24 +199,24 @@ class PlayerGameResult {
 /// 카드 매칭 정보를 저장하는 클래스
 class CardMatch {
   final int pairId;               // 카드 쌍 ID
-  final String imagePath;         // 카드 이미지 경로
+  final String emoji;             // 카드 이모지
   final DateTime matchedAt;       // 매칭된 시간
-  final int matchNumber;          // 몇 번째 매칭인지
+  final int? matchNumber;         // 몇 번째 매칭인지 (선택사항)
 
   CardMatch({
     required this.pairId,
-    required this.imagePath,
+    required this.emoji,
     required this.matchedAt,
-    required this.matchNumber,
+    this.matchNumber,
   });
 
   /// JSON으로부터 CardMatch 객체 생성
   factory CardMatch.fromJson(Map<String, dynamic> json) {
     return CardMatch(
       pairId: json['pairId'] as int,
-      imagePath: json['imagePath'] as String,
+      emoji: json['emoji'] as String,
       matchedAt: DateTime.parse(json['matchedAt'] as String),
-      matchNumber: json['matchNumber'] as int,
+      matchNumber: json['matchNumber'] as int?,
     );
   }
 
@@ -224,9 +224,9 @@ class CardMatch {
   Map<String, dynamic> toJson() {
     return {
       'pairId': pairId,
-      'imagePath': imagePath,
+      'emoji': emoji,
       'matchedAt': matchedAt.toIso8601String(),
-      'matchNumber': matchNumber,
+      if (matchNumber != null) 'matchNumber': matchNumber,
     };
   }
 
@@ -243,7 +243,7 @@ class PlayerGameData {
   ScoreModel scoreModel;
   int maxCombo;
   List<CardMatch> cardMatches;
-  int gameTime;
+  int timeLeft;
   bool isCompleted;
 
   PlayerGameData({
@@ -252,7 +252,7 @@ class PlayerGameData {
     required this.scoreModel,
     required this.maxCombo,
     required this.cardMatches,
-    required this.gameTime,
+    required this.timeLeft,
     required this.isCompleted,
   });
 } 

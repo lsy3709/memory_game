@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   
-  final StorageService _storageService = StorageService();
+  final StorageService _storageService = StorageService.instance;
   
   bool _isLoading = false;
   bool _isPasswordVisible = false;

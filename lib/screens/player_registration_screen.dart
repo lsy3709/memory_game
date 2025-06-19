@@ -20,7 +20,7 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   
-  final StorageService _storageService = StorageService();
+  final StorageService _storageService = StorageService.instance;
   
   bool _isLoading = false;
   bool _isPasswordVisible = false;

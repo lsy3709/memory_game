@@ -133,19 +133,30 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
   /// 카드 쌍을 생성하고 셔플
   void _createCards() {
     cards.clear(); // 기존 카드 리스트 초기화
-
+    
     // 카드 쌍의 개수만큼 반복
     for (int i = 0; i < numPairs; i++) {
       // 각 쌍마다 두 장의 카드를 생성
       for (int j = 0; j < 2; j++) {
         cards.add(CardModel(
-          id: i * 2 + j, // 고유 id
-          pairId: i, // 쌍 id
-          imagePath: 'assets/flag_image/img${i + 1}.png', // 이미지 경로
+          id: i, // 쌍 id
+          emoji: _getEmoji(i), // 이모지
+          isMatched: false,
+          isFlipped: false,
         ));
       }
     }
     cards.shuffle(); // 카드 순서 섞기
+  }
+
+  /// 이모지 가져오기
+  String _getEmoji(int index) {
+    final emojis = [
+      '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼',
+      '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔',
+      '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺'
+    ];
+    return emojis[index % emojis.length];
   }
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
@@ -202,21 +213,21 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
     final a = firstSelectedIndex!, b = secondSelectedIndex!;
     firstSelectedIndex = null;
     secondSelectedIndex = null;
-
+    
     // 0.7초 후 매칭 결과 처리(뒤집힌 카드 보여주기)
     Future.delayed(const Duration(milliseconds: 700), () {
       // mounted 상태 확인 후 setState 호출
       if (mounted) {
         setState(() {
-          if (cards[a].pairId == cards[b].pairId) {
+          if (cards[a].id == cards[b].id) {
             soundService.playCardMatch();
             cards[a] = cards[a].copyWith(isMatched: true);
             cards[b] = cards[b].copyWith(isMatched: true);
             scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
             
             // 최고 연속 매칭 기록 업데이트
-            if (scoreModel.comboCount > maxCombo) {
-              maxCombo = scoreModel.comboCount;
+            if (scoreModel.currentCombo > maxCombo) {
+              maxCombo = scoreModel.currentCombo;
             }
             
             _checkGameEnd();
@@ -257,7 +268,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                 children: [
                   const Text('모든 카드를 맞췄어요!'),
                   const SizedBox(height: 8),
-                  Text('최종 점수: ${scoreModel.currentScore}점'),
+                  Text('현재 점수: ${scoreModel.score}점'),
                   Text('최고 연속 매칭: ${maxCombo}회'),
                   Text('완료 시간: ${_formatTime()}'),
                   const SizedBox(height: 8),
@@ -310,7 +321,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         playerName: currentPlayerName,
         email: currentPlayerEmail,
-        score: scoreModel.currentScore,
+        score: scoreModel.score,
         matchCount: scoreModel.matchCount,
         failCount: scoreModel.failCount,
         maxCombo: maxCombo,
@@ -322,7 +333,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
 
       print('온라인 게임 기록 저장 시작...');
       print('플레이어: $currentPlayerName');
-      print('점수: ${scoreModel.currentScore}');
+      print('점수: ${scoreModel.score}');
       print('완료 여부: $isCompleted');
 
       // 온라인 게임 기록 저장
@@ -333,7 +344,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       final onlineStats = await firebaseService.getOnlinePlayerStats();
       if (onlineStats != null) {
         final updatedStats = onlineStats.updateWithGameResult(
-          score: scoreModel.currentScore,
+          score: scoreModel.score,
           gameTime: gameTimeSec - timeLeft,
           maxCombo: maxCombo,
           matchCount: scoreModel.matchCount,
@@ -350,7 +361,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
           email: currentPlayerEmail,
           totalGames: 1,
           totalWins: isCompleted ? 1 : 0,
-          bestScore: scoreModel.currentScore,
+          bestScore: scoreModel.score,
           bestTime: gameTimeSec - timeLeft,
           maxCombo: maxCombo,
           totalMatches: scoreModel.matchCount,
@@ -368,7 +379,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('온라인 랭킹에 기록이 저장되었습니다! (${scoreModel.currentScore}점)'),
+            content: Text('새로운 기록이 저장되었습니다! (${scoreModel.score}점)'),
             backgroundColor: Colors.green,
           ),
         );
@@ -470,7 +481,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
             children: [
               const Text('게임 오버'),
               const SizedBox(height: 8),
-              Text('최종 점수: ${scoreModel.currentScore}점'),
+              Text('현재 점수: ${scoreModel.score}점'),
               Text('매칭 성공: ${scoreModel.matchCount}회'),
               Text('매칭 실패: ${scoreModel.failCount}회'),
               Text('최고 연속 매칭: ${maxCombo}회'),
@@ -548,15 +559,15 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '점수: ${scoreModel.currentScore}',
+                      '점수: ${scoreModel.score}',
                       style: const TextStyle(
                         fontSize: 18.0,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (scoreModel.comboCount > 1)
+                    if (scoreModel.currentCombo > 1)
                       Text(
-                        '${scoreModel.comboCount}콤보!',
+                        '${scoreModel.currentCombo}콤보!',
                         style: const TextStyle(
                           color: Colors.orange,
                           fontWeight: FontWeight.bold,

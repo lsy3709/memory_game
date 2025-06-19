@@ -13,7 +13,7 @@ class RankingScreen extends StatefulWidget {
 }
 
 class _RankingScreenState extends State<RankingScreen> with SingleTickerProviderStateMixin {
-  final StorageService _storageService = StorageService();
+  final StorageService _storageService = StorageService.instance;
   
   late TabController _tabController;
   List<GameRecord> _topRankings = [];

@@ -49,9 +49,9 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
     final player1 = widget.player1;
     final player2 = widget.player2;
     
-    if (player1.scoreModel.currentScore > player2.scoreModel.currentScore) {
+    if (player1.scoreModel.score > player2.scoreModel.score) {
       return player1;
-    } else if (player2.scoreModel.currentScore > player1.scoreModel.currentScore) {
+    } else if (player2.scoreModel.score > player1.scoreModel.score) {
       return player2;
     } else {
       // 점수가 같으면 매칭 성공률로 비교
@@ -208,7 +208,7 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
           ),
           const SizedBox(height: 8),
           Text(
-            '${player.scoreModel.currentScore}점',
+            '${player.scoreModel.score}점',
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -255,8 +255,8 @@ class _MultiplayerComparisonScreenState extends State<MultiplayerComparisonScree
           ),
           const SizedBox(height: 16),
           _buildComparisonRow('점수', 
-            '${widget.player1.scoreModel.currentScore}', 
-            '${widget.player2.scoreModel.currentScore}'),
+            '${widget.player1.scoreModel.score}', 
+            '${widget.player2.scoreModel.score}'),
           _buildComparisonRow('매칭 성공', 
             '${widget.player1.scoreModel.matchCount}회', 
             '${widget.player2.scoreModel.matchCount}회'),
