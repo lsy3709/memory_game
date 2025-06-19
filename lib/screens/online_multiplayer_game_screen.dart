@@ -791,37 +791,61 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 카드 간격 최소화
     const cardSpacing = 2.0; // 카드 간격을 2px로 고정
     
-    // 카드 크기 계산 - 부분3 높이를 8등분
-    final cardHeight = (cardLayoutHeight - (gridRows - 1) * cardSpacing) / gridRows;
-    final cardWidth = (screenWidth - padding - (gridColumns - 1) * cardSpacing) / gridColumns;
+    // 카드 크기 계산 - 세로 기준으로 결정
+    // 1. 카드 레이아웃 영역 높이에서 카드 간격을 제외한 실제 카드 영역 높이 계산
+    final totalCardSpacingHeight = (gridRows - 1) * cardSpacing; // 세로 카드 간격 총합
+    final availableCardHeight = cardLayoutHeight - totalCardSpacingHeight; // 카드가 차지할 수 있는 실제 높이
     
-    // 카드 크기 결정 - 높이와 너비 중 작은 값 사용 (정사각형 유지)
-    final cardSize = cardHeight < cardWidth ? cardHeight : cardWidth;
+    // 2. 카드 높이를 8등분으로 결정
+    final cardHeight = availableCardHeight / gridRows;
     
-    // 최소/최대 카드 크기 제한
-    final finalCardSize = cardSize.clamp(25.0, 100.0);
+    // 3. 가로 크기 계산 - 정사각형 유지를 위해 높이와 동일하게 설정
+    final cardWidth = cardHeight;
     
-    // 실제 그리드 크기 계산
-    final actualGridWidth = (finalCardSize * gridColumns) + ((gridColumns - 1) * cardSpacing);
-    final actualGridHeight = (finalCardSize * gridRows) + ((gridRows - 1) * cardSpacing);
+    // 4. 전체 그리드 너비 계산
+    final totalCardSpacingWidth = (gridColumns - 1) * cardSpacing; // 가로 카드 간격 총합
+    final totalGridWidth = (cardWidth * gridColumns) + totalCardSpacingWidth;
     
-    // 해상도 대응: 그리드가 화면을 벗어나는지 확인
-    final needsScroll = actualGridHeight > cardLayoutHeight || actualGridWidth > screenWidth;
-    final adjustedCardSize = needsScroll ? 
-        ((cardLayoutHeight - (gridRows - 1) * cardSpacing) / gridRows).clamp(20.0, 80.0) : 
+    // 5. 화면 너비를 초과하는지 확인
+    final availableWidth = screenWidth - padding;
+    final needsWidthAdjustment = totalGridWidth > availableWidth;
+    
+    // 6. 너비 조정이 필요한 경우 카드 크기 재계산
+    final finalCardSize = needsWidthAdjustment ? 
+        (availableWidth - totalCardSpacingWidth) / gridColumns : 
+        cardWidth;
+    
+    // 7. 최종 그리드 크기 계산
+    final actualGridWidth = (finalCardSize * gridColumns) + totalCardSpacingWidth;
+    final actualGridHeight = (finalCardSize * gridRows) + totalCardSpacingHeight;
+    
+    // 8. 높이 조정이 필요한지 확인
+    final needsHeightAdjustment = actualGridHeight > cardLayoutHeight;
+    final adjustedCardSize = needsHeightAdjustment ? 
+        (cardLayoutHeight - totalCardSpacingHeight) / gridRows : 
         finalCardSize;
     
-    print('=== 반응형 카드 레이아웃 정보 ===');
+    // 9. 최소/최대 카드 크기 제한
+    final finalAdjustedCardSize = adjustedCardSize.clamp(20.0, 100.0);
+    
+    // 10. 최종 그리드 크기 재계산
+    final finalGridWidth = (finalAdjustedCardSize * gridColumns) + totalCardSpacingWidth;
+    final finalGridHeight = (finalAdjustedCardSize * gridRows) + totalCardSpacingHeight;
+    
+    print('=== 세로 기준 6x8 카드 레이아웃 정보 ===');
     print('화면 크기: ${screenWidth}x${screenHeight}');
-    print('부분1(제목) 높이: $headerHeight');
-    print('부분2(플레이어정보) 높이: $playerInfoHeight');
-    print('부분3(카드레이아웃) 높이: $cardLayoutHeight');
-    print('부분4(버튼) 높이: $buttonAreaHeight');
-    print('그리드: ${gridColumns}x${gridRows} (고정)');
-    print('카드 크기: ${adjustedCardSize.toStringAsFixed(1)}px');
-    print('실제 그리드 크기: ${actualGridWidth.toStringAsFixed(1)}x${actualGridHeight.toStringAsFixed(1)}');
+    print('카드 레이아웃 영역 높이: $cardLayoutHeight');
+    print('세로 카드 간격 총합: $totalCardSpacingHeight');
+    print('카드가 차지할 수 있는 실제 높이: $availableCardHeight');
+    print('초기 카드 높이 (8등분): ${cardHeight.toStringAsFixed(1)}px');
+    print('초기 카드 너비 (정사각형): ${cardWidth.toStringAsFixed(1)}px');
+    print('전체 그리드 너비: ${totalGridWidth.toStringAsFixed(1)}px');
+    print('가용 너비: $availableWidth');
+    print('너비 조정 필요: $needsWidthAdjustment');
+    print('높이 조정 필요: $needsHeightAdjustment');
+    print('최종 카드 크기: ${finalAdjustedCardSize.toStringAsFixed(1)}px');
+    print('최종 그리드 크기: ${finalGridWidth.toStringAsFixed(1)}x${finalGridHeight.toStringAsFixed(1)}');
     print('카드 간격: ${cardSpacing}px');
-    print('스크롤 필요: $needsScroll');
     
     return Scaffold(
       appBar: AppBar(
@@ -942,70 +966,37 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               ),
             ),
             
-            // 부분3: 카드 레이아웃 영역 (고정 6x8 레이아웃)
+            // 부분3: 카드 레이아웃 영역 (세로 기준 6x8 레이아웃)
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(2),
-                child: needsScroll ? 
-                  // 스크롤이 필요한 경우
-                  SingleChildScrollView(
-                    child: Center(
-                      child: SizedBox(
-                        width: actualGridWidth,
-                        height: actualGridHeight,
-                        child: GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          shrinkWrap: true,
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: gridColumns,
-                            childAspectRatio: 1.0,
-                            crossAxisSpacing: cardSpacing,
-                            mainAxisSpacing: cardSpacing,
+                child: Center(
+                  child: SizedBox(
+                    width: finalGridWidth,
+                    height: finalGridHeight,
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: gridColumns,
+                        childAspectRatio: 1.0, // 정사각형 카드
+                        crossAxisSpacing: cardSpacing,
+                        mainAxisSpacing: cardSpacing,
+                      ),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) {
+                        return SizedBox(
+                          width: finalAdjustedCardSize,
+                          height: finalAdjustedCardSize,
+                          child: MemoryCard(
+                            card: cards[index],
+                            onTap: () => _onCardTap(index),
+                            isEnabled: isMyTurn && isGameRunning,
                           ),
-                          itemCount: cards.length,
-                          itemBuilder: (context, index) {
-                            return SizedBox(
-                              width: adjustedCardSize,
-                              height: adjustedCardSize,
-                              child: MemoryCard(
-                                card: cards[index],
-                                onTap: () => _onCardTap(index),
-                                isEnabled: isMyTurn && isGameRunning,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ) :
-                  // 스크롤이 필요하지 않은 경우
-                  Center(
-                    child: SizedBox(
-                      width: actualGridWidth,
-                      height: actualGridHeight,
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: gridColumns,
-                          childAspectRatio: 1.0,
-                          crossAxisSpacing: cardSpacing,
-                          mainAxisSpacing: cardSpacing,
-                        ),
-                        itemCount: cards.length,
-                        itemBuilder: (context, index) {
-                          return SizedBox(
-                            width: adjustedCardSize,
-                            height: adjustedCardSize,
-                            child: MemoryCard(
-                              card: cards[index],
-                              onTap: () => _onCardTap(index),
-                              isEnabled: isMyTurn && isGameRunning,
-                            ),
-                          );
-                        },
-                      ),
+                        );
+                      },
                     ),
                   ),
+                ),
               ),
             ),
             
