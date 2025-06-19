@@ -458,65 +458,45 @@ class _GameScreenState extends State<GameScreen> {
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     
+    // 고정 그리드 크기: 가로 6 x 세로 8
+    const int gridColumns = 6;
+    const int gridRows = 8;
+    const int totalCards = gridColumns * gridRows; // 48개 카드
+    
     // 레이아웃 계산 - 더 효율적인 공간 활용
-    final headerHeight = 60.0; // 헤더 높이 줄임
-    final controlHeight = 60.0; // 컨트롤 영역 높이 줄임
-    final padding = 16.0; // 패딩 줄임
+    final headerHeight = 60.0; // 헤더 높이
+    final controlHeight = 60.0; // 컨트롤 영역 높이
+    final padding = 16.0; // 패딩
     final availableHeight = screenHeight - headerHeight - controlHeight - padding;
     
-    // 카드 개수에 따른 그리드 계산
-    final totalCards = cards.length;
-    int gridColumns;
-    int gridRows;
-    
-    // 화면 비율과 카드 개수를 고려한 그리드 계산
-    final aspectRatio = screenWidth / screenHeight;
-    
-    if (screenWidth < 400) {
-      // 작은 화면 (세로 모드)
-      gridColumns = 4;
-      gridRows = (totalCards / gridColumns).ceil();
-    } else if (screenWidth < 600) {
-      // 중간 화면
-      if (aspectRatio < 1.0) {
-        // 세로 모드
-        gridColumns = 5;
-        gridRows = (totalCards / gridColumns).ceil();
-      } else {
-        // 가로 모드
-        gridColumns = 6;
-        gridRows = (totalCards / gridColumns).ceil();
-      }
-    } else {
-      // 큰 화면 (가로 모드)
-      if (aspectRatio > 1.5) {
-        // 매우 넓은 화면
-        gridColumns = 8;
-        gridRows = (totalCards / gridColumns).ceil();
-      } else {
-        // 일반적인 가로 모드
-        gridColumns = 6;
-        gridRows = (totalCards / gridColumns).ceil();
-      }
-    }
-    
     // 카드 간격 최소화
-    final cardSpacing = 2.0; // 간격을 2px로 줄임
+    const cardSpacing = 2.0; // 카드 간격을 2px로 고정
+    
+    // 가용 그리드 영역 계산
     final availableGridWidth = screenWidth - padding - (gridColumns - 1) * cardSpacing;
     final availableGridHeight = availableHeight - (gridRows - 1) * cardSpacing;
     
-    // 카드 크기 계산 - 가용 공간에 맞춰 조정
-    final cardWidth = availableGridWidth / gridColumns;
+    // 카드 크기 계산 - 높이 기준으로 계산
     final cardHeight = availableGridHeight / gridRows;
+    final cardWidth = availableGridWidth / gridColumns;
     
-    // 카드 크기 제한 (더 작게 조정)
-    final cardSize = cardWidth.clamp(35.0, 70.0);
+    // 카드 크기 결정 - 높이와 너비 중 작은 값 사용 (정사각형 유지)
+    final cardSize = cardHeight < cardWidth ? cardHeight : cardWidth;
     
-    // 그리드가 화면을 벗어나지 않도록 강제 조정
-    final actualGridHeight = (cardSize * gridRows) + ((gridRows - 1) * cardSpacing);
-    final finalCardSize = actualGridHeight > availableHeight 
-        ? (availableHeight - (gridRows - 1) * cardSpacing) / gridRows
-        : cardSize;
+    // 최소/최대 카드 크기 제한
+    final finalCardSize = cardSize.clamp(30.0, 80.0);
+    
+    // 실제 그리드 크기 계산
+    final actualGridWidth = (finalCardSize * gridColumns) + ((gridColumns - 1) * cardSpacing);
+    final actualGridHeight = (finalCardSize * gridRows) + ((gridRows - 1) * cardSpacing);
+    
+    print('=== 반응형 카드 레이아웃 정보 ===');
+    print('화면 크기: ${screenWidth}x${screenHeight}');
+    print('가용 높이: $availableHeight');
+    print('그리드: ${gridColumns}x${gridRows} (고정)');
+    print('카드 크기: ${finalCardSize.toStringAsFixed(1)}px');
+    print('실제 그리드 크기: ${actualGridWidth.toStringAsFixed(1)}x${actualGridHeight.toStringAsFixed(1)}');
+    print('카드 간격: ${cardSpacing}px');
     
     return Scaffold(
       appBar: AppBar(
@@ -595,30 +575,36 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
               
-              // 카드 그리드 (항상 표시)
+              // 카드 그리드 (고정 6x8 레이아웃)
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: gridColumns,
-                      childAspectRatio: 0.8,
-                      crossAxisSpacing: cardSpacing,
-                      mainAxisSpacing: cardSpacing,
-                    ),
-                    itemCount: cards.length,
-                    itemBuilder: (context, index) {
-                      return SizedBox(
-                        width: finalCardSize,
-                        height: finalCardSize,
-                        child: MemoryCard(
-                          card: cards[index],
-                          onTap: () => _onCardTap(index),
-                          isEnabled: isGameRunning,
+                  child: Center(
+                    child: SizedBox(
+                      width: actualGridWidth,
+                      height: actualGridHeight,
+                      child: GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: gridColumns,
+                          childAspectRatio: 1.0, // 정사각형 카드
+                          crossAxisSpacing: cardSpacing,
+                          mainAxisSpacing: cardSpacing,
                         ),
-                      );
-                    },
+                        itemCount: cards.length,
+                        itemBuilder: (context, index) {
+                          return SizedBox(
+                            width: finalCardSize,
+                            height: finalCardSize,
+                            child: MemoryCard(
+                              card: cards[index],
+                              onTap: () => _onCardTap(index),
+                              isEnabled: isGameRunning,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),
