@@ -608,13 +608,9 @@ class _FriendManagementScreenState extends State<FriendManagementScreen>
             child: const Text('취소'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // TODO: 친구 삭제 기능 구현
-              setState(() {
-                _successMessage = '친구를 삭제했습니다.';
-                _errorMessage = null;
-              });
+              await _removeFriend(friend);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('삭제'),
@@ -622,6 +618,23 @@ class _FriendManagementScreenState extends State<FriendManagementScreen>
         ],
       ),
     );
+  }
+
+  /// 친구 삭제
+  Future<void> _removeFriend(Friend friend) async {
+    try {
+      final friendUserId = friend.getOtherUserId(_firebaseService.currentUser?.uid ?? '');
+      await _firebaseService.removeFriend(friendUserId);
+      setState(() {
+        _successMessage = '친구를 삭제했습니다.';
+        _errorMessage = null;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = '친구 삭제에 실패했습니다: $e';
+        _successMessage = null;
+      });
+    }
   }
 
   /// 시간 포맷팅

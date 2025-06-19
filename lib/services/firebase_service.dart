@@ -911,10 +911,57 @@ class FirebaseService {
     }
 
     try {
-      await _firestore!.collection('friends').doc(friendId).update({
-        'status': 'accepted',
-        'acceptedAt': FieldValue.serverTimestamp(),
+      // 트랜잭션을 사용하여 양방향 친구 관계 생성
+      await _firestore!.runTransaction((transaction) async {
+        // 원본 친구 요청 문서 가져오기
+        final friendDoc = await transaction.get(
+          _firestore!.collection('friends').doc(friendId)
+        );
+        
+        if (!friendDoc.exists) {
+          throw Exception('친구 요청을 찾을 수 없습니다.');
+        }
+
+        final friendData = friendDoc.data()!;
+        final requesterId = friendData['userId'] as String;
+        final requesterName = friendData['userName'] as String;
+        final requesterEmail = friendData['userEmail'] as String;
+        
+        // 현재 사용자 정보 가져오기
+        final currentUserData = await getUserData(currentUser!.uid);
+        final currentUserName = currentUserData?['playerName'] ?? currentUser!.displayName ?? '플레이어';
+        final currentUserEmail = currentUserData?['email'] ?? currentUser!.email ?? '';
+
+        // 1. 원본 요청을 accepted로 업데이트
+        transaction.update(
+          _firestore!.collection('friends').doc(friendId),
+          {
+            'status': 'accepted',
+            'acceptedAt': FieldValue.serverTimestamp(),
+          }
+        );
+
+        // 2. 반대 방향 친구 관계 생성 (현재 사용자가 userId가 되는 문서)
+        final reverseFriendId = _firestore!.collection('friends').doc().id;
+        final reverseFriend = Friend(
+          id: reverseFriendId,
+          userId: currentUser!.uid,
+          friendId: requesterId,
+          userName: currentUserName,
+          userEmail: currentUserEmail,
+          friendName: requesterName,
+          friendEmail: requesterEmail,
+          status: FriendStatus.accepted,
+          createdAt: DateTime.now(),
+          acceptedAt: DateTime.now(),
+        );
+
+        transaction.set(
+          _firestore!.collection('friends').doc(reverseFriendId),
+          reverseFriend.toJson()
+        );
       });
+
       print('친구 요청 수락 완료: $friendId');
     } catch (e) {
       print('친구 요청 수락 오류: $e');
@@ -950,13 +997,24 @@ class FirebaseService {
       return Stream.value([]);
     }
 
+    // 현재 사용자가 userId인 친구 관계와 friendId인 친구 관계를 모두 조회
     return _firestore!.collection('friends')
-        .where('userId', isEqualTo: currentUser!.uid)
         .where('status', isEqualTo: 'accepted')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Friend.fromJson(doc.data()))
-            .toList());
+        .map((snapshot) {
+          final friends = <Friend>[];
+          
+          for (final doc in snapshot.docs) {
+            final friend = Friend.fromJson(doc.data());
+            
+            // 현재 사용자와 관련된 친구 관계만 필터링
+            if (friend.userId == currentUser!.uid || friend.friendId == currentUser!.uid) {
+              friends.add(friend);
+            }
+          }
+          
+          return friends;
+        });
   }
 
   /// 받은 친구 요청 목록 가져오기
@@ -1083,5 +1141,52 @@ class FirebaseService {
     final bytes = utf8.encode(password);
     final digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+  /// 친구 삭제
+  Future<void> removeFriend(String targetFriendId) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    if (currentUser == null) {
+      throw Exception('로그인이 필요합니다.');
+    }
+
+    try {
+      // 트랜잭션을 사용하여 양방향 친구 관계 모두 삭제
+      await _firestore!.runTransaction((transaction) async {
+        // 현재 사용자와 관련된 모든 친구 관계 찾기
+        final friendsQuery = await transaction.get(
+          _firestore!.collection('friends')
+              .where('status', isEqualTo: 'accepted')
+        );
+
+        final friendsToDelete = <String>[];
+
+        for (final doc in friendsQuery.docs) {
+          final friendData = doc.data();
+          final userId = friendData['userId'] as String;
+          final friendId = friendData['friendId'] as String;
+
+          // 현재 사용자와 대상 친구와의 관계인지 확인
+          if ((userId == currentUser!.uid && friendId == targetFriendId) ||
+              (friendId == currentUser!.uid && userId == targetFriendId)) {
+            friendsToDelete.add(doc.id);
+          }
+        }
+
+        // 모든 관련 친구 관계 삭제
+        for (final docId in friendsToDelete) {
+          transaction.delete(_firestore!.collection('friends').doc(docId));
+        }
+      });
+
+      print('친구 삭제 완료: $targetFriendId');
+    } catch (e) {
+      print('친구 삭제 오류: $e');
+      throw Exception('친구 삭제에 실패했습니다.');
+    }
   }
 }
