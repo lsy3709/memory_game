@@ -19,10 +19,8 @@ class MemoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 카드 전체를 GestureDetector로 감싸 터치 이벤트 처리
     return GestureDetector(
-      // 카드가 활성화되어 있고, 이미 맞춘 카드가 아니면 onTap 실행
-      onTap: isEnabled && card.isEnabled ? onTap : null,
+      onTap: isEnabled && !card.isMatched ? onTap : null,
       child: Container(
         margin: const EdgeInsets.all(4),
         decoration: BoxDecoration(
@@ -36,44 +34,45 @@ class MemoryCard extends StatelessWidget {
           ],
         ),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300), // 애니메이션 지속 시간
-          curve: Curves.easeInOut,                     // 애니메이션 곡선
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             color: card.isMatched
                 ? Colors.green.shade100
                 : card.isFlipped
-                    ? Colors.white
-                    : Colors.blue.shade600,
+                ? Colors.white
+                : Colors.blue.shade600,
             border: card.isMatched
                 ? Border.all(color: Colors.green, width: 2)
                 : null,
           ),
           child: Center(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: card.isFlipped || card.isMatched ? 1.0 : 0.0,
-              child: card.isMatched || card.isFlipped
-                  ? _isImage
-                      ? Image.asset(
-                          card.emoji,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            // 이미지 로드 실패 시 이모지로 대체
-                            return _buildCardContent();
-                          },
-                        )
-                      : _buildCardContent()
-                  : const Text(
-                      '?',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+            // FittedBox로 셀 크기에 맞춰 내부를 축소
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: card.isFlipped || card.isMatched ? 1.0 : 0.0,
+                child: (card.isFlipped || card.isMatched)
+                    ? _isImage
+                    ? Image.asset(
+                  card.emoji,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.contain,
+                  errorBuilder: (ctx, e, st) => _buildCardContent(),
+                )
+                    : _buildCardContent()
+                    : const Text(
+                  '?',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -81,32 +80,33 @@ class MemoryCard extends StatelessWidget {
     );
   }
 
-  /// 카드 내용 위젯 (국기와 이름)
   Widget _buildCardContent() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // 국기 이모지
         Text(
           card.emoji,
           style: const TextStyle(
-            fontSize: 24, // 국기 크기 조정
+            fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
         ),
-        // 이름 (있는 경우에만 표시)
         if (card.name != null && card.name!.isNotEmpty) ...[
           const SizedBox(height: 2),
-          Text(
-            card.name!,
-            style: const TextStyle(
-              fontSize: 8, // 이름 크기 (작게)
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+          // Flexible로 텍스트가 너무 길면 말줄임 처리
+          Flexible(
+            child: Text(
+              card.name!,
+              style: const TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ],
