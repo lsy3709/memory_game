@@ -186,6 +186,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               if (isMatched) {
                 cards[cardIndex1].isFlipped = true;
                 cards[cardIndex2].isFlipped = true;
+              } else {
+                // 매칭 실패 시 카드 뒤집기 해제
+                Future.delayed(const Duration(milliseconds: 1000), () {
+                  if (mounted) {
+                    setState(() {
+                      cards[cardIndex1].isFlipped = false;
+                      cards[cardIndex2].isFlipped = false;
+                    });
+                  }
+                });
               }
             }
           });
@@ -200,12 +210,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final nextPlayerId = turnChange['nextPlayerId'] as String;
         final changePlayerId = turnChange['currentPlayerId'] as String;
         
+        print('턴 변경 감지: $changePlayerId -> $nextPlayerId');
+        print('현재 플레이어: $currentPlayerId, 내 턴: ${nextPlayerId == currentPlayerId}');
+        
         // 다른 플레이어의 턴 변경만 처리
         if (changePlayerId != currentPlayerId && lastTurnChangePlayerId != changePlayerId) {
           setState(() {
             isMyTurn = nextPlayerId == currentPlayerId;
             lastTurnChangePlayerId = changePlayerId;
           });
+          
+          print('턴 변경 완료: 내 턴 = $isMyTurn');
         }
       }
     });
@@ -341,9 +356,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _handleMatchSuccess() {
     soundService.playMatchSound();
     
+    final firstIndex = firstSelectedIndex!;
+    final secondIndex = secondSelectedIndex!;
+    
     setState(() {
-      cards[firstSelectedIndex!].isMatched = true;
-      cards[secondSelectedIndex!].isMatched = true;
+      cards[firstIndex].isMatched = true;
+      cards[secondIndex].isMatched = true;
       
       // 점수 증가
       currentPlayerScore += 10;
@@ -362,8 +380,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 실시간 동기화 - 매칭 성공 정보 전송
     firebaseService.syncCardMatch(
       currentRoom.id, 
-      firstSelectedIndex!, 
-      secondSelectedIndex!, 
+      firstIndex, 
+      secondIndex, 
       true, 
       currentPlayerId
     );
@@ -376,11 +394,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _handleMatchFailure() {
     soundService.playMismatchSound();
     
+    final firstIndex = firstSelectedIndex!;
+    final secondIndex = secondSelectedIndex!;
+    
     // 실시간 동기화 - 매칭 실패 정보 전송
     firebaseService.syncCardMatch(
       currentRoom.id, 
-      firstSelectedIndex!, 
-      secondSelectedIndex!, 
+      firstIndex, 
+      secondIndex, 
       false, 
       currentPlayerId
     );
@@ -388,8 +409,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
         setState(() {
-          cards[firstSelectedIndex!].isFlipped = false;
-          cards[secondSelectedIndex!].isFlipped = false;
+          cards[firstIndex].isFlipped = false;
+          cards[secondIndex].isFlipped = false;
           
           firstSelectedIndex = null;
           secondSelectedIndex = null;
@@ -589,7 +610,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   /// 게임 정보 헤더 위젯
   Widget _buildGameHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8), // 패딩 줄임
       child: Column(
         children: [
           // 플레이어 정보
@@ -603,7 +624,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   Colors.green,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8), // 간격 줄임
               Expanded(
                 child: _buildPlayerInfo(
                   opponentPlayerName,
@@ -614,7 +635,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8), // 간격 줄임
           
           // 게임 상태 정보
           Row(
@@ -622,21 +643,22 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             children: [
               // 시간
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // 패딩 줄임
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.timer, color: Colors.white, size: 16),
-                    const SizedBox(width: 4),
+                    const Icon(Icons.timer, color: Colors.white, size: 14), // 크기 줄임
+                    const SizedBox(width: 2), // 간격 줄임
                     Text(
                       '${timeLeft ~/ 60}:${(timeLeft % 60).toString().padLeft(2, '0')}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
+                        fontSize: 12, // 폰트 크기 줄임
                       ),
                     ),
                   ],
@@ -645,37 +667,39 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               
               // 턴 표시
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), // 패딩 줄임
                 decoration: BoxDecoration(
                   color: isMyTurn ? Colors.green : Colors.orange,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   isMyTurn ? '내 턴' : '상대방 턴',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
+                    fontSize: 12, // 폰트 크기 줄임
                   ),
                 ),
               ),
               
               // 최고 콤보
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // 패딩 줄임
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.flash_on, color: Colors.yellow, size: 16),
-                    const SizedBox(width: 4),
+                    const Icon(Icons.flash_on, color: Colors.yellow, size: 14), // 크기 줄임
+                    const SizedBox(width: 2), // 간격 줄임
                     Text(
                       '콤보: $maxCombo',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
+                        fontSize: 12, // 폰트 크기 줄임
                       ),
                     ),
                   ],
@@ -691,13 +715,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   /// 플레이어 정보 위젯
   Widget _buildPlayerInfo(String name, int score, bool isActive, Color color) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8), // 패딩 줄임
       decoration: BoxDecoration(
         color: isActive ? color.withOpacity(0.3) : Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8), // 반지름 줄임
         border: Border.all(
           color: isActive ? color : Colors.transparent,
-          width: 2,
+          width: 1, // 테두리 두께 줄임
         ),
       ),
       child: Column(
@@ -707,17 +731,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: 12, // 폰트 크기 줄임
             ),
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2), // 간격 줄임
           Text(
             '점수: $score',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 14,
+              fontSize: 10, // 폰트 크기 줄임
             ),
           ),
         ],
@@ -732,17 +756,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     
-    // 헤더와 컨트롤 영역을 제외한 사용 가능한 높이 계산
-    final availableHeight = screenHeight - 320; // 헤더 + 컨트롤 영역 더 정확한 계산
+    // 헤더와 컨트롤 영역을 제외한 사용 가능한 높이 계산 (더 정확한 계산)
+    final availableHeight = screenHeight - 200; // 헤더 + 컨트롤 영역 줄임
     
     // 카드 크기 계산 (화면에 맞게 조정)
-    final horizontalPadding = 32.0; // 좌우 패딩
-    final cardSpacing = 6.0; // 카드 간격 줄임
+    final horizontalPadding = 16.0; // 좌우 패딩 줄임
+    final cardSpacing = 4.0; // 카드 간격 더 줄임
     final availableWidth = screenWidth - horizontalPadding - (cols - 1) * cardSpacing;
     final cardWidth = availableWidth / cols;
     
     // 카드 높이 계산 (비율 고려)
-    final cardHeight = cardWidth * 1.1; // 카드 비율 더 줄임
+    final cardHeight = cardWidth * 1.0; // 카드 비율 더 줄임
     
     // 전체 그리드 높이 계산
     final totalGridHeight = cardHeight * rows + (rows - 1) * cardSpacing;
@@ -753,7 +777,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         : cardHeight;
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8), // 패딩 줄임
       child: SizedBox(
         height: totalGridHeight > availableHeight ? totalGridHeight : availableHeight,
         child: GridView.builder(
@@ -779,37 +803,40 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   /// 게임 컨트롤 위젯
   Widget _buildGameControls() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8), // 패딩 줄임
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           ElevatedButton.icon(
             onPressed: () => _showExitDialog(),
-            icon: const Icon(Icons.exit_to_app),
-            label: const Text('나가기'),
+            icon: const Icon(Icons.exit_to_app, size: 16), // 아이콘 크기 줄임
+            label: const Text('나가기', style: TextStyle(fontSize: 12)), // 폰트 크기 줄임
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // 패딩 줄임
             ),
           ),
           if (currentRoom.status == RoomStatus.waiting && currentRoom.isHost(currentPlayerId) && currentRoom.isFull)
             ElevatedButton.icon(
               onPressed: _startGameAsHost,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('게임 시작'),
+              icon: const Icon(Icons.play_arrow, size: 16), // 아이콘 크기 줄임
+              label: const Text('게임 시작', style: TextStyle(fontSize: 12)), // 폰트 크기 줄임
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // 패딩 줄임
               ),
             ),
           if (currentRoom.status == RoomStatus.playing)
             ElevatedButton.icon(
               onPressed: isGameRunning ? null : _resetGame,
-              icon: const Icon(Icons.refresh),
-              label: const Text('다시 시작'),
+              icon: const Icon(Icons.refresh, size: 16), // 아이콘 크기 줄임
+              label: const Text('다시 시작', style: TextStyle(fontSize: 12)), // 폰트 크기 줄임
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // 패딩 줄임
               ),
             ),
         ],
