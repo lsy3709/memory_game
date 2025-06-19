@@ -127,9 +127,32 @@ class FirebaseService {
   /// Firebase Options 파일 확인
   Future<bool> _checkFirebaseOptionsFile() async {
     try {
-      final file = File('lib/firebase_options.dart');
-      return await file.exists();
+      // 현재 작업 디렉토리 확인
+      final currentDir = Directory.current.path;
+      print('현재 작업 디렉토리: $currentDir');
+      
+      // 여러 가능한 경로 확인
+      final paths = [
+        'lib/firebase_options.dart',
+        'firebase_options.dart',
+        '../lib/firebase_options.dart',
+        '$currentDir/lib/firebase_options.dart',
+        '$currentDir/firebase_options.dart',
+      ];
+      
+      for (final path in paths) {
+        final file = File(path);
+        if (await file.exists()) {
+          print('Firebase Options 파일 발견: $path');
+          return true;
+        }
+      }
+      
+      print('Firebase Options 파일을 찾을 수 없습니다.');
+      print('확인한 경로: ${paths.join(', ')}');
+      return false;
     } catch (e) {
+      print('Firebase Options 파일 확인 중 오류: $e');
       return false;
     }
   }
@@ -137,9 +160,31 @@ class FirebaseService {
   /// Android 설정 파일 확인
   Future<bool> _checkAndroidConfig() async {
     try {
-      final file = File('android/app/google-services.json');
-      return await file.exists();
+      // 현재 작업 디렉토리 확인
+      final currentDir = Directory.current.path;
+      
+      // 여러 가능한 경로 확인
+      final paths = [
+        'android/app/google-services.json',
+        'google-services.json',
+        '../android/app/google-services.json',
+        '$currentDir/android/app/google-services.json',
+        '$currentDir/google-services.json',
+      ];
+      
+      for (final path in paths) {
+        final file = File(path);
+        if (await file.exists()) {
+          print('Android 설정 파일 발견: $path');
+          return true;
+        }
+      }
+      
+      print('Android 설정 파일을 찾을 수 없습니다.');
+      print('확인한 경로: ${paths.join(', ')}');
+      return false;
     } catch (e) {
+      print('Android 설정 파일 확인 중 오류: $e');
       return false;
     }
   }
@@ -147,9 +192,31 @@ class FirebaseService {
   /// iOS 설정 파일 확인
   Future<bool> _checkIOSConfig() async {
     try {
-      final file = File('ios/Runner/GoogleService-Info.plist');
-      return await file.exists();
+      // 현재 작업 디렉토리 확인
+      final currentDir = Directory.current.path;
+      
+      // 여러 가능한 경로 확인
+      final paths = [
+        'ios/Runner/GoogleService-Info.plist',
+        'GoogleService-Info.plist',
+        '../ios/Runner/GoogleService-Info.plist',
+        '$currentDir/ios/Runner/GoogleService-Info.plist',
+        '$currentDir/GoogleService-Info.plist',
+      ];
+      
+      for (final path in paths) {
+        final file = File(path);
+        if (await file.exists()) {
+          print('iOS 설정 파일 발견: $path');
+          return true;
+        }
+      }
+      
+      print('iOS 설정 파일을 찾을 수 없습니다.');
+      print('확인한 경로: ${paths.join(', ')}');
+      return false;
     } catch (e) {
+      print('iOS 설정 파일 확인 중 오류: $e');
       return false;
     }
   }
@@ -341,8 +408,8 @@ class FirebaseService {
   /// 온라인 플레이어 통계 저장
   Future<void> saveOnlinePlayerStats(PlayerStats stats) async {
     await _initialize();
-    if (!_isInitialized || _firestore == null) {
-      throw Exception('Firebase가 초기화되지 않았습니다.');
+    if (!_isInitialized || !_isFirebaseAvailable || _firestore == null) {
+      throw Exception('Firebase가 사용할 수 없습니다. 로컬 모드로 실행 중입니다.');
     }
 
     if (currentUser == null) {

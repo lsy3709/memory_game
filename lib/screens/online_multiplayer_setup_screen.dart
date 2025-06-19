@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/firebase_service.dart';
 import '../models/multiplayer_game_record.dart';
-import '../models/player_game_result.dart';
 
 /// 온라인 멀티플레이어 게임 설정 화면
 class OnlineMultiplayerSetupScreen extends StatefulWidget {
