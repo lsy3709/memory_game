@@ -83,13 +83,54 @@ class _OnlineRankingScreenState extends State<OnlineRankingScreen>
       setState(() {
         _isLoading = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('랭킹 로드 오류: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      
+      // 인덱스 오류인 경우 사용자에게 안내
+      if (e.toString().contains('failed-precondition') || e.toString().contains('requires an index')) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Firebase 인덱스 설정 필요'),
+              content: const Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('온라인 랭킹을 표시하기 위해 Firebase 인덱스 설정이 필요합니다.'),
+                  SizedBox(height: 16),
+                  Text('해결 방법:'),
+                  Text('1. Firebase Console에 접속'),
+                  Text('2. Firestore Database > 인덱스 탭'),
+                  Text('3. 필요한 복합 인덱스 생성'),
+                  SizedBox(height: 8),
+                  Text('자세한 설정 방법은 FIREBASE_SETUP.md 파일을 참조하세요.'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('확인'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Firebase Console 링크 열기 (선택사항)
+                    // launchUrl(Uri.parse('https://console.firebase.google.com/'));
+                  },
+                  child: const Text('Firebase Console 열기'),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('랭킹 데이터 로드 오류: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }

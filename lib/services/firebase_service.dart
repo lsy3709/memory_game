@@ -477,6 +477,7 @@ class FirebaseService {
       Query query = _firestore!.collection('online_game_records')
           .where('isCompleted', isEqualTo: true);
 
+      // 서버 사이드 정렬 사용 (인덱스가 있는 경우)
       switch (orderBy) {
         case 'score':
           query = query.orderBy('score', descending: descending);
@@ -512,6 +513,59 @@ class FirebaseService {
       }).toList();
     } catch (e) {
       print('온라인 랭킹 가져오기 오류: $e');
+      
+      // 인덱스 오류인 경우 클라이언트 사이드 정렬로 대체
+      if (e.toString().contains('failed-precondition') || e.toString().contains('requires an index')) {
+        print('인덱스 오류 발생 - 클라이언트 사이드 정렬로 대체');
+        
+        try {
+          // 단순한 쿼리로 데이터 가져오기
+          final snapshot = await _firestore!.collection('online_game_records')
+              .where('isCompleted', isEqualTo: true)
+              .limit(limit * 2) // 더 많은 데이터를 가져와서 클라이언트에서 필터링
+              .get();
+
+          List<GameRecord> records = snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return GameRecord(
+              id: doc.id,
+              playerName: data['playerName'] ?? '',
+              email: data['email'] ?? '',
+              score: data['score'] ?? 0,
+              matchCount: data['matchCount'] ?? 0,
+              failCount: data['failCount'] ?? 0,
+              maxCombo: data['maxCombo'] ?? 0,
+              timeLeft: data['timeLeft'] ?? 0,
+              totalTime: data['totalTime'] ?? 0,
+              createdAt: (data['createdAt'] as Timestamp).toDate(),
+              isCompleted: data['isCompleted'] ?? false,
+            );
+          }).toList();
+
+          // 클라이언트에서 정렬
+          switch (orderBy) {
+            case 'score':
+              records.sort((a, b) => descending ? b.score.compareTo(a.score) : a.score.compareTo(b.score));
+              break;
+            case 'timeLeft':
+              records.sort((a, b) => descending ? b.timeLeft.compareTo(a.timeLeft) : a.timeLeft.compareTo(b.timeLeft));
+              break;
+            case 'maxCombo':
+              records.sort((a, b) => descending ? b.maxCombo.compareTo(a.maxCombo) : a.maxCombo.compareTo(b.maxCombo));
+              break;
+            case 'createdAt':
+              records.sort((a, b) => descending ? b.createdAt.compareTo(a.createdAt) : a.createdAt.compareTo(b.createdAt));
+              break;
+          }
+
+          // limit만큼 반환
+          return records.take(limit).toList();
+        } catch (fallbackError) {
+          print('클라이언트 사이드 정렬도 실패: $fallbackError');
+          return [];
+        }
+      }
+      
       return [];
     }
   }
@@ -526,6 +580,7 @@ class FirebaseService {
     }
 
     try {
+      // 서버 사이드 정렬 사용 (인덱스가 있는 경우)
       final snapshot = await _firestore!.collection('online_multiplayer_records')
           .where('isCompleted', isEqualTo: true)
           .orderBy('createdAt', descending: true)
@@ -548,6 +603,44 @@ class FirebaseService {
       }).toList();
     } catch (e) {
       print('온라인 멀티플레이어 랭킹 가져오기 오류: $e');
+      
+      // 인덱스 오류인 경우 클라이언트 사이드 정렬로 대체
+      if (e.toString().contains('failed-precondition') || e.toString().contains('requires an index')) {
+        print('인덱스 오류 발생 - 클라이언트 사이드 정렬로 대체');
+        
+        try {
+          // 단순한 쿼리로 데이터 가져오기
+          final snapshot = await _firestore!.collection('online_multiplayer_records')
+              .where('isCompleted', isEqualTo: true)
+              .limit(limit * 2) // 더 많은 데이터를 가져와서 클라이언트에서 필터링
+              .get();
+
+          List<MultiplayerGameRecord> records = snapshot.docs.map((doc) {
+            final data = doc.data();
+            return MultiplayerGameRecord(
+              id: doc.id,
+              gameTitle: data['gameTitle'] ?? '',
+              players: (data['players'] as List)
+                  .map((playerData) => PlayerGameResult.fromJson(playerData))
+                  .toList(),
+              createdAt: (data['createdAt'] as Timestamp).toDate(),
+              isCompleted: data['isCompleted'] ?? false,
+              totalTime: data['totalTime'] ?? 0,
+              timeLeft: data['timeLeft'] ?? 0,
+            );
+          }).toList();
+
+          // 클라이언트에서 최신순으로 정렬
+          records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          // limit만큼 반환
+          return records.take(limit).toList();
+        } catch (fallbackError) {
+          print('클라이언트 사이드 정렬도 실패: $fallbackError');
+          return [];
+        }
+      }
+      
       return [];
     }
   }
@@ -564,6 +657,7 @@ class FirebaseService {
     }
 
     try {
+      // 서버 사이드 정렬 사용 (인덱스가 있는 경우)
       final snapshot = await _firestore!.collection('online_game_records')
           .where('userId', isEqualTo: currentUser!.uid)
           .orderBy('createdAt', descending: true)
@@ -588,6 +682,45 @@ class FirebaseService {
       }).toList();
     } catch (e) {
       print('사용자 온라인 게임 기록 가져오기 오류: $e');
+      
+      // 인덱스 오류인 경우 클라이언트 사이드 정렬로 대체
+      if (e.toString().contains('failed-precondition') || e.toString().contains('requires an index')) {
+        print('인덱스 오류 발생 - 클라이언트 사이드 정렬로 대체');
+        
+        try {
+          // 단순한 쿼리로 데이터 가져오기
+          final snapshot = await _firestore!.collection('online_game_records')
+              .where('userId', isEqualTo: currentUser!.uid)
+              .limit(100)
+              .get();
+
+          List<GameRecord> records = snapshot.docs.map((doc) {
+            final data = doc.data();
+            return GameRecord(
+              id: doc.id,
+              playerName: data['playerName'] ?? '',
+              email: data['email'] ?? '',
+              score: data['score'] ?? 0,
+              matchCount: data['matchCount'] ?? 0,
+              failCount: data['failCount'] ?? 0,
+              maxCombo: data['maxCombo'] ?? 0,
+              timeLeft: data['timeLeft'] ?? 0,
+              totalTime: data['totalTime'] ?? 0,
+              createdAt: (data['createdAt'] as Timestamp).toDate(),
+              isCompleted: data['isCompleted'] ?? false,
+            );
+          }).toList();
+
+          // 클라이언트에서 최신순으로 정렬
+          records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          return records;
+        } catch (fallbackError) {
+          print('클라이언트 사이드 정렬도 실패: $fallbackError');
+          return [];
+        }
+      }
+      
       return [];
     }
   }
