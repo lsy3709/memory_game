@@ -788,9 +788,16 @@ class FirebaseService {
       }
 
       final roomData = roomDoc.data()!;
-      final hostId = roomData['host_id'] as String;
-      final guestId = roomData['guest_id'] as String?;
+      
+      // 안전한 타입 캐스팅 적용 (OnlineRoom.toJson()과 일치하는 필드명 사용)
+      final hostId = roomData['hostId']?.toString();
+      final guestId = roomData['guestId']?.toString();
       final currentPlayerId = _currentUser!.uid;
+
+      // hostId가 null이면 오류 처리
+      if (hostId == null) {
+        throw Exception('방 데이터가 손상되었습니다. 방을 다시 생성해주세요.');
+      }
 
       print('방 나가기 처리: 플레이어=$currentPlayerId, 방장=$hostId, 게스트=$guestId');
 
@@ -822,7 +829,7 @@ class FirebaseService {
         print('방 문서 삭제 완료');
       } else {
         // 게스트가 나가는 경우 - guest_id만 null로 설정
-        await roomRef.update({'guest_id': null});
+        await roomRef.update({'guestId': null});
         print('게스트 나가기 완료');
       }
 

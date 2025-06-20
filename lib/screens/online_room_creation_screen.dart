@@ -367,7 +367,7 @@ class _OnlineRoomCreationScreenState extends State<OnlineRoomCreationScreen> {
       final roomName = _roomNameController.text.trim();
       final password = _isPrivate ? _passwordController.text : null;
 
-      final roomId = await _firebaseService.createOnlineRoom(
+      final room = await _firebaseService.createOnlineRoom(
         roomName: roomName,
         isPrivate: _isPrivate,
         password: password,
@@ -383,7 +383,7 @@ class _OnlineRoomCreationScreenState extends State<OnlineRoomCreationScreen> {
           );
         }
         
-        Navigator.pop(context, roomId);
+        Navigator.pop(context, room.id);
       }
     } catch (e) {
       String userFriendlyMessage = '방 생성에 실패했습니다.';
