@@ -549,14 +549,6 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     final actualGridWidth = (finalCardSize * gridColumns) + ((gridColumns - 1) * cardSpacing);
     final actualGridHeight = (finalCardSize * gridRows) + ((gridRows - 1) * cardSpacing);
     
-    print('=== 반응형 카드 레이아웃 정보 ===');
-    print('화면 크기: ${screenWidth}x${screenHeight}');
-    print('가용 높이: $availableHeight');
-    print('그리드: ${gridColumns}x${gridRows} (고정)');
-    print('카드 크기: ${finalCardSize.toStringAsFixed(1)}px');
-    print('실제 그리드 크기: ${actualGridWidth.toStringAsFixed(1)}x${actualGridHeight.toStringAsFixed(1)}');
-    print('카드 간격: ${cardSpacing}px');
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text('멀티플레이어 게임'),
