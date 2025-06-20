@@ -50,8 +50,8 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
 
   /// 주기적 새로고침 설정
   void _setupPeriodicRefresh() {
-    // 3초마다 강제로 새로고침하여 방 상태 변화 감지
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    // 2초마다 강제로 새로고침하여 방 상태 변화 감지 (더 빠른 응답)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (mounted) {
         setState(() {
           _refreshCounter++; // 새로고침 카운터 증가
@@ -142,7 +142,45 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
               color: Colors.white70,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          
+          // 안내 메시지
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: const Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.white70, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      '방 생성 및 참가 안내',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '• 방을 만들면 친구를 초대할 수 있습니다\n• 친구가 참가하면 게임 시작 버튼이 나타납니다\n• 초대받은 방은 주황색 테두리로 표시됩니다',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
           
           // 오류 메시지
           if (_errorMessage != null)
@@ -247,128 +285,176 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: isMyRoom 
-            ? BorderSide(color: Colors.green, width: 2)
+            ? BorderSide(color: room.isFull ? Colors.green : Colors.blue, width: 3)
             : isInvited
                 ? BorderSide(color: Colors.orange, width: 2)
                 : BorderSide.none,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 헤더 행 (방 이름과 내 방 표시)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    room.roomName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+      child: Container(
+        decoration: isMyRoom && room.isFull
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: [Colors.green.shade50, Colors.green.shade100],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              )
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 헤더 행 (방 이름과 내 방 표시)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      room.roomName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                Row(
-                  children: [
-                    if (isMyRoom)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          '내 방',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                  Row(
+                    children: [
+                      if (isMyRoom)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: room.isFull ? Colors.green : Colors.blue,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            room.isFull ? '게임 시작 가능' : '내 방',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
-                    if (isInvited)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          '초대받음',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                      if (isInvited)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            '초대받음',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // 방 정보
-            Row(
-              children: [
-                const Icon(Icons.person, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    '방장: ${room.hostName}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    '생성: ${_formatTimeAgo(room.createdAt)}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.people, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    '참가자: ${room.isFull ? "2/2" : "1/2"}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-            if (room.isPrivate) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.lock, size: 16, color: Colors.orange),
-                  const SizedBox(width: 4),
-                  const Text(
-                    '비공개 방',
-                    style: TextStyle(color: Colors.orange, fontSize: 14),
+                    ],
                   ),
                 ],
               ),
+              
+              const SizedBox(height: 12),
+              
+              // 방 정보
+              Row(
+                children: [
+                  const Icon(Icons.person, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '방장: ${room.hostName}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '생성: ${_formatTimeAgo(room.createdAt)}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.people, 
+                    size: 16, 
+                    color: room.isFull ? Colors.green : Colors.grey,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '참가자: ${room.isFull ? "2/2" : "1/2"}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: room.isFull ? Colors.green : null,
+                        fontWeight: room.isFull ? FontWeight.bold : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (room.isPrivate) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.lock, size: 16, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    const Text(
+                      '비공개 방',
+                      style: TextStyle(color: Colors.orange, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ],
+              
+              // 방장의 방이고 가득 찬 경우 특별 메시지 표시
+              if (isMyRoom && room.isFull) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '친구가 참가했습니다! 게임을 시작할 수 있습니다.',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              
+              const SizedBox(height: 12),
+              
+              // 액션 버튼들
+              _buildRoomActions(room),
             ],
-            
-            const SizedBox(height: 12),
-            
-            // 액션 버튼들
-            _buildRoomActions(room),
-          ],
+          ),
         ),
       ),
     );
@@ -390,17 +476,43 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           if (room.isFull) ...[
-            ElevatedButton(
-              onPressed: () => _startGame(room),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                minimumSize: const Size(80, 36),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: const Text('게임 시작'),
+              child: ElevatedButton(
+                onPressed: () => _startGame(room),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  minimumSize: const Size(120, 44),
+                  elevation: 4,
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.play_arrow, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      '게임 시작',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
           ],
           TextButton(
             onPressed: () => _showRoomOptions(room),

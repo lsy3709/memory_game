@@ -75,18 +75,13 @@ class _OnlineRoomCreationScreenState extends State<OnlineRoomCreationScreen> {
 
       if (mounted) {
         setState(() {
-          _successMessage = '방이 생성되었습니다!';
+          _successMessage = '방이 생성되었습니다!\n방 목록으로 돌아가서 친구가 참가할 때까지 기다려주세요.';
         });
 
-        // 잠시 후 게임 화면으로 이동
-        Future.delayed(const Duration(seconds: 1), () {
+        // 방 목록 화면으로 돌아가기 (게임 화면으로 바로 이동하지 않음)
+        Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => OnlineMultiplayerGameScreen(room: room),
-              ),
-            );
+            Navigator.pop(context); // 방 목록 화면으로 돌아가기
           }
         });
       }
