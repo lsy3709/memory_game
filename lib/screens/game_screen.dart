@@ -28,7 +28,7 @@ class _GameScreenState extends State<GameScreen> {
   static const int cols = 6;              // 카드 그리드의 열 수
   static const int numPairs = 24;         // 카드 쌍의 개수
   static const int totalCards = numPairs * 2; // 전체 카드 수
-  static const int gameTimeSec = 15 * 60; // 게임 제한 시간(초 단위, 15분)
+  static const int gameTimeSec = 15 * 60; // 15분
 
   // 게임 상태 변수
   List<CardModel> cards = [];
@@ -37,7 +37,7 @@ class _GameScreenState extends State<GameScreen> {
   bool isGameRunning = false;
   bool isTimerPaused = false;
   Timer? gameTimer;
-  int timeLeft = 180; // 3분
+  int timeLeft = gameTimeSec; // 15분
   int maxCombo = 0;
   final SoundService soundService = SoundService.instance; // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
@@ -397,39 +397,27 @@ class _GameScreenState extends State<GameScreen> {
 
   /// 게임 시작
   void _startGame() {
-    soundService.playGameStartSound();
     setState(() {
       _createCards();
-      timeLeft = 180;
+      timeLeft = gameTimeSec;
       isGameRunning = true;
       isTimerPaused = false;
       scoreModel.reset();
       maxCombo = 0;
     });
+    _setupTimer();
     soundService.playBackgroundMusic();
-  }
-
-  /// 게임 일시정지/재개 토글
-  void _togglePause() {
-    if (isTimerPaused) {
-      _resumeGame();
-    } else {
-      _pauseGame();
-    }
   }
 
   /// 게임 리셋(카드, 시간, 상태 초기화)
   void _resetGame() {
-    soundService.playButtonClickSound();
     setState(() {
       _createCards();
-      firstSelectedIndex = null;
-      secondSelectedIndex = null;
       timeLeft = gameTimeSec;
       isGameRunning = false;
       isTimerPaused = false;
-      maxCombo = 0; // 최고 연속 매칭 기록 초기화
-      scoreModel.reset(); // 점수 초기화
+      maxCombo = 0;
+      scoreModel.reset();
     });
     if (gameTimer?.isActive == true) gameTimer?.cancel();
     _setupTimer();
@@ -642,23 +630,28 @@ class _GameScreenState extends State<GameScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
+                    if (!isGameRunning)
+                      ElevatedButton(
+                        onPressed: _startGame,
+                        child: Text('시작'),
+                      ),
+                    if (isGameRunning && !isTimerPaused)
+                      ElevatedButton(
+                        onPressed: _pauseGame,
+                        child: Text('멈춤'),
+                      ),
+                    if (isGameRunning && isTimerPaused)
+                      ElevatedButton(
+                        onPressed: _resumeGame,
+                        child: Text('계속'),
+                      ),
                     ElevatedButton(
                       onPressed: _resetGame,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
-                      child: const Text('다시 시작'),
+                      child: Text('다시 시작'),
                     ),
                     ElevatedButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
-                      child: const Text('나가기'),
+                      child: Text('나가기'),
                     ),
                   ],
                 ),
