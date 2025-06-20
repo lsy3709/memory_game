@@ -737,7 +737,7 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
 
     try {
       // 게임 초대 목록도 함께 새로고침
-      await _loadGameInvites();
+      _loadGameInvites();
       
       // 강제로 UI 업데이트를 위해 잠시 대기
       await Future.delayed(const Duration(milliseconds: 300));
