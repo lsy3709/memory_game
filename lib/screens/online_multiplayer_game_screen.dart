@@ -771,6 +771,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final actualGridWidth = (finalCardSize * gridColumns) + ((gridColumns - 1) * cardSpacing);
     final actualGridHeight = (finalCardSize * gridRows) + ((gridRows - 1) * cardSpacing);
     
+    // 스크롤 필요 여부 확인
+    final needsScroll = actualGridHeight > availableHeight;
+    
     print('=== 온라인 멀티플레이어 게임 반응형 카드 레이아웃 정보 ===');
     print('화면 크기: ${screenWidth}x${screenHeight}');
     print('가용 높이: $availableHeight');
@@ -778,6 +781,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     print('카드 크기: ${finalCardSize.toStringAsFixed(1)}px');
     print('실제 그리드 크기: ${actualGridWidth.toStringAsFixed(1)}x${actualGridHeight.toStringAsFixed(1)}');
     print('카드 간격: ${cardSpacing}px');
+    print('스크롤 필요: $needsScroll');
     
     return Scaffold(
       appBar: AppBar(
@@ -888,7 +892,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                         width: actualGridWidth,
                         height: actualGridHeight,
                         child: GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                          // 그리드가 화면보다 클 때만 스크롤 활성화
+                          physics: needsScroll
+                              ? const AlwaysScrollableScrollPhysics()
+                              : const NeverScrollableScrollPhysics(),
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: gridColumns,
                             childAspectRatio: 1.0, // 정사각형 카드
