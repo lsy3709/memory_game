@@ -191,59 +191,74 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
             ? BorderSide(color: Colors.green, width: 2)
             : BorderSide.none,
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: isMyRoom ? Colors.green : Colors.blue,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            isMyRoom ? Icons.person : Icons.people,
-            color: Colors.white,
-            size: 24,
-          ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                room.roomName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            if (isMyRoom)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  '내 방',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
+            // 헤더 행 (방 이름과 내 방 표시)
+            Row(
+              children: [
+                // 방 아이콘
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isMyRoom ? Colors.green : Colors.blue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isMyRoom ? Icons.person : Icons.people,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                
+                // 방 이름
+                Expanded(
+                  child: Text(
+                    room.roomName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                
+                // 내 방 표시
+                if (isMyRoom)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '내 방',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // 방 정보
             Row(
               children: [
                 const Icon(Icons.person, size: 16, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text('방장: ${room.hostName}'),
+                Expanded(
+                  child: Text(
+                    '방장: ${room.hostName}',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -251,7 +266,12 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
               children: [
                 const Icon(Icons.access_time, size: 16, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text('생성: ${_formatTimeAgo(room.createdAt)}'),
+                Expanded(
+                  child: Text(
+                    '생성: ${_formatTimeAgo(room.createdAt)}',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -259,7 +279,12 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
               children: [
                 const Icon(Icons.people, size: 16, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text('참가자: ${room.isFull ? "2/2" : "1/2"}'),
+                Expanded(
+                  child: Text(
+                    '참가자: ${room.isFull ? "2/2" : "1/2"}',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
               ],
             ),
             if (room.isPrivate) ...[
@@ -268,13 +293,20 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
                 children: [
                   const Icon(Icons.lock, size: 16, color: Colors.orange),
                   const SizedBox(width: 4),
-                  const Text('비공개 방', style: TextStyle(color: Colors.orange)),
+                  const Text(
+                    '비공개 방',
+                    style: TextStyle(color: Colors.orange, fontSize: 14),
+                  ),
                 ],
               ),
             ],
+            
+            const SizedBox(height: 12),
+            
+            // 액션 버튼들
+            _buildRoomActions(room),
           ],
         ),
-        trailing: _buildRoomActions(room),
       ),
     );
   }
@@ -284,9 +316,8 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
     final isMyRoom = room.isHost(_firebaseService.currentUser?.uid ?? '');
 
     if (isMyRoom) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,  // ↓ 추가
-        mainAxisAlignment: MainAxisAlignment.center,
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           if (room.isFull)
             ElevatedButton(
@@ -295,29 +326,39 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                minimumSize: const Size(80, 36),
               ),
               child: const Text('게임 시작'),
             ),
-          const SizedBox(height: 4),
+          if (room.isFull) const SizedBox(width: 8),
           TextButton(
             onPressed: () => _showRoomOptions(room),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              minimumSize: const Size(80, 36),
+            ),
             child: Text(room.isFull ? '방 관리' : '방 삭제'),
           ),
         ],
       );
     } else {
-      return ElevatedButton(
-        onPressed: room.canJoin ? () => _joinRoom(room) : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: room.canJoin ? Colors.blue : Colors.grey,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        ),
-        child: Text(room.canJoin ? '참가하기' : '가득참'),
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          ElevatedButton(
+            onPressed: room.canJoin ? () => _joinRoom(room) : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: room.canJoin ? Colors.blue : Colors.grey,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              minimumSize: const Size(80, 36),
+            ),
+            child: Text(room.canJoin ? '참가하기' : '가득참'),
+          ),
+        ],
       );
     }
   }
-
 
   /// 빈 상태 위젯
   Widget _buildEmptyWidget() {
