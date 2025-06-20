@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 import 'screens/main_screen.dart';
 import 'screens/game_screen.dart';
@@ -45,6 +46,13 @@ void main() async {
   // Firebase 초기화
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Firebase App Check 초기화 (프로덕션 배포용)
+  await FirebaseAppCheck.instance.activate(
+    // 개발 중에는 디버그 토큰 사용, 프로덕션에서는 실제 토큰 사용
+    androidProvider: AndroidProvider.debug,
+    appleProvider: AppleProvider.debug,
   );
   
   // 사운드 서비스 초기화 및 배경음악 시작

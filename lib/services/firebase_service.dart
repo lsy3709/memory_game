@@ -24,10 +24,22 @@ class FirebaseService {
   FirebaseFirestore? _firestore;
   FirebaseAuth? _auth;
   User? _currentUser;
+  
+  // 스레드 안전성을 위한 뮤텍스
+  final Completer<void> _initCompleter = Completer<void>();
+  bool _isInitializing = false;
 
-  /// Firebase 초기화
+  /// Firebase 초기화 (스레드 안전)
   Future<bool> ensureInitialized() async {
     if (_isInitialized) return true;
+    
+    // 이미 초기화 중인 경우 대기
+    if (_isInitializing) {
+      await _initCompleter.future;
+      return _isInitialized;
+    }
+    
+    _isInitializing = true;
 
     try {
       await Firebase.initializeApp();
@@ -37,10 +49,14 @@ class FirebaseService {
       _isInitialized = true;
       
       print('Firebase 초기화 성공');
+      _initCompleter.complete();
       return true;
     } catch (e) {
       print('Firebase 초기화 실패: $e');
+      _initCompleter.completeError(e);
       return false;
+    } finally {
+      _isInitializing = false;
     }
   }
 
@@ -57,6 +73,47 @@ class FirebaseService {
 
   /// Firebase 사용 가능 여부
   bool get isFirebaseAvailable => _isInitialized;
+
+  /// 에러 로깅 및 사용자 친화적 메시지 생성
+  String _getUserFriendlyErrorMessage(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+    
+    if (errorString.contains('permission-denied')) {
+      return '권한이 없습니다. 다시 로그인해주세요.';
+    } else if (errorString.contains('unavailable') || errorString.contains('network')) {
+      return '네트워크 연결을 확인해주세요.';
+    } else if (errorString.contains('not-found')) {
+      return '요청한 데이터를 찾을 수 없습니다.';
+    } else if (errorString.contains('already-exists')) {
+      return '이미 존재하는 데이터입니다.';
+    } else if (errorString.contains('invalid-argument')) {
+      return '잘못된 입력값입니다.';
+    } else if (errorString.contains('failed-precondition')) {
+      return 'Firebase 인덱스 설정이 필요합니다.';
+    } else if (errorString.contains('resource-exhausted')) {
+      return '서버 리소스가 부족합니다. 잠시 후 다시 시도해주세요.';
+    } else if (errorString.contains('deadline-exceeded')) {
+      return '요청 시간이 초과되었습니다.';
+    } else {
+      return '오류가 발생했습니다: ${error.toString().replaceAll('Exception: ', '')}';
+    }
+  }
+
+  /// 안전한 Firebase 작업 실행
+  Future<T> _safeFirebaseOperation<T>(Future<T> Function() operation, String operationName) async {
+    try {
+      await _initialize();
+      if (!_isInitialized || _firestore == null) {
+        throw Exception('Firebase가 초기화되지 않았습니다.');
+      }
+      
+      return await operation();
+    } catch (e) {
+      print('$operationName 오류: $e');
+      final userMessage = _getUserFriendlyErrorMessage(e);
+      throw Exception(userMessage);
+    }
+  }
 
   /// 이메일/비밀번호로 로그인
   Future<UserCredential> signInWithEmailAndPassword({
