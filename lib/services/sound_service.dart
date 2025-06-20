@@ -57,7 +57,7 @@ class SoundService {
   /// 랜덤 BGM 선택 (bgm1 ~ bgm10)
   String _getRandomBGM() {
     final bgmNumber = _random.nextInt(10) + 1; // 1~10
-    return 'assets/sounds/bgm/bgm$bgmNumber.wav';
+    return 'sounds/bgm/bgm$bgmNumber.wav';
   }
 
   /// 배경 음악 재생
@@ -90,13 +90,13 @@ class SoundService {
   /// 게임 시작 사운드
   Future<void> playGameStartSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('assets/sounds/effect/game_start.wav');
+    await _playSound('sounds/effect/game_start.wav');
   }
 
   /// 카드 뒤집기 사운드
   Future<void> playCardFlipSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('assets/sounds/effect/card_flip.wav');
+    await _playSound('sounds/effect/card_flip.wav');
   }
 
   /// 카드 뒤집기 사운드 (기존 메서드명 호환성)
@@ -107,7 +107,7 @@ class SoundService {
   /// 카드 매치 사운드
   Future<void> playMatchSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('assets/sounds/effect/card_match.wav');
+    await _playSound('sounds/effect/card_match.wav');
   }
 
   /// 카드 매치 사운드 (기존 메서드명 호환성)
@@ -118,7 +118,7 @@ class SoundService {
   /// 카드 매치 실패 사운드
   Future<void> playMismatchSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('assets/sounds/effect/card_mismatch.wav');
+    await _playSound('sounds/effect/card_mismatch.wav');
   }
 
   /// 카드 매치 실패 사운드 (기존 메서드명 호환성)
@@ -129,13 +129,13 @@ class SoundService {
   /// 게임 승리 사운드
   Future<void> playGameWinSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('assets/sounds/effect/game_win.wav');
+    await _playSound('sounds/effect/game_win.wav');
   }
 
   /// 박수 효과음
   Future<void> playApplaudSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('assets/sounds/effect/applause.wav');
+    await _playSound('sounds/effect/applause.wav');
   }
 
   /// 게임 승리 사운드 (박수 효과음 포함)
@@ -157,7 +157,7 @@ class SoundService {
   /// 버튼 클릭 사운드
   Future<void> playButtonClickSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('assets/sounds/ui/button_click.wav');
+    await _playSound('sounds/ui/button_click.wav');
   }
 
   /// 버튼 클릭 사운드 (기존 메서드명 호환성)
