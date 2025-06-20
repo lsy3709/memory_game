@@ -1312,7 +1312,6 @@ class FirebaseService {
             data['id'] = doc.id; // 문서 ID를 액션 ID로 사용
             return data;
           }).toList();
-          print('카드 액션 스트림 데이터: ${actions.length}개 액션');
           return actions;
         });
   }
@@ -1361,7 +1360,6 @@ class FirebaseService {
           if (snapshot.docs.isNotEmpty) {
             final data = snapshot.docs.first.data();
             data['id'] = snapshot.docs.first.id; // 문서 ID를 턴 변경 ID로 사용
-            print('턴 변경 스트림 데이터: $data');
             return data;
           }
           return null;
@@ -1423,7 +1421,6 @@ class FirebaseService {
             data['id'] = doc.id; // 문서 ID를 매칭 ID로 사용
             return data;
           }).toList();
-          print('카드 매칭 스트림 데이터: ${matches.length}개 매칭');
           return matches;
         });
   }
