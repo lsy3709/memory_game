@@ -1304,7 +1304,7 @@ class FirebaseService {
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('card_actions')
         .orderBy('timestamp', descending: true) // 최신 순서로 정렬
-        .limit(5) // 최근 5개 액션만 가져오기
+        .limit(10) // 최근 10개 액션으로 증가
         .snapshots()
         .map((snapshot) {
           final actions = snapshot.docs.map((doc) {
@@ -1415,7 +1415,7 @@ class FirebaseService {
     return _firestore!.collection('online_rooms').doc(roomId)
         .collection('card_matches')
         .orderBy('timestamp', descending: true) // 최신 순서로 정렬
-        .limit(5) // 최근 5개 매칭만 가져오기
+        .limit(10) // 최근 10개 매칭으로 증가
         .snapshots()
         .map((snapshot) {
           final matches = snapshot.docs.map((doc) {
