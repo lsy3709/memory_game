@@ -398,6 +398,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 타이머 시작
     _startTimer();
     
+    // 게임 시작 사운드
+    soundService.playGameStart();
+    
     // Firebase에 게임 상태 업데이트
     _updateGameState();
   }
@@ -426,6 +429,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     setState(() {
       isProcessingCardSelection = true;
     });
+    
+    // 카드 뒤집기 사운드
+    soundService.playCardFlip();
     
     // 카드 뒤집기
     setState(() {
@@ -478,7 +484,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 매칭 성공 처리
   void _handleMatchSuccess() {
-    soundService.playMatchSound();
+    soundService.playCardMatch(); // 카드 매치 성공 사운드
     
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
@@ -527,7 +533,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 매칭 실패 처리
   void _handleMatchFailure() {
-    soundService.playMismatchSound();
+    soundService.playCardMismatch(); // 카드 매치 실패 사운드
     
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
@@ -601,6 +607,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final totalCards = cards.length;
     
     if (matchedCards == totalCards) {
+      // 게임 승리 사운드 (박수 효과음 포함)
+      soundService.playGameWin();
       _gameOver();
     }
   }

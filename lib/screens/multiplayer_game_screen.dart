@@ -440,6 +440,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       players[1].maxCombo = 0;
     });
     _setupTimer();
+    soundService.playGameStart(); // 게임 시작 사운드
     soundService.playBackgroundMusic();
   }
 

@@ -17,6 +17,7 @@ class SoundService {
   bool _isMusicEnabled = true;
   double _soundVolume = 1.0;
   double _musicVolume = 0.5;
+  final Random _random = Random();
 
   /// 사운드 활성화/비활성화
   bool get isSoundEnabled => _isSoundEnabled;
@@ -53,17 +54,26 @@ class SoundService {
     }
   }
 
+  /// 랜덤 BGM 선택 (bgm1 ~ bgm10)
+  String _getRandomBGM() {
+    final bgmNumber = _random.nextInt(10) + 1; // 1~10
+    return 'assets/sounds/bgm/bgm$bgmNumber.wav';
+  }
+
   /// 배경 음악 재생
   Future<void> playBackgroundMusic() async {
     if (!_isMusicEnabled) return;
 
     try {
       _backgroundPlayer ??= AudioPlayer();
-      await _backgroundPlayer!.play(AssetSource('sounds/background_music.mp3'));
+      final bgmPath = _getRandomBGM();
+      await _backgroundPlayer!.play(AssetSource(bgmPath));
       await _backgroundPlayer!.setVolume(_musicVolume);
       await _backgroundPlayer!.setReleaseMode(ReleaseMode.loop);
+      print('배경음악 재생: $bgmPath');
     } catch (e) {
       print('배경 음악 재생 오류: $e');
+      // 사운드 파일이 없을 때는 오류를 무시하고 계속 진행
     }
   }
 
@@ -79,13 +89,13 @@ class SoundService {
   /// 게임 시작 사운드
   Future<void> playGameStartSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('sounds/game_start.mp3');
+    await _playSound('assets/sounds/effect/game_start.wav');
   }
 
   /// 카드 뒤집기 사운드
   Future<void> playCardFlipSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('sounds/card_flip.mp3');
+    await _playSound('assets/sounds/effect/card_flip.wav');
   }
 
   /// 카드 뒤집기 사운드 (기존 메서드명 호환성)
@@ -96,7 +106,7 @@ class SoundService {
   /// 카드 매치 사운드
   Future<void> playMatchSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('sounds/match.mp3');
+    await _playSound('assets/sounds/effect/card_match.wav');
   }
 
   /// 카드 매치 사운드 (기존 메서드명 호환성)
@@ -107,7 +117,7 @@ class SoundService {
   /// 카드 매치 실패 사운드
   Future<void> playMismatchSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('sounds/mismatch.mp3');
+    await _playSound('assets/sounds/effect/card_mismatch.wav');
   }
 
   /// 카드 매치 실패 사운드 (기존 메서드명 호환성)
@@ -115,21 +125,38 @@ class SoundService {
     await playMismatchSound();
   }
 
-  /// 게임 종료 사운드
-  Future<void> playGameOverSound() async {
+  /// 게임 승리 사운드
+  Future<void> playGameWinSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('sounds/game_over.mp3');
+    await _playSound('assets/sounds/effect/game_win.wav');
   }
 
-  /// 게임 승리 사운드 (기존 메서드명 호환성)
+  /// 박수 효과음
+  Future<void> playApplaudSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('assets/sounds/effect/applause.wav');
+  }
+
+  /// 게임 승리 사운드 (박수 효과음 포함)
   Future<void> playGameWin() async {
-    await playGameOverSound();
+    if (!_isSoundEnabled) return;
+    // 게임 승리 사운드와 박수 효과음을 순차적으로 재생
+    await playGameWinSound();
+    // 잠시 후 박수 효과음 재생
+    Future.delayed(const Duration(milliseconds: 500), () {
+      playApplaudSound();
+    });
+  }
+
+  /// 게임 종료 사운드 (기존 메서드명 호환성)
+  Future<void> playGameOverSound() async {
+    await playGameWinSound();
   }
 
   /// 버튼 클릭 사운드
   Future<void> playButtonClickSound() async {
     if (!_isSoundEnabled) return;
-    await _playSound('sounds/button_click.mp3');
+    await _playSound('assets/sounds/ui/button_click.wav');
   }
 
   /// 버튼 클릭 사운드 (기존 메서드명 호환성)
@@ -168,8 +195,11 @@ class SoundService {
       _effectPlayer ??= AudioPlayer();
       await _effectPlayer!.play(AssetSource(assetPath));
       await _effectPlayer!.setVolume(_soundVolume);
+      print('효과음 재생: $assetPath');
     } catch (e) {
       print('효과음 재생 오류 ($assetPath): $e');
+      // 사운드 파일이 없을 때는 오류를 무시하고 계속 진행
+      // 실제 프로덕션에서는 기본 사운드 파일을 제공하거나 다른 방식으로 처리
     }
   }
 

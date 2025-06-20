@@ -223,7 +223,7 @@ class _GameScreenState extends State<GameScreen> {
 
   /// 매칭 성공 처리
   void _handleMatchSuccess() {
-    soundService.playMatchSound();
+    soundService.playCardMatch(); // 카드 매치 성공 사운드
     
     setState(() {
       cards[firstSelectedIndex!].isMatched = true;
@@ -248,7 +248,7 @@ class _GameScreenState extends State<GameScreen> {
 
   /// 매칭 실패 처리
   void _handleMatchFailure() {
-    soundService.playMismatchSound();
+    soundService.playCardMismatch(); // 카드 매치 실패 사운드
     
     setState(() {
       // 실패 횟수 증가
@@ -381,14 +381,16 @@ class _GameScreenState extends State<GameScreen> {
 
   /// 게임 일시정지
   void _pauseGame() {
+    soundService.playButtonClickSound();
     setState(() {
       isTimerPaused = true;
     });
     soundService.stopAllSounds();
   }
 
-  /// 게임 재개
+  /// 게임 재시작
   void _resumeGame() {
+    soundService.playButtonClickSound();
     setState(() {
       isTimerPaused = false;
     });
@@ -406,11 +408,13 @@ class _GameScreenState extends State<GameScreen> {
       maxCombo = 0;
     });
     _setupTimer();
+    soundService.playGameStart(); // 게임 시작 사운드
     soundService.playBackgroundMusic();
   }
 
   /// 게임 리셋(카드, 시간, 상태 초기화)
   void _resetGame() {
+    soundService.playButtonClickSound();
     setState(() {
       _createCards();
       timeLeft = gameTimeSec;
@@ -632,7 +636,10 @@ class _GameScreenState extends State<GameScreen> {
                   children: [
                     if (!isGameRunning)
                       ElevatedButton(
-                        onPressed: _startGame,
+                        onPressed: () {
+                          soundService.playButtonClickSound();
+                          _startGame();
+                        },
                         child: Text('시작'),
                       ),
                     if (isGameRunning && !isTimerPaused)
@@ -646,11 +653,10 @@ class _GameScreenState extends State<GameScreen> {
                         child: Text('계속'),
                       ),
                     ElevatedButton(
-                      onPressed: _resetGame,
-                      child: Text('다시 시작'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () {
+                        soundService.playButtonClickSound();
+                        Navigator.of(context).pop();
+                      },
                       child: Text('나가기'),
                     ),
                   ],

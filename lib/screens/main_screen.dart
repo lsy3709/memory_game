@@ -45,16 +45,19 @@ class _MainScreenState extends State<MainScreen> {
 
   /// 게임 시작
   void _startGame() {
+    _soundService.playButtonClickSound();
     Navigator.of(context).pushNamed('/game');
   }
 
   /// 멀티플레이어 게임 시작
   void _startMultiplayerGame() {
+    _soundService.playButtonClickSound();
     Navigator.of(context).pushNamed('/multiplayer-setup');
   }
 
   /// 온라인 게임 시작
   void _startOnlineGame() async {
+    _soundService.playButtonClickSound();
     try {
       // Firebase 초기화 확인
       final isInitialized = await _firebaseService.ensureInitialized();
@@ -140,11 +143,13 @@ class _MainScreenState extends State<MainScreen> {
 
   /// 랭킹 보드 열기
   void _openRanking() {
+    _soundService.playButtonClickSound();
     Navigator.of(context).pushNamed('/ranking');
   }
 
   /// 설정 화면 열기
   void _openSettings() {
+    _soundService.playButtonClickSound();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -156,6 +161,7 @@ class _MainScreenState extends State<MainScreen> {
               leading: const Icon(Icons.person),
               title: const Text('계정 관리'),
               onTap: () {
+                _soundService.playButtonClickSound();
                 Navigator.of(context).pop();
                 _showAccountDialog();
               },
@@ -164,6 +170,7 @@ class _MainScreenState extends State<MainScreen> {
               leading: const Icon(Icons.cloud),
               title: const Text('Firebase 상태 확인'),
               onTap: () {
+                _soundService.playButtonClickSound();
                 Navigator.of(context).pop();
                 _checkFirebaseStatus();
               },
@@ -172,6 +179,7 @@ class _MainScreenState extends State<MainScreen> {
               leading: const Icon(Icons.help),
               title: const Text('Firebase 설정 가이드'),
               onTap: () {
+                _soundService.playButtonClickSound();
                 Navigator.of(context).pop();
                 _showFirebaseSetupGuide();
               },
@@ -180,6 +188,7 @@ class _MainScreenState extends State<MainScreen> {
               leading: const Icon(Icons.delete_forever),
               title: const Text('데이터 초기화'),
               onTap: () {
+                _soundService.playButtonClickSound();
                 Navigator.of(context).pop();
                 _showResetDialog();
               },
@@ -188,6 +197,7 @@ class _MainScreenState extends State<MainScreen> {
               leading: const Icon(Icons.info),
               title: const Text('앱 정보'),
               onTap: () {
+                _soundService.playButtonClickSound();
                 Navigator.of(context).pop();
                 _showAppInfo();
               },
@@ -196,7 +206,10 @@ class _MainScreenState extends State<MainScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              _soundService.playButtonClickSound();
+              Navigator.of(context).pop();
+            },
             child: const Text('닫기'),
           ),
         ],

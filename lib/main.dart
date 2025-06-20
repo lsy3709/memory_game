@@ -46,6 +46,15 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // 사운드 서비스 초기화 및 배경음악 시작
+  try {
+    await SoundService.instance.playBackgroundMusic();
+    print('사운드 서비스 초기화 완료');
+  } catch (e) {
+    print('사운드 서비스 초기화 오류: $e');
+  }
+  
   runApp(const MemoryGameApp());
 }
 
