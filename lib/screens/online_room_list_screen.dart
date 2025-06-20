@@ -3,6 +3,7 @@ import '../services/firebase_service.dart';
 import '../models/online_room.dart';
 import 'online_room_creation_screen.dart';
 import 'online_multiplayer_game_screen.dart';
+import 'dart:async';
 
 /// 온라인 멀티플레이어 방 목록 화면
 class OnlineRoomListScreen extends StatefulWidget {
@@ -17,11 +18,20 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   List<Map<String, dynamic>> _gameInvites = [];
+  Timer? _refreshTimer;
+  int _refreshCounter = 0; // 새로고침 카운터
 
   @override
   void initState() {
     super.initState();
     _loadGameInvites();
+    _setupPeriodicRefresh();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   /// 게임 초대 목록 로드
@@ -38,55 +48,68 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
     return _gameInvites.any((invite) => invite['roomId'] == room.id);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('온라인 멀티플레이어'),
-        centerTitle: true,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              _refreshRooms();
-            },
+  /// 주기적 새로고침 설정
+  void _setupPeriodicRefresh() {
+    // 3초마다 강제로 새로고침하여 방 상태 변화 감지
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted) {
+        setState(() {
+          _refreshCounter++; // 새로고침 카운터 증가
+        });
+      }
+    });
+  }
+
+  /// 메인 바디 위젯
+  Widget _buildBody() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.blue, Colors.purple],
+        ),
+      ),
+      child: Column(
+        children: [
+          // 헤더 섹션
+          _buildHeaderSection(),
+          
+          // 방 목록
+          Expanded(
+            child: _buildRoomList(),
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue, Colors.purple],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1a1a2e),
+      appBar: AppBar(
+        title: const Text(
+          '온라인 방 목록',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: const Color(0xFF16213e),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshRooms,
+            tooltip: '새로고침',
           ),
-        ),
-        child: Column(
-          children: [
-            // 헤더 섹션
-            _buildHeaderSection(),
-            
-            // 방 목록
-            Expanded(
-              child: _buildRoomList(),
-            ),
-          ],
-        ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      body: _buildBody(),
+      floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const OnlineRoomCreationScreen(),
-            ),
-          );
+          Navigator.pushNamed(context, '/online-room-creation');
         },
         backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('방 만들기'),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -167,6 +190,7 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
     }
 
     return StreamBuilder<List<OnlineRoom>>(
+      key: ValueKey('room_list_$_refreshCounter'),
       stream: _firebaseService.getOnlineRooms(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -182,18 +206,30 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
         }
 
         final rooms = snapshot.data ?? [];
+        
+        // 방 상태 변화 디버그 로그
+        for (final room in rooms) {
+          final currentUserId = _firebaseService.currentUser?.uid ?? '';
+          final isMyRoom = room.isHost(currentUserId);
+          if (isMyRoom && room.isFull) {
+            print('방장의 방이 가득 찼습니다: ${room.roomName} (guestId: ${room.guestId})');
+          }
+        }
 
         if (rooms.isEmpty) {
           return _buildEmptyWidget();
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: rooms.length,
-          itemBuilder: (context, index) {
-            final room = rooms[index];
-            return _buildRoomCard(room);
-          },
+        return RefreshIndicator(
+          onRefresh: _refreshRooms,
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: rooms.length,
+            itemBuilder: (context, index) {
+              final room = rooms[index];
+              return _buildRoomCard(room);
+            },
+          ),
         );
       },
     );
@@ -344,11 +380,16 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
     final isMyRoom = room.isHost(currentUserId);
     final isInvited = _isInvitedToRoom(room);
 
+    // 디버그 로그 추가
+    if (isMyRoom) {
+      print('방장의 방 상태: ${room.roomName} - isFull: ${room.isFull}, guestId: ${room.guestId}');
+    }
+
     if (isMyRoom) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (room.isFull)
+          if (room.isFull) ...[
             ElevatedButton(
               onPressed: () => _startGame(room),
               style: ElevatedButton.styleFrom(
@@ -359,7 +400,8 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
               ),
               child: const Text('게임 시작'),
             ),
-          if (room.isFull) const SizedBox(width: 8),
+            const SizedBox(width: 8),
+          ],
           TextButton(
             onPressed: () => _showRoomOptions(room),
             style: TextButton.styleFrom(
@@ -694,8 +736,17 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
     });
 
     try {
-      // StreamBuilder가 자동으로 새로고침되므로 잠시 대기 후 로딩 상태 해제
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 게임 초대 목록도 함께 새로고침
+      await _loadGameInvites();
+      
+      // 강제로 UI 업데이트를 위해 잠시 대기
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      if (mounted) {
+        setState(() {
+          _refreshCounter++; // 새로고침 카운터 증가하여 StreamBuilder 강제 리빌드
+        });
+      }
     } catch (e) {
       if (mounted && context.mounted) {
         setState(() {

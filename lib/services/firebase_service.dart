@@ -765,10 +765,21 @@ class FirebaseService {
     return _firestore!.collection('online_rooms')
         .where('status', isEqualTo: 'waiting')
         .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => OnlineRoom.fromJson(doc.data()))
-            .toList());
+        .snapshots(includeMetadataChanges: true)
+        .map((snapshot) {
+          final rooms = snapshot.docs
+              .map((doc) => OnlineRoom.fromJson(doc.data()))
+              .toList();
+          
+          // 방 상태 변화 디버그 로그
+          for (final room in rooms) {
+            if (room.isFull) {
+              print('방이 가득 찼습니다: ${room.roomName} (hostId: ${room.hostId}, guestId: ${room.guestId})');
+            }
+          }
+          
+          return rooms;
+        });
   }
 
   /// 온라인 게임 방 참가
