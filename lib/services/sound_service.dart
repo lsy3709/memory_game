@@ -70,9 +70,10 @@ class SoundService {
       await _backgroundPlayer!.play(AssetSource(bgmPath));
       await _backgroundPlayer!.setVolume(_musicVolume);
       await _backgroundPlayer!.setReleaseMode(ReleaseMode.loop);
-      print('배경음악 재생: $bgmPath');
+      print('🎵 배경음악 재생 성공: $bgmPath');
     } catch (e) {
-      print('배경 음악 재생 오류: $e');
+      print('❌ 배경 음악 재생 오류: $e');
+      print('💡 사운드 파일이 없습니다. assets/sounds/bgm/ 폴더에 bgm1.wav ~ bgm10.wav 파일을 추가해주세요.');
       // 사운드 파일이 없을 때는 오류를 무시하고 계속 진행
     }
   }
@@ -195,9 +196,10 @@ class SoundService {
       _effectPlayer ??= AudioPlayer();
       await _effectPlayer!.play(AssetSource(assetPath));
       await _effectPlayer!.setVolume(_soundVolume);
-      print('효과음 재생: $assetPath');
+      print('🔊 효과음 재생 성공: $assetPath');
     } catch (e) {
-      print('효과음 재생 오류 ($assetPath): $e');
+      print('❌ 효과음 재생 오류 ($assetPath): $e');
+      print('💡 사운드 파일이 없습니다. 해당 파일을 assets/sounds/ 폴더에 추가해주세요.');
       // 사운드 파일이 없을 때는 오류를 무시하고 계속 진행
       // 실제 프로덕션에서는 기본 사운드 파일을 제공하거나 다른 방식으로 처리
     }
