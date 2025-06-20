@@ -16,6 +16,27 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
   final FirebaseService _firebaseService = FirebaseService.instance;
   bool _isLoading = false;
   String? _errorMessage;
+  List<Map<String, dynamic>> _gameInvites = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGameInvites();
+  }
+
+  /// 게임 초대 목록 로드
+  void _loadGameInvites() {
+    _firebaseService.getReceivedGameInvites().listen((invites) {
+      setState(() {
+        _gameInvites = invites;
+      });
+    });
+  }
+
+  /// 초대받은 방인지 확인
+  bool _isInvitedToRoom(OnlineRoom room) {
+    return _gameInvites.any((invite) => invite['roomId'] == room.id);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +201,9 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
 
   /// 방 카드 위젯
   Widget _buildRoomCard(OnlineRoom room) {
-    final isMyRoom = room.isHost(_firebaseService.currentUser?.uid ?? '');
+    final currentUserId = _firebaseService.currentUser?.uid ?? '';
+    final isMyRoom = room.isHost(currentUserId);
+    final isInvited = _isInvitedToRoom(room);
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -189,7 +212,9 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
         borderRadius: BorderRadius.circular(12),
         side: isMyRoom 
             ? BorderSide(color: Colors.green, width: 2)
-            : BorderSide.none,
+            : isInvited
+                ? BorderSide(color: Colors.orange, width: 2)
+                : BorderSide.none,
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -198,24 +223,8 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
           children: [
             // 헤더 행 (방 이름과 내 방 표시)
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 방 아이콘
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isMyRoom ? Colors.green : Colors.blue,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isMyRoom ? Icons.person : Icons.people,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                
-                // 방 이름
                 Expanded(
                   child: Text(
                     room.roomName,
@@ -225,24 +234,42 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
                     ),
                   ),
                 ),
-                
-                // 내 방 표시
-                if (isMyRoom)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      '내 방',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                Row(
+                  children: [
+                    if (isMyRoom)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          '내 방',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    if (isInvited)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          '초대받음',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
             
@@ -313,7 +340,9 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
 
   /// 방 액션 버튼 위젯
   Widget _buildRoomActions(OnlineRoom room) {
-    final isMyRoom = room.isHost(_firebaseService.currentUser?.uid ?? '');
+    final currentUserId = _firebaseService.currentUser?.uid ?? '';
+    final isMyRoom = room.isHost(currentUserId);
+    final isInvited = _isInvitedToRoom(room);
 
     if (isMyRoom) {
       return Row(
@@ -346,98 +375,20 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           ElevatedButton(
-            onPressed: room.canJoin ? () => _joinRoom(room) : null,
+            onPressed: (room.canJoin || isInvited) ? () => _joinRoom(room) : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: room.canJoin ? Colors.blue : Colors.grey,
+              backgroundColor: (room.canJoin || isInvited) ? Colors.blue : Colors.grey,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               minimumSize: const Size(80, 36),
             ),
-            child: Text(room.canJoin ? '참가하기' : '가득참'),
+            child: Text(
+              isInvited ? '초대받음' : (room.canJoin ? '참가하기' : '가득참'),
+            ),
           ),
         ],
       );
     }
-  }
-
-  /// 빈 상태 위젯
-  Widget _buildEmptyWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.meeting_room_outlined,
-            size: 64,
-            color: Colors.white54,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '참가 가능한 방이 없습니다',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.white70,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '새로운 방을 만들어보세요!',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white54,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pushNamed('/online-room-creation');
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('방 만들기'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 오류 위젯
-  Widget _buildErrorWidget(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.white54,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white70,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _errorMessage = null;
-              });
-            },
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
-    );
   }
 
   /// 방 참가
@@ -448,6 +399,21 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
     });
 
     try {
+      // 초대받은 방인지 확인하고 초대 정보 삭제
+      final invite = _gameInvites.firstWhere(
+        (invite) => invite['roomId'] == room.id,
+        orElse: () => <String, dynamic>{},
+      );
+      
+      if (invite.isNotEmpty) {
+        try {
+          await _firebaseService.acceptGameInvite(invite['id']);
+        } catch (e) {
+          print('초대 수락 오류: $e');
+          // 초대 수락 실패해도 방 참가는 계속 진행
+        }
+      }
+
       final updatedRoom = await _firebaseService.joinOnlineRoom(room.id);
       
       if (mounted) {

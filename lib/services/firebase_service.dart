@@ -672,10 +672,8 @@ class FirebaseService {
 
       final roomId = _firestore!.collection('online_rooms').doc().id;
       
-      // 초대할 친구 정보 가져오기
-      String? guestId;
-      String? guestName;
-      String? guestEmail;
+      // 초대할 친구 정보 가져오기 (guestId는 설정하지 않음)
+      String? inviteEmail;
       
       if (inviteEmail != null && inviteEmail.isNotEmpty) {
         try {
@@ -688,14 +686,13 @@ class FirebaseService {
             final friendDoc = friendQuery.docs.first;
             final friendData = friendDoc.data();
             
-            guestId = friendDoc.id;
-            guestName = friendData['playerName'] ?? '플레이어';
-            guestEmail = friendData['email'] ?? inviteEmail;
-            
             // 자기 자신을 초대할 수 없도록 체크
-            if (guestId == currentUser!.uid) {
+            if (friendDoc.id == currentUser!.uid) {
               throw Exception('자기 자신을 초대할 수 없습니다.');
             }
+            
+            // 초대 이메일만 저장
+            inviteEmail = friendData['email'] ?? inviteEmail;
           }
         } catch (e) {
           print('친구 초대 정보 가져오기 오류: $e');
@@ -709,9 +706,7 @@ class FirebaseService {
         hostId: currentUser!.uid,
         hostName: playerName,
         hostEmail: email,
-        guestId: guestId,
-        guestName: guestName,
-        guestEmail: guestEmail,
+        // guestId는 설정하지 않음 (초대받은 친구가 참가할 때 설정)
         status: RoomStatus.waiting,
         createdAt: DateTime.now(),
         isPrivate: isPrivate,
@@ -720,17 +715,26 @@ class FirebaseService {
 
       await _firestore!.collection('online_rooms').doc(roomId).set(room.toJson());
       
-      // 친구 초대 알림 전송 (선택사항)
-      if (guestId != null) {
+      // 친구 초대 알림 전송 (초대받은 친구의 ID로)
+      if (inviteEmail != null && inviteEmail.isNotEmpty) {
         try {
-          await sendGameInvite(guestId, roomId);
+          // 초대받은 친구의 ID 찾기
+          final friendQuery = await _firestore!.collection('users')
+              .where('email', isEqualTo: inviteEmail)
+              .limit(1)
+              .get();
+
+          if (friendQuery.docs.isNotEmpty) {
+            final friendId = friendQuery.docs.first.id;
+            await sendGameInvite(friendId, roomId);
+          }
         } catch (e) {
           print('게임 초대 알림 전송 실패: $e');
           // 초대 알림 실패해도 방 생성은 성공으로 처리
         }
       }
       
-      print('온라인 게임 방 생성 완료: $roomName (초대: ${guestName ?? '없음'})');
+      print('온라인 게임 방 생성 완료: $roomName (초대: ${inviteEmail ?? '없음'})');
       return room;
     } catch (e) {
       print('온라인 게임 방 생성 오류: $e');
