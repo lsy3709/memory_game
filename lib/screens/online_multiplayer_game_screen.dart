@@ -212,12 +212,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 Future.delayed(const Duration(milliseconds: 1000), () {
                   if (mounted) {
                     setState(() {
-                      cards[cardIndex1].isFlipped = false;
-                      cards[cardIndex2].isFlipped = false;
-                      firstSelectedIndex = null;
-                      secondSelectedIndex = null;
-                      isProcessingCardSelection = false;
+                      // 카드 인덱스 유효성 확인 후 뒤집기 해제
+                      if (cardIndex1 < cards.length) {
+                        cards[cardIndex1].isFlipped = false;
+                      }
+                      if (cardIndex2 < cards.length) {
+                        cards[cardIndex2].isFlipped = false;
+                      }
                     });
+                    print('다른 플레이어 매칭 실패 - 카드 뒤집기 해제 완료: $cardIndex1, $cardIndex2');
                   }
                 });
               }
@@ -390,27 +393,27 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     // 카드 상태 확인
     final card = cards[index];
-    if (card.isMatched || card.isFlipped) {
-      print('카드 선택 무시 - 이미 매칭됨: ${card.isMatched}, 이미 뒤집힘: ${card.isFlipped}');
+    print('카드 상태 확인 - 인덱스: $index, 매칭됨: ${card.isMatched}, 뒤집힘: ${card.isFlipped}, ID: ${card.id}');
+    
+    if (card.isMatched) {
+      print('카드 선택 무시 - 이미 매칭됨: $index');
       return;
     }
     
-    // 이미 선택된 카드인지 확인
-    if (firstSelectedIndex == index || secondSelectedIndex == index) {
-      print('카드 선택 무시 - 이미 선택된 카드: $index');
+    // 이미 뒤집힌 카드인지 확인 (현재 턴에서 선택한 카드가 아닌 경우)
+    if (card.isFlipped && firstSelectedIndex != index && secondSelectedIndex != index) {
+      print('카드 선택 무시 - 이미 뒤집힌 카드: $index');
       return;
     }
     
     // 두 번째 카드 선택 시 첫 번째 카드와 같은 카드인지 확인
-    if (firstSelectedIndex != null && secondSelectedIndex == null) {
-      final firstCard = cards[firstSelectedIndex!];
-      if (card.id == firstCard.id) {
-        print('카드 선택 무시 - 같은 카드 선택: ${card.id}');
-        return;
-      }
+    if (firstSelectedIndex != null && secondSelectedIndex == null && firstSelectedIndex == index) {
+      print('카드 선택 무시 - 같은 카드 재선택: $index');
+      return;
     }
     
     print('카드 선택: 인덱스=$index, 카드ID=${card.id}, 이모지=${card.emoji}');
+    print('현재 선택 상태 - 첫번째: $firstSelectedIndex, 두번째: $secondSelectedIndex');
     
     // 카드 선택 처리 시작
     isProcessingCardSelection = true;
@@ -459,29 +462,40 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 카드 매칭 확인
   void _checkMatch() {
+    if (firstSelectedIndex == null || secondSelectedIndex == null) {
+      print('매칭 확인 실패 - 선택된 카드가 부족: 첫번째=$firstSelectedIndex, 두번째=$secondSelectedIndex');
+      return;
+    }
+    
     final firstCard = cards[firstSelectedIndex!];
     final secondCard = cards[secondSelectedIndex!];
     
-    print('매칭 확인:');
-    print('첫 번째 카드 (인덱스: $firstSelectedIndex): ID=${firstCard.id}, 이모지=${firstCard.emoji}');
-    print('두 번째 카드 (인덱스: $secondSelectedIndex): ID=${secondCard.id}, 이모지=${secondCard.emoji}');
+    print('=== 매칭 확인 ===');
+    print('첫 번째 카드 (인덱스: $firstSelectedIndex): ID=${firstCard.id}, 이모지=${firstCard.emoji}, 뒤집힘=${firstCard.isFlipped}');
+    print('두 번째 카드 (인덱스: $secondSelectedIndex): ID=${secondCard.id}, 이모지=${secondCard.emoji}, 뒤집힘=${secondCard.isFlipped}');
     print('매칭 결과: ${firstCard.id == secondCard.id}');
     
     if (firstCard.id == secondCard.id) {
       // 매칭 성공
+      print('매칭 성공!');
       _handleMatchSuccess();
     } else {
       // 매칭 실패
+      print('매칭 실패!');
       _handleMatchFailure();
     }
   }
 
   /// 매칭 성공 처리
   void _handleMatchSuccess() {
+    print('=== 매칭 성공 처리 시작 ===');
     soundService.playMatchSound();
     
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
+    
+    print('매칭 성공 - 카드 인덱스: $firstIndex, $secondIndex');
+    print('매칭 전 카드 상태 - 첫번째: ${cards[firstIndex].isMatched}, 두번째: ${cards[secondIndex].isMatched}');
     
     setState(() {
       cards[firstIndex].isMatched = true;
@@ -502,6 +516,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       isProcessingCardSelection = false;
     });
     
+    print('매칭 후 카드 상태 - 첫번째: ${cards[firstIndex].isMatched}, 두번째: ${cards[secondIndex].isMatched}');
+    print('현재 점수: $currentPlayerScore, 최고 콤보: $maxCombo');
+    
     // 실시간 동기화 - 매칭 성공 정보 전송 (점수 포함)
     firebaseService.syncCardMatch(
       currentRoom.id, 
@@ -514,21 +531,27 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     // 매칭 성공 시에도 턴 변경 (연속 매칭이 아닌 경우)
     if (scoreModel.currentCombo == 0) {
+      print('연속 매칭이 아니므로 턴 변경');
       _changeTurn();
+    } else {
+      print('연속 매칭이므로 턴 유지');
     }
     
     // 게임 완료 확인
     _checkGameCompletion();
+    print('=== 매칭 성공 처리 완료 ===');
   }
 
   /// 매칭 실패 처리
   void _handleMatchFailure() {
+    print('=== 매칭 실패 처리 시작 ===');
     soundService.playMismatchSound();
     
     final firstIndex = firstSelectedIndex!;
     final secondIndex = secondSelectedIndex!;
     
     print('매칭 실패 - 카드 뒤집기 해제: $firstIndex, $secondIndex');
+    print('매칭 실패 전 카드 상태 - 첫번째: ${cards[firstIndex].isFlipped}, 두번째: ${cards[secondIndex].isFlipped}');
     
     // 실시간 동기화 - 매칭 실패 정보 전송
     firebaseService.syncCardMatch(
@@ -539,21 +562,36 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       currentPlayerId
     );
     
+    // 즉시 선택 상태 초기화
+    setState(() {
+      firstSelectedIndex = null;
+      secondSelectedIndex = null;
+      isProcessingCardSelection = false;
+    });
+    
+    print('선택 상태 초기화 완료');
+    
     // 1초 후 카드 뒤집기 해제
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
         setState(() {
-          cards[firstIndex].isFlipped = false;
-          cards[secondIndex].isFlipped = false;
-          firstSelectedIndex = null;
-          secondSelectedIndex = null;
-          isProcessingCardSelection = false;
+          // 카드 인덱스 유효성 확인 후 뒤집기 해제
+          if (firstIndex < cards.length) {
+            cards[firstIndex].isFlipped = false;
+          }
+          if (secondIndex < cards.length) {
+            cards[secondIndex].isFlipped = false;
+          }
         });
+        
+        print('매칭 실패 - 카드 뒤집기 해제 완료: $firstIndex, $secondIndex');
+        print('매칭 실패 후 카드 상태 - 첫번째: ${cards[firstIndex].isFlipped}, 두번째: ${cards[secondIndex].isFlipped}');
         
         // 턴 변경
         _changeTurn();
       }
     });
+    print('=== 매칭 실패 처리 완료 ===');
   }
 
   /// 턴 변경
