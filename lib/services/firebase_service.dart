@@ -723,7 +723,7 @@ class FirebaseService {
       // 친구 초대 알림 전송 (선택사항)
       if (guestId != null) {
         try {
-          await _sendGameInvite(guestId, roomId);
+          await sendGameInvite(guestId, roomId);
         } catch (e) {
           print('게임 초대 알림 전송 실패: $e');
           // 초대 알림 실패해도 방 생성은 성공으로 처리
