@@ -383,9 +383,26 @@ class _OnlineRoomCreationScreenState extends State<OnlineRoomCreationScreen> {
         );
       }
     } catch (e) {
+      String userFriendlyMessage = '방 생성에 실패했습니다.';
+      
+      // 구체적인 오류 상황에 맞는 메시지 제공
+      if (e.toString().contains('Firebase가 초기화되지 않았습니다')) {
+        userFriendlyMessage = '네트워크 연결을 확인해주세요.';
+      } else if (e.toString().contains('로그인이 필요합니다')) {
+        userFriendlyMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
+      } else if (e.toString().contains('권한')) {
+        userFriendlyMessage = '권한이 없습니다. 다시 시도해주세요.';
+      } else if (e.toString().contains('네트워크')) {
+        userFriendlyMessage = '네트워크 연결을 확인하고 다시 시도해주세요.';
+      } else if (e.toString().contains('중복')) {
+        userFriendlyMessage = '이미 사용 중인 방 이름입니다. 다른 이름을 사용해주세요.';
+      }
+      
       setState(() {
-        _errorMessage = '방 생성에 실패했습니다: ${e.toString()}';
+        _errorMessage = userFriendlyMessage;
       });
+      
+      print('방 생성 오류 상세: $e');
     } finally {
       setState(() {
         _isLoading = false;

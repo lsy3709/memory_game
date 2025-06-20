@@ -431,9 +431,26 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
         );
       }
     } catch (e) {
+      String userFriendlyMessage = '방 참가에 실패했습니다.';
+      
+      // 구체적인 오류 상황에 맞는 메시지 제공
+      if (e.toString().contains('Firebase가 초기화되지 않았습니다')) {
+        userFriendlyMessage = '네트워크 연결을 확인해주세요.';
+      } else if (e.toString().contains('로그인이 필요합니다')) {
+        userFriendlyMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
+      } else if (e.toString().contains('방을 찾을 수 없습니다')) {
+        userFriendlyMessage = '방이 이미 삭제되었습니다.';
+      } else if (e.toString().contains('방에 참가할 수 없습니다')) {
+        userFriendlyMessage = '방이 가득 찼습니다.';
+      } else if (e.toString().contains('네트워크')) {
+        userFriendlyMessage = '네트워크 연결을 확인하고 다시 시도해주세요.';
+      }
+      
       setState(() {
-        _errorMessage = '방 참가에 실패했습니다: ${e.toString()}';
+        _errorMessage = userFriendlyMessage;
       });
+      
+      print('방 참가 오류 상세: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -618,9 +635,26 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
                   setState(() {});
                 }
               } catch (e) {
+                String userFriendlyMessage = '방 삭제에 실패했습니다.';
+                
+                // 구체적인 오류 상황에 맞는 메시지 제공
+                if (e.toString().contains('Firebase가 초기화되지 않았습니다')) {
+                  userFriendlyMessage = '네트워크 연결을 확인해주세요.';
+                } else if (e.toString().contains('로그인이 필요합니다')) {
+                  userFriendlyMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
+                } else if (e.toString().contains('방을 찾을 수 없습니다')) {
+                  userFriendlyMessage = '방이 이미 삭제되었습니다.';
+                } else if (e.toString().contains('권한')) {
+                  userFriendlyMessage = '방을 삭제할 권한이 없습니다.';
+                } else if (e.toString().contains('네트워크')) {
+                  userFriendlyMessage = '네트워크 연결을 확인하고 다시 시도해주세요.';
+                }
+                
                 setState(() {
-                  _errorMessage = '방 삭제에 실패했습니다: ${e.toString()}';
+                  _errorMessage = userFriendlyMessage;
                 });
+                
+                print('방 삭제 오류 상세: $e');
               } finally {
                 setState(() {
                   _isLoading = false;

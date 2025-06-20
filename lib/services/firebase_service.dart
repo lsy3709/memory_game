@@ -687,7 +687,19 @@ class FirebaseService {
       return room;
     } catch (e) {
       print('온라인 게임 방 생성 오류: $e');
-      throw Exception('게임 방 생성에 실패했습니다.');
+      
+      // 구체적인 오류 상황에 맞는 메시지 제공
+      if (e.toString().contains('permission-denied')) {
+        throw Exception('권한이 없습니다. 다시 로그인해주세요.');
+      } else if (e.toString().contains('unavailable')) {
+        throw Exception('네트워크 연결을 확인해주세요.');
+      } else if (e.toString().contains('already-exists')) {
+        throw Exception('이미 사용 중인 방 이름입니다.');
+      } else if (e.toString().contains('invalid-argument')) {
+        throw Exception('방 이름이 올바르지 않습니다.');
+      } else {
+        throw Exception('방 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
     }
   }
 
@@ -830,7 +842,19 @@ class FirebaseService {
       print('온라인 게임 방 나가기 완료: $roomId');
     } catch (e) {
       print('온라인 게임 방 나가기 오류: $e');
-      throw Exception('방 나가기에 실패했습니다: ${e.toString()}');
+      
+      // 구체적인 오류 상황에 맞는 메시지 제공
+      if (e.toString().contains('permission-denied')) {
+        throw Exception('권한이 없습니다. 다시 로그인해주세요.');
+      } else if (e.toString().contains('unavailable')) {
+        throw Exception('네트워크 연결을 확인해주세요.');
+      } else if (e.toString().contains('not-found')) {
+        throw Exception('방을 찾을 수 없습니다.');
+      } else if (e.toString().contains('already-exists')) {
+        throw Exception('방이 이미 존재하지 않습니다.');
+      } else {
+        throw Exception('방 나가기에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
     }
   }
 
