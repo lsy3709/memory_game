@@ -687,7 +687,8 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
     });
 
     try {
-      await _loadRooms();
+      // StreamBuilder가 자동으로 새로고침되므로 잠시 대기 후 로딩 상태 해제
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       if (mounted && context.mounted) {
         setState(() {
