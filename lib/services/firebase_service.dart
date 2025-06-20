@@ -769,92 +769,67 @@ class FirebaseService {
     }
   }
 
-  /// 온라인 게임 방 나가기 - 개선된 버전
+  /// 온라인 게임 방 나가기
   Future<void> leaveOnlineRoom(String roomId) async {
-    await _initialize();
-    if (!_isInitialized || _firestore == null) {
+    if (!_isInitialized) {
       throw Exception('Firebase가 초기화되지 않았습니다.');
     }
 
-    if (currentUser == null) {
+    if (_currentUser == null) {
       throw Exception('로그인이 필요합니다.');
     }
 
     try {
       final roomRef = _firestore!.collection('online_rooms').doc(roomId);
-      
-      await _firestore!.runTransaction((transaction) async {
-        final roomDoc = await transaction.get(roomRef);
-        if (!roomDoc.exists) {
-          print('방이 이미 존재하지 않음: $roomId');
-          return;
+      final roomDoc = await roomRef.get();
+
+      if (!roomDoc.exists) {
+        throw Exception('방을 찾을 수 없습니다.');
+      }
+
+      final roomData = roomDoc.data()!;
+      final hostId = roomData['host_id'] as String;
+      final guestId = roomData['guest_id'] as String?;
+      final currentPlayerId = _currentUser!.uid;
+
+      print('방 나가기 처리: 플레이어=$currentPlayerId, 방장=$hostId, 게스트=$guestId');
+
+      // 방장이 나가는 경우 - 방과 모든 데이터 삭제
+      if (currentPlayerId == hostId) {
+        print('방장이 나가므로 방과 모든 데이터 삭제');
+        
+        // 서브컬렉션들 삭제
+        final subcollections = ['game_state', 'card_actions', 'turn_changes', 'card_matches'];
+        for (final subcollection in subcollections) {
+          try {
+            final subcollectionRef = roomRef.collection(subcollection);
+            final subcollectionDocs = await subcollectionRef.get();
+            
+            // 배치 작업으로 모든 문서 삭제
+            final batch = _firestore!.batch();
+            for (final doc in subcollectionDocs.docs) {
+              batch.delete(doc.reference);
+            }
+            await batch.commit();
+            print('서브컬렉션 삭제 완료: $subcollection');
+          } catch (e) {
+            print('서브컬렉션 삭제 중 오류 ($subcollection): $e');
+          }
         }
 
-        final room = OnlineRoom.fromJson(roomDoc.data()!);
-        print('방 나가기 처리: 플레이어=${currentUser!.uid}, 방장=${room.hostId}, 게스트=${room.guestId}');
-        
-        if (room.isHost(currentUser!.uid)) {
-          // 방장이 나가면 방과 모든 관련 데이터 삭제
-          print('방장이 나가므로 방과 모든 데이터 삭제');
-          
-          // 서브컬렉션들 삭제
-          final subCollections = [
-            'game_state',
-            'card_actions', 
-            'turn_changes',
-            'card_matches'
-          ];
-          
-          for (final collectionName in subCollections) {
-            try {
-              final subCollectionRef = roomRef.collection(collectionName);
-              final subDocs = await subCollectionRef.get();
-              
-              for (final doc in subDocs.docs) {
-                transaction.delete(doc.reference);
-              }
-              print('서브컬렉션 삭제 완료: $collectionName');
-            } catch (e) {
-              print('서브컬렉션 삭제 실패 ($collectionName): $e');
-              // 개별 서브컬렉션 삭제 실패는 무시하고 계속 진행
-            }
-          }
-          
-          // 방 문서 삭제
-          transaction.delete(roomRef);
-          print('방 문서 삭제 완료');
-          
-        } else if (room.isGuest(currentUser!.uid)) {
-          // 게스트가 나가면 게스트 정보만 제거
-          print('게스트가 나가므로 게스트 정보만 제거');
-          final updatedRoom = room.copyWith(
-            guestId: null,
-            guestName: null,
-            guestEmail: null,
-          );
-          transaction.update(roomRef, updatedRoom.toJson());
-          print('게스트 정보 제거 완료');
-        } else {
-          print('방에 참가하지 않은 사용자: ${currentUser!.uid}');
-        }
-      });
+        // 방 문서 삭제
+        await roomRef.delete();
+        print('방 문서 삭제 완료');
+      } else {
+        // 게스트가 나가는 경우 - guest_id만 null로 설정
+        await roomRef.update({'guest_id': null});
+        print('게스트 나가기 완료');
+      }
 
       print('온라인 게임 방 나가기 완료: $roomId');
     } catch (e) {
-      print('온라인 게임 방 나가기 오류: $e');
-      
-      // 구체적인 오류 상황에 맞는 메시지 제공
-      if (e.toString().contains('permission-denied')) {
-        throw Exception('권한이 없습니다. 다시 로그인해주세요.');
-      } else if (e.toString().contains('unavailable')) {
-        throw Exception('네트워크 연결을 확인해주세요.');
-      } else if (e.toString().contains('not-found')) {
-        throw Exception('방을 찾을 수 없습니다.');
-      } else if (e.toString().contains('already-exists')) {
-        throw Exception('방이 이미 존재하지 않습니다.');
-      } else {
-        throw Exception('방 나가기에 실패했습니다. 잠시 후 다시 시도해주세요.');
-      }
+      print('방 나가기 오류: $e');
+      rethrow;
     }
   }
 

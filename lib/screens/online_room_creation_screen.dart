@@ -367,20 +367,23 @@ class _OnlineRoomCreationScreenState extends State<OnlineRoomCreationScreen> {
       final roomName = _roomNameController.text.trim();
       final password = _isPrivate ? _passwordController.text : null;
 
-      final room = await _firebaseService.createOnlineRoom(
+      final roomId = await _firebaseService.createOnlineRoom(
         roomName: roomName,
         isPrivate: _isPrivate,
         password: password,
       );
 
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => OnlineMultiplayerGameScreen(
-              room: room,
+      if (mounted && context.mounted) {
+        if (ScaffoldMessenger.of(context).mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('방이 생성되었습니다!'),
+              backgroundColor: Colors.green,
             ),
-          ),
-        );
+          );
+        }
+        
+        Navigator.pop(context, roomId);
       }
     } catch (e) {
       String userFriendlyMessage = '방 생성에 실패했습니다.';
@@ -391,22 +394,24 @@ class _OnlineRoomCreationScreenState extends State<OnlineRoomCreationScreen> {
       } else if (e.toString().contains('로그인이 필요합니다')) {
         userFriendlyMessage = '로그인이 필요합니다. 다시 로그인해주세요.';
       } else if (e.toString().contains('권한')) {
-        userFriendlyMessage = '권한이 없습니다. 다시 시도해주세요.';
+        userFriendlyMessage = '방을 생성할 권한이 없습니다.';
       } else if (e.toString().contains('네트워크')) {
         userFriendlyMessage = '네트워크 연결을 확인하고 다시 시도해주세요.';
-      } else if (e.toString().contains('중복')) {
-        userFriendlyMessage = '이미 사용 중인 방 이름입니다. 다른 이름을 사용해주세요.';
       }
       
-      setState(() {
-        _errorMessage = userFriendlyMessage;
-      });
+      if (mounted && context.mounted) {
+        setState(() {
+          _errorMessage = userFriendlyMessage;
+        });
+      }
       
       print('방 생성 오류 상세: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted && context.mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

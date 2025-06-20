@@ -29,19 +29,7 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              setState(() {
-                _errorMessage = null;
-                _isLoading = true;
-              });
-              
-              // 잠시 후 로딩 상태 해제 (StreamBuilder가 자동으로 새로고침됨)
-              Future.delayed(const Duration(milliseconds: 500), () {
-                if (mounted) {
-                  setState(() {
-                    _isLoading = false;
-                  });
-                }
-              });
+              _refreshRooms();
             },
           ),
         ],
@@ -623,21 +611,21 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
               try {
                 await _firebaseService.leaveOnlineRoom(room.id);
                 
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('방이 삭제되었습니다.'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                if (mounted && context.mounted) {
+                  if (ScaffoldMessenger.of(context).mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('방이 삭제되었습니다.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
                   
-                  // 방 목록 새로고침을 위해 setState 호출
                   setState(() {});
                 }
               } catch (e) {
                 String userFriendlyMessage = '방 삭제에 실패했습니다.';
                 
-                // 구체적인 오류 상황에 맞는 메시지 제공
                 if (e.toString().contains('Firebase가 초기화되지 않았습니다')) {
                   userFriendlyMessage = '네트워크 연결을 확인해주세요.';
                 } else if (e.toString().contains('로그인이 필요합니다')) {
@@ -650,15 +638,19 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
                   userFriendlyMessage = '네트워크 연결을 확인하고 다시 시도해주세요.';
                 }
                 
-                setState(() {
-                  _errorMessage = userFriendlyMessage;
-                });
+                if (mounted && context.mounted) {
+                  setState(() {
+                    _errorMessage = userFriendlyMessage;
+                  });
+                }
                 
                 print('방 삭제 오류 상세: $e');
               } finally {
-                setState(() {
-                  _isLoading = false;
-                });
+                if (mounted && context.mounted) {
+                  setState(() {
+                    _isLoading = false;
+                  });
+                }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -682,6 +674,33 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
       return '${difference.inHours}시간 전';
     } else {
       return '${difference.inDays}일 전';
+    }
+  }
+
+  /// 방 목록 새로고침
+  Future<void> _refreshRooms() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _loadRooms();
+    } catch (e) {
+      if (mounted && context.mounted) {
+        setState(() {
+          _errorMessage = '방 목록을 불러오는데 실패했습니다.';
+        });
+      }
+      print('방 목록 새로고침 오류: $e');
+    } finally {
+      if (mounted && context.mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 } 
