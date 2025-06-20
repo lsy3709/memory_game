@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/firebase_service.dart';
 import '../models/player_stats.dart';
+import '../models/online_room.dart';
+import 'online_multiplayer_game_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/sound_service.dart';
@@ -22,11 +24,13 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
   String _email = '';
   bool _isLoading = true;
   PlayerStats? _playerStats;
+  List<Map<String, dynamic>> _gameInvites = [];
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _setupGameInviteListener();
   }
 
   /// 사용자 정보 로드
@@ -106,6 +110,90 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('로그아웃에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  /// 게임 초대 리스너 설정
+  void _setupGameInviteListener() {
+    _firebaseService.getReceivedGameInvites().listen((invites) {
+      setState(() {
+        _gameInvites = invites;
+      });
+      
+      // 새로운 초대가 있으면 알림 표시
+      if (invites.isNotEmpty && mounted) {
+        _showGameInviteNotification(invites.first);
+      }
+    });
+  }
+
+  /// 게임 초대 알림 표시
+  void _showGameInviteNotification(Map<String, dynamic> invite) {
+    final fromUserName = invite['fromUserName'] ?? '플레이어';
+    final roomId = invite['roomId'] ?? '';
+    final inviteId = invite['id'] ?? '';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('게임 초대'),
+        content: Text('$fromUserName님이 게임에 초대했습니다!'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _rejectGameInvite(inviteId);
+            },
+            child: const Text('거부'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _acceptGameInvite(inviteId, roomId);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('수락'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 게임 초대 수락
+  Future<void> _acceptGameInvite(String inviteId, String roomId) async {
+    try {
+      await _firebaseService.acceptGameInvite(inviteId);
+      
+      // 방에 참가
+      final room = await _firebaseService.joinOnlineRoom(roomId);
+      
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OnlineMultiplayerGameScreen(room: room),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('게임 참가에 실패했습니다: $e')),
+        );
+      }
+    }
+  }
+
+  /// 게임 초대 거부
+  Future<void> _rejectGameInvite(String inviteId) async {
+    try {
+      await _firebaseService.rejectGameInvite(inviteId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('초대 거부에 실패했습니다: $e')),
         );
       }
     }
