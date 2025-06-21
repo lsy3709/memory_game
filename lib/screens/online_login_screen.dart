@@ -240,15 +240,8 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
   Future<void> _handleSignUp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // 이메일 중복체크 확인 (회원가입 모드에서만)
-    if (!_isEmailChecked) {
-      setState(() {
-        _errorMessage = '이메일 중복체크를 완료해주세요.';
-      });
-      return;
-    }
-
-    if (!_isEmailAvailable) {
+    // 이메일 중복체크 확인 (선택적 - 완료되지 않았어도 진행 가능)
+    if (_isEmailChecked && !_isEmailAvailable) {
       setState(() {
         _errorMessage = '사용할 수 없는 이메일입니다.';
       });
@@ -616,7 +609,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                                         )
                                       : const Icon(Icons.search),
                                   onPressed: _isCheckingEmail ? null : _checkOnlineEmailAvailability,
-                                  tooltip: '이메일 중복체크',
+                                  tooltip: '이메일 중복체크 (선택사항)',
                                 ),
                               ],
                             ) : null,
@@ -643,6 +636,18 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                               _emailCheckMessage!,
                               style: TextStyle(
                                 color: _isEmailAvailable ? Colors.green : Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        // 이메일 중복체크 안내 메시지 (회원가입 모드에서만)
+                        if (!_isLoginMode && _emailCheckMessage == null)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              '이메일 중복체크는 선택사항입니다. 회원가입 시 자동으로 확인됩니다.',
+                              style: TextStyle(
+                                color: Colors.grey,
                                 fontSize: 12,
                               ),
                             ),

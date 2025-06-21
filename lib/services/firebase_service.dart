@@ -446,22 +446,19 @@ class FirebaseService {
     }
   }
 
-  /// Firebase Firestore에서 이메일 중복체크
+  /// Firebase Auth를 사용한 이메일 중복체크
   Future<bool> checkEmailDuplicate(String email) async {
     await _initialize();
-    if (!_isInitialized || _firestore == null) {
+    if (!_isInitialized || _auth == null) {
       throw Exception('Firebase가 초기화되지 않았습니다.');
     }
 
     try {
-      // users 컬렉션에서 이메일로 검색
-      final userQuery = await _firestore!.collection('users')
-          .where('email', isEqualTo: email.toLowerCase())
-          .limit(1)
-          .get();
+      // Firebase Auth의 fetchSignInMethodsForEmail을 사용하여 이메일 중복체크
+      final methods = await _auth!.fetchSignInMethodsForEmail(email);
       
-      // 결과가 있으면 중복
-      return userQuery.docs.isNotEmpty;
+      // 이메일이 이미 등록되어 있으면 중복
+      return methods.isNotEmpty;
     } catch (e) {
       print('이메일 중복체크 오류: $e');
       throw Exception('이메일 중복체크 중 오류가 발생했습니다.');
