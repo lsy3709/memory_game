@@ -26,6 +26,12 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _agreeToTerms = false;
+  
+  // 이메일 중복체크 관련 변수
+  bool _isCheckingEmail = false;
+  bool _isEmailChecked = false;
+  bool _isEmailAvailable = false;
+  String? _emailCheckMessage;
 
   @override
   void dispose() {
@@ -50,12 +56,83 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
     }
   }
 
+  /// 이메일 중복체크 실행
+  Future<void> _checkEmailAvailability() async {
+    final email = _emailController.text.trim();
+    
+    if (email.isEmpty) {
+      setState(() {
+        _emailCheckMessage = '이메일을 입력해주세요.';
+        _isEmailChecked = false;
+      });
+      return;
+    }
+    
+    if (!EmailValidator.validate(email)) {
+      setState(() {
+        _emailCheckMessage = '올바른 이메일 형식을 입력해주세요.';
+        _isEmailChecked = false;
+      });
+      return;
+    }
+    
+    setState(() {
+      _isCheckingEmail = true;
+      _emailCheckMessage = null;
+    });
+    
+    try {
+      final isDuplicate = await _checkEmailDuplicate(email);
+      
+      setState(() {
+        _isCheckingEmail = false;
+        _isEmailChecked = true;
+        _isEmailAvailable = !isDuplicate;
+        _emailCheckMessage = isDuplicate 
+            ? '이미 사용 중인 이메일입니다.' 
+            : '사용 가능한 이메일입니다.';
+      });
+    } catch (e) {
+      setState(() {
+        _isCheckingEmail = false;
+        _isEmailChecked = false;
+        _emailCheckMessage = '중복체크 중 오류가 발생했습니다.';
+      });
+    }
+  }
+
+  /// 이메일 입력 시 중복체크 상태 초기화
+  void _onEmailChanged(String value) {
+    if (_isEmailChecked) {
+      setState(() {
+        _isEmailChecked = false;
+        _isEmailAvailable = false;
+        _emailCheckMessage = null;
+      });
+    }
+  }
+
   /// 플레이어 등록 처리
   Future<void> _registerPlayer() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreeToTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('개인정보처리방침에 동의해주세요.')),
+      );
+      return;
+    }
+
+    // 이메일 중복체크 확인
+    if (!_isEmailChecked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이메일 중복체크를 완료해주세요.')),
+      );
+      return;
+    }
+
+    if (!_isEmailAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('사용할 수 없는 이메일입니다.')),
       );
       return;
     }
@@ -67,7 +144,7 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
       final email = _emailController.text.trim().toLowerCase();
       final password = _passwordController.text;
 
-      // 이메일 중복 검사
+      // 이메일 중복 검사 (추가 검증)
       final isDuplicate = await _checkEmailDuplicate(email);
       if (isDuplicate) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -92,11 +169,18 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
       // 성공 메시지 표시
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('플레이어 등록이 완료되었습니다!')),
+          const SnackBar(
+            content: Text('회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.'),
+            duration: Duration(seconds: 2),
+          ),
         );
         
-        // 게임 화면으로 이동
-        Navigator.of(context).pushReplacementNamed('/game');
+        // 2초 후 로그인 페이지로 이동
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed('/login');
+          }
+        });
       }
     } catch (e) {
       print('플레이어 등록 오류: $e');
@@ -230,11 +314,33 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
+                onChanged: _onEmailChanged,
+                decoration: InputDecoration(
                   labelText: '이메일 *',
                   hintText: 'example@email.com',
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.email),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_isEmailChecked)
+                        Icon(
+                          _isEmailAvailable ? Icons.check_circle : Icons.cancel,
+                          color: _isEmailAvailable ? Colors.green : Colors.red,
+                        ),
+                      IconButton(
+                        icon: _isCheckingEmail
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.search),
+                        onPressed: _isCheckingEmail ? null : _checkEmailAvailability,
+                        tooltip: '이메일 중복체크',
+                      ),
+                    ],
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -243,9 +349,24 @@ class _PlayerRegistrationScreenState extends State<PlayerRegistrationScreen> {
                   if (!EmailValidator.validate(value.trim())) {
                     return '올바른 이메일 형식을 입력해주세요';
                   }
+                  if (_isEmailChecked && !_isEmailAvailable) {
+                    return '사용할 수 없는 이메일입니다';
+                  }
                   return null;
                 },
               ),
+              // 이메일 중복체크 결과 메시지
+              if (_emailCheckMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    _emailCheckMessage!,
+                    style: TextStyle(
+                      color: _isEmailAvailable ? Colors.green : Colors.red,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
 
               // 비밀번호 입력

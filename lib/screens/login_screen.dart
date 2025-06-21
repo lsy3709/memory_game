@@ -87,8 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
           const SnackBar(content: Text('로그인되었습니다!')),
         );
         
-        // 게임 화면으로 이동
-        Navigator.of(context).pushReplacementNamed('/game');
+        // 메인 화면으로 이동
+        Navigator.of(context).pushReplacementNamed('/');
       }
     } catch (e) {
       print('로그인 오류: $e');
