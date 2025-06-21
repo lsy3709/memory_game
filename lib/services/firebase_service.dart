@@ -237,9 +237,8 @@ class FirebaseService {
 
       _currentUser = credential.user;
       
-      // 회원가입 완료 후 자동 로그아웃하여 로그인 화면으로 이동
-      await _auth!.signOut();
-      _currentUser = null;
+      // 회원가입 완료 후 로그인 상태 유지 (자동 로그아웃 제거)
+      print('회원가입 완료 - 사용자 로그인 상태 유지');
       
       return credential;
     } catch (e) {
@@ -443,6 +442,45 @@ class FirebaseService {
     } catch (e) {
       print('온라인 플레이어 통계 가져오기 오류: $e');
       return null;
+    }
+  }
+
+  /// Firebase Auth를 사용한 이메일 중복체크
+  Future<bool> checkEmailDuplicate(String email) async {
+    await _initialize();
+    if (!_isInitialized || _auth == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      print('이메일 중복체크 시작: $email');
+      
+      // Firebase Auth의 fetchSignInMethodsForEmail을 사용하여 이메일 중복체크
+      final methods = await _auth!.fetchSignInMethodsForEmail(email);
+      print('fetchSignInMethodsForEmail 결과: $email -> methods: $methods');
+      
+      // 이메일이 이미 등록되어 있으면 중복
+      final isDuplicate = methods.isNotEmpty;
+      print('이메일 중복 여부: $isDuplicate');
+      
+      return isDuplicate;
+    } catch (e) {
+      print('이메일 중복체크 오류: $e');
+      
+      // user-not-found 오류는 중복이 아닌 것으로 처리
+      if (e.toString().contains('user-not-found')) {
+        print('사용자를 찾을 수 없음 - 중복 아님');
+        return false;
+      }
+      
+      // network-request-failed 오류는 네트워크 문제로 처리
+      if (e.toString().contains('network-request-failed')) {
+        print('네트워크 오류 - 중복체크 실패');
+        throw Exception('네트워크 연결을 확인해주세요.');
+      }
+      
+      // 기타 오류는 중복체크 실패로 처리
+      throw Exception('이메일 중복체크 중 오류가 발생했습니다: ${e.toString()}');
     }
   }
 

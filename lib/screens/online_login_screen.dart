@@ -21,6 +21,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+  
+  // 이메일 중복체크 관련 변수
+  bool _isCheckingEmail = false;
+  bool _isEmailChecked = false;
+  bool _isEmailAvailable = false;
+  String? _emailCheckMessage;
 
   @override
   void initState() {
@@ -261,9 +267,9 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       
       print('회원가입 성공: ${credential.user?.email}');
 
-      // 회원가입 성공 후 로그인 화면으로 이동
+      // 회원가입 성공 후 온라인 메인 화면으로 이동
       if (mounted) {
-        print('회원가입 성공 - 로그인 화면으로 이동');
+        print('회원가입 성공 - 온라인 메인 화면으로 이동');
         setState(() {
           _errorMessage = null;
           _isLoading = false;
@@ -272,14 +278,14 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         // 성공 메시지 표시
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('회원가입이 완료되었습니다! 로그인해주세요.'),
+            content: Text('회원가입이 완료되었습니다! 온라인 게임을 즐겨보세요.'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
         );
         
-        // 로그인 화면으로 이동
-        Navigator.of(context).pushReplacementNamed('/online-login');
+        // 온라인 메인 화면으로 이동
+        Navigator.of(context).pushReplacementNamed('/online-main');
       }
     } catch (e) {
       print('회원가입 오류: $e');
@@ -408,9 +414,75 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
 
   /// 이메일 입력 시 중복체크 상태 초기화
   void _onEmailChanged(String value) {
-    if (_errorMessage != null && _errorMessage!.isNotEmpty) {
+    if (_isEmailChecked) {
       setState(() {
-        _errorMessage = null;
+        _isEmailChecked = false;
+        _isEmailAvailable = false;
+        _emailCheckMessage = null;
+      });
+    }
+  }
+
+  /// 온라인 이메일 중복체크 실행
+  Future<void> _checkOnlineEmailAvailability() async {
+    final email = _emailController.text.trim();
+    
+    if (email.isEmpty) {
+      setState(() {
+        _emailCheckMessage = '이메일을 입력해주세요.';
+        _isEmailChecked = false;
+      });
+      return;
+    }
+    
+    if (!EmailValidator.validate(email)) {
+      setState(() {
+        _emailCheckMessage = '올바른 이메일 형식을 입력해주세요.';
+        _isEmailChecked = false;
+      });
+      return;
+    }
+    
+    setState(() {
+      _isCheckingEmail = true;
+      _emailCheckMessage = null;
+    });
+    
+    try {
+      print('온라인 이메일 중복체크 시작: $email');
+      
+      // Firebase 초기화 확인
+      final isInitialized = await _firebaseService.ensureInitialized();
+      if (!isInitialized) {
+        setState(() {
+          _isCheckingEmail = false;
+          _isEmailChecked = false;
+          _emailCheckMessage = 'Firebase가 초기화되지 않았습니다.';
+        });
+        return;
+      }
+
+      // Firebase Auth에서 실제 이메일 중복체크
+      final isDuplicate = await _firebaseService.checkEmailDuplicate(email);
+      
+      print('온라인 이메일 중복체크 결과: $email -> 중복: $isDuplicate');
+      
+      setState(() {
+        _isCheckingEmail = false;
+        _isEmailChecked = true;
+        _isEmailAvailable = !isDuplicate;
+        _emailCheckMessage = isDuplicate 
+            ? '이미 사용 중인 이메일입니다.' 
+            : '사용 가능한 이메일입니다.';
+      });
+      
+      print('중복체크 상태 업데이트: 사용가능=$_isEmailAvailable, 메시지=$_emailCheckMessage');
+    } catch (e) {
+      print('온라인 이메일 중복체크 오류: $e');
+      setState(() {
+        _isCheckingEmail = false;
+        _isEmailChecked = false;
+        _emailCheckMessage = '중복체크 중 오류가 발생했습니다: ${e.toString()}';
       });
     }
   }
@@ -518,6 +590,27 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                           decoration: InputDecoration(
                             labelText: '이메일',
                             prefixIcon: const Icon(Icons.email),
+                            suffixIcon: !_isLoginMode ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_isEmailChecked)
+                                  Icon(
+                                    _isEmailAvailable ? Icons.check_circle : Icons.cancel,
+                                    color: _isEmailAvailable ? Colors.green : Colors.red,
+                                  ),
+                                IconButton(
+                                  icon: _isCheckingEmail
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.search),
+                                  onPressed: _isCheckingEmail ? null : _checkOnlineEmailAvailability,
+                                  tooltip: '이메일 중복체크',
+                                ),
+                              ],
+                            ) : null,
                             border: const OutlineInputBorder(),
                           ),
                           validator: (value) {
@@ -527,9 +620,24 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                             if (!EmailValidator.validate(value.trim())) {
                               return '올바른 이메일 형식을 입력해주세요.';
                             }
+                            if (!_isLoginMode && _isEmailChecked && !_isEmailAvailable) {
+                              return '사용할 수 없는 이메일입니다.';
+                            }
                             return null;
                           },
                         ),
+                        // 이메일 중복체크 결과 메시지 (회원가입 모드에서만)
+                        if (!_isLoginMode && _emailCheckMessage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              _emailCheckMessage!,
+                              style: TextStyle(
+                                color: _isEmailAvailable ? Colors.green : Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 16),
 
                         // 플레이어 이름 입력 (회원가입 모드에서만)
@@ -654,6 +762,10 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                                       setState(() {
                                         _isLoginMode = !_isLoginMode;
                                         _errorMessage = null;
+                                        // 이메일 중복체크 상태 초기화
+                                        _isEmailChecked = false;
+                                        _isEmailAvailable = false;
+                                        _emailCheckMessage = null;
                                         if (_isLoginMode) {
                                           _playerNameController.clear();
                                         }

@@ -51,9 +51,19 @@ class _OnlinePlayerNameSetupScreenState extends State<OnlinePlayerNameSetupScree
         if (userData != null && userData['playerName'] != null) {
           _playerNameController.text = userData['playerName'];
         }
+      } else {
+        // 로그인되지 않은 경우 로그인 화면으로 이동
+        print('로그인되지 않은 사용자 - 로그인 화면으로 이동');
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/online-login');
+        }
       }
     } catch (e) {
       print('사용자 정보 로드 오류: $e');
+      // 오류 발생 시 로그인 화면으로 이동
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/online-login');
+      }
     }
   }
 
