@@ -236,6 +236,11 @@ class FirebaseService {
       });
 
       _currentUser = credential.user;
+      
+      // 회원가입 완료 후 자동 로그아웃하여 로그인 화면으로 이동
+      await _auth!.signOut();
+      _currentUser = null;
+      
       return credential;
     } catch (e) {
       print('회원가입 오류: $e');
@@ -438,6 +443,28 @@ class FirebaseService {
     } catch (e) {
       print('온라인 플레이어 통계 가져오기 오류: $e');
       return null;
+    }
+  }
+
+  /// Firebase Firestore에서 이메일 중복체크
+  Future<bool> checkEmailDuplicate(String email) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      // users 컬렉션에서 이메일로 검색
+      final userQuery = await _firestore!.collection('users')
+          .where('email', isEqualTo: email.toLowerCase())
+          .limit(1)
+          .get();
+      
+      // 결과가 있으면 중복
+      return userQuery.docs.isNotEmpty;
+    } catch (e) {
+      print('이메일 중복체크 오류: $e');
+      throw Exception('이메일 중복체크 중 오류가 발생했습니다.');
     }
   }
 

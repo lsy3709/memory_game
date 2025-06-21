@@ -282,13 +282,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
       
       print('회원가입 성공: ${credential.user?.email}');
 
-      // 회원가입 성공 후 로그인 모드로 전환
+      // 회원가입 성공 후 로그인 화면으로 이동
       if (mounted) {
-        print('회원가입 성공 - 로그인 모드로 전환');
+        print('회원가입 성공 - 로그인 화면으로 이동');
         setState(() {
           _errorMessage = null;
           _isLoading = false;
-          _isLoginMode = true; // 로그인 모드로 전환
         });
         
         // 성공 메시지 표시
@@ -296,12 +295,12 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
           const SnackBar(
             content: Text('회원가입이 완료되었습니다! 로그인해주세요.'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 2),
           ),
         );
         
-        // 비밀번호 필드 초기화
-        _passwordController.clear();
+        // 로그인 화면으로 이동
+        Navigator.of(context).pushReplacementNamed('/online-login');
       }
     } catch (e) {
       print('회원가입 오류: $e');
@@ -465,14 +464,16 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         return;
       }
 
-      // Firebase에서 이메일 중복체크 (간단한 방법으로 구현)
-      // 실제로는 Firebase Auth의 createUserWithEmailAndPassword에서 중복 오류를 처리
-      // 여기서는 미리 체크하는 용도
+      // Firebase Firestore에서 실제 이메일 중복체크
+      final isDuplicate = await _firebaseService.checkEmailDuplicate(email);
+      
       setState(() {
         _isCheckingEmail = false;
         _isEmailChecked = true;
-        _isEmailAvailable = true; // 회원가입 시도 시 실제 중복 여부 확인
-        _emailCheckMessage = '이메일 형식이 올바릅니다.';
+        _isEmailAvailable = !isDuplicate;
+        _emailCheckMessage = isDuplicate 
+            ? '이미 사용 중인 이메일입니다.' 
+            : '사용 가능한 이메일입니다.';
       });
     } catch (e) {
       print('온라인 이메일 중복체크 오류: $e');
