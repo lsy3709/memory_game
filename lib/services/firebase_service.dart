@@ -445,7 +445,7 @@ class FirebaseService {
     }
   }
 
-  /// 개선된 이메일 중복체크 (실제 로그인 시도로 확인)
+  /// 안전하고 정확한 이메일 중복체크 (Firebase 요청 제한 고려)
   Future<bool> checkEmailDuplicateImproved(String email) async {
     await _initialize();
     if (!_isInitialized || _auth == null) {
@@ -455,58 +455,42 @@ class FirebaseService {
     try {
       print('이메일 중복체크 시작: $email');
       
-      // 실제 로그인 시도로 이메일 존재 여부 확인 (가장 확실한 방법)
+      // 방법 1: Firebase Auth의 fetchSignInMethodsForEmail 사용 (가장 안전하고 권장되는 방법)
       try {
-        // 임시 비밀번호로 로그인 시도
-        await _auth!.signInWithEmailAndPassword(
-          email: email,
-          password: 'temporary_password_for_check_${DateTime.now().millisecondsSinceEpoch}',
-        );
-        // 여기까지 오면 로그인이 성공한 것이므로 이메일이 존재함 (이론적으로는 불가능)
-        print('이론적으로 불가능한 상황 - 로그인 성공');
-        return true;
-      } catch (loginError) {
-        print('로그인 시도 결과: $loginError');
+        final methods = await _auth!.fetchSignInMethodsForEmail(email);
+        print('fetchSignInMethodsForEmail 결과: $email -> methods: $methods');
+        
+        if (methods.isNotEmpty) {
+          print('Firebase Auth에서 중복 발견');
+          return true;
+        } else {
+          print('Firebase Auth에서 중복되지 않음 확인');
+          return false;
+        }
+      } catch (authError) {
+        print('fetchSignInMethodsForEmail 오류: $authError');
         
         // user-not-found 오류는 이메일이 존재하지 않음을 의미
-        if (loginError.toString().contains('user-not-found')) {
+        if (authError.toString().contains('user-not-found')) {
           print('user-not-found 오류 - 이메일이 존재하지 않음');
           return false;
         }
         
-        // wrong-password 오류는 이메일이 존재하지만 비밀번호가 틀린 것을 의미
-        if (loginError.toString().contains('wrong-password')) {
-          print('wrong-password 오류 - 이메일이 존재함');
-          return true;
-        }
-        
-        // invalid-email 오류는 이메일 형식이 잘못된 것을 의미
-        if (loginError.toString().contains('invalid-email')) {
-          print('invalid-email 오류 - 이메일 형식이 잘못됨');
-          throw Exception('올바르지 않은 이메일 형식입니다.');
-        }
-        
-        // user-disabled 오류는 이메일이 존재하지만 비활성화된 것을 의미
-        if (loginError.toString().contains('user-disabled')) {
-          print('user-disabled 오류 - 이메일이 존재함 (비활성화됨)');
-          return true;
-        }
-        
-        // too-many-requests 오류는 요청이 너무 많음을 의미
-        if (loginError.toString().contains('too-many-requests')) {
-          print('too-many-requests 오류 - 요청이 너무 많음');
-          throw Exception('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
-        }
-        
         // network-request-failed 오류는 네트워크 문제
-        if (loginError.toString().contains('network-request-failed')) {
+        if (authError.toString().contains('network-request-failed')) {
           print('network-request-failed 오류 - 네트워크 문제');
           throw Exception('네트워크 연결을 확인해주세요.');
         }
         
-        // 기타 오류는 이메일이 존재할 가능성이 높음 (안전하게 중복으로 처리)
-        print('기타 로그인 오류 - 이메일이 존재할 가능성이 높음');
-        return true;
+        // too-many-requests 오류는 요청이 너무 많음
+        if (authError.toString().contains('too-many-requests')) {
+          print('too-many-requests 오류 - 요청이 너무 많음');
+          throw Exception('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
+        }
+        
+        // 기타 Auth 오류는 다른 방법으로 시도하지 않고 오류 처리
+        print('Auth 오류 발생 - 중복체크 실패');
+        throw Exception('이메일 중복체크에 실패했습니다. 잠시 후 다시 시도해주세요.');
       }
     } catch (e) {
       print('이메일 중복체크 오류: $e');
