@@ -58,6 +58,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   int myCombo = 0;
   int opponentCombo = 0;
 
+  // 콤보 점수 표시 관련 변수
+  String? comboScoreMessage;
+  bool showComboScore = false;
+  Timer? comboScoreTimer;
+  bool isComboScoreSuccess = true; // true: 성공, false: 실패
+
   // 실시간 동기화 관련 변수
   StreamSubscription? _roomSubscription;
   StreamSubscription? _cardActionsSubscription;
@@ -87,6 +93,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   @override
   void dispose() {
     gameTimer?.cancel();
+    comboScoreTimer?.cancel();
     _roomSubscription?.cancel();
     _cardActionsSubscription?.cancel();
     _turnChangeSubscription?.cancel();
@@ -422,10 +429,32 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if(player != null) {
       player.combo++;
       player.matchCount++;
-      player.score += 10 * player.combo;
+      
+      // 기본 매칭 점수 100점
+      int matchScore = 100;
+      
+      // 콤보 보너스 점수 (콤보당 10점 추가)
+      int comboBonus = (player.combo - 1) * 10;
+      
+      // 총 점수 계산
+      int totalScore = matchScore + comboBonus;
+      player.score += totalScore;
+      
       if(player.combo > player.maxCombo) {
         player.maxCombo = player.combo;
       }
+      
+      // 콤보 점수 표시
+      String scoreMessage = '+$matchScore';
+      if (comboBonus > 0) {
+        scoreMessage += ' + 콤보보너스 $comboBonus';
+      }
+      if (player.combo > 1) {
+        scoreMessage += ' (${player.combo}콤보!)';
+      }
+      _showComboScore(scoreMessage);
+      
+      print('매칭 성공! 점수: +$totalScore (기본: +$matchScore, 콤보보너스: +$comboBonus, 콤보: ${player.combo})');
     }
 
     print('매칭 성공! 턴 유지: $currentPlayerId');
@@ -457,8 +486,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _handleMatchFailure(int index1, int index2) {
     soundService.playMismatchSound();
     
-    playersData[currentPlayerId]?.combo = 0;
-    playersData[currentPlayerId]?.failCount++;
+    final player = playersData[currentPlayerId];
+    if(player != null) {
+      // 매칭 실패 시 -10점
+      player.score -= 10;
+      player.combo = 0; // 콤보 리셋
+      player.failCount++;
+      
+      // 실패 점수 표시
+      _showComboScore('-10 (콤보 리셋)', isSuccess: false);
+      
+      print('매칭 실패! 점수: -10, 콤보 리셋');
+    }
+
+    // 매칭 실패도 Firebase에 동기화
+    firebaseService.syncCardMatch(currentRoom.id, index1, index2, false, currentPlayerId, player?.score);
 
     // 매칭 실패 시 카드를 다시 뒤집는 동기화
     firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
@@ -529,9 +571,34 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("승자: ${winner?.name ?? '무승부'}"),
+              Text("승자: ${winner?.name ?? '무승부'}", 
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: winner != null ? Colors.green.shade700 : Colors.grey.shade700,
+                ),
+              ),
               const SizedBox(height: 10),
-              ...playersData.values.map((p) => Text("${p.name}: ${p.score}점")).toList(),
+              ...playersData.values.map((p) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("${p.name}: ${p.score}점", 
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: p.id == winner?.id ? Colors.green.shade700 : Colors.black87,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16.0),
+                    child: Text(
+                      "성공: ${p.matchCount}회 | 실패: ${p.failCount}회 | 최대콤보: ${p.maxCombo}",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
+              )).toList(),
             ],
           ),
           actions: [
@@ -633,18 +700,65 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         
         final index1 = match['cardIndex1'] as int;
         final index2 = match['cardIndex2'] as int;
+        final isMatch = match['isMatch'] as bool;
         final score = match['score'] as int?;
 
         if (index1 >= 0 && index1 < cards.length && index2 >= 0 && index2 < cards.length) {
             setState(() {
-                cards[index1].isMatched = true;
-                cards[index2].isMatched = true;
-                cards[index1].isFlipped = true;
-                cards[index2].isFlipped = true;
+                if (isMatch) {
+                    // 매칭 성공
+                    cards[index1].isMatched = true;
+                    cards[index2].isMatched = true;
+                    cards[index1].isFlipped = true;
+                    cards[index2].isFlipped = true;
 
-                final player = playersData[playerId];
-                if (player != null && score != null) {
-                    player.score = score;
+                    final player = playersData[playerId];
+                    if (player != null) {
+                        player.combo++;
+                        player.matchCount++;
+                        
+                        // 기본 매칭 점수 100점
+                        int matchScore = 100;
+                        
+                        // 콤보 보너스 점수 (콤보당 10점 추가)
+                        int comboBonus = (player.combo - 1) * 10;
+                        
+                        // 총 점수 계산
+                        int totalScore = matchScore + comboBonus;
+                        player.score = score ?? (player.score + totalScore);
+                        
+                        if(player.combo > player.maxCombo) {
+                            player.maxCombo = player.combo;
+                        }
+                        
+                        // 콤보 점수 표시 (다른 플레이어)
+                        String scoreMessage = '${player.name}: +$matchScore';
+                        if (comboBonus > 0) {
+                            scoreMessage += ' + 콤보보너스 $comboBonus';
+                        }
+                        if (player.combo > 1) {
+                            scoreMessage += ' (${player.combo}콤보!)';
+                        }
+                        _showComboScore(scoreMessage);
+                        
+                        print('다른 플레이어 매칭 성공! $playerId: +$totalScore (기본: +$matchScore, 콤보보너스: +$comboBonus, 콤보: ${player.combo})');
+                    }
+                } else {
+                    // 매칭 실패
+                    cards[index1].isFlipped = false;
+                    cards[index2].isFlipped = false;
+                    
+                    final player = playersData[playerId];
+                    if (player != null) {
+                        player.score = score ?? (player.score - 10);
+                        player.combo = 0; // 콤보 리셋
+                        player.failCount++;
+                        
+                        // 실패 점수 표시 (다른 플레이어)
+                        _showComboScore('${player.name}: -10 (콤보 리셋)', isSuccess: false);
+                        
+                        print('다른 플레이어 매칭 실패! $playerId: -10, 콤보 리셋');
+                    }
                 }
             });
         }
@@ -687,6 +801,24 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final minutes = (timeLeft / 60).floor().toString().padLeft(2, '0');
     final seconds = (timeLeft % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  void _showComboScore(String message, {bool isSuccess = true}) {
+    setState(() {
+      comboScoreMessage = message;
+      showComboScore = true;
+      isComboScoreSuccess = isSuccess;
+    });
+    
+    comboScoreTimer?.cancel();
+    comboScoreTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          showComboScore = false;
+          comboScoreMessage = null;
+        });
+      }
+    });
   }
 
   @override
@@ -742,71 +874,107 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           ],
         ),
         body: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              _buildInfoPanel(),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (BuildContext context, BoxConstraints constraints) {
-                    final availableWidth = constraints.maxWidth;
-                    final availableHeight = constraints.maxHeight;
+              Column(
+                children: [
+                  _buildInfoPanel(),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (BuildContext context, BoxConstraints constraints) {
+                        final availableWidth = constraints.maxWidth;
+                        final availableHeight = constraints.maxHeight;
 
-                    // Tighten padding and spacing for a better fit
-                    const double horizontalPadding = 4.0;
-                    const double verticalPadding = 4.0;
-                    const double horizontalSpacing = 2.0;
-                    const double verticalSpacing = 2.0;
+                        // Tighten padding and spacing for a better fit
+                        const double horizontalPadding = 4.0;
+                        const double verticalPadding = 4.0;
+                        const double horizontalSpacing = 2.0;
+                        const double verticalSpacing = 2.0;
 
-                    final double totalHorizontalGaps = (horizontalPadding * 2) + (horizontalSpacing * (cols - 1));
-                    final double totalVerticalGaps = (verticalPadding * 2) + (verticalSpacing * (rows - 1));
+                        final double totalHorizontalGaps = (horizontalPadding * 2) + (horizontalSpacing * (cols - 1));
+                        final double totalVerticalGaps = (verticalPadding * 2) + (verticalSpacing * (rows - 1));
 
-                    final double cardWidth = (availableWidth - totalHorizontalGaps) / cols;
-                    final double cardHeight = (availableHeight - totalVerticalGaps) / rows;
+                        final double cardWidth = (availableWidth - totalHorizontalGaps) / cols;
+                        final double cardHeight = (availableHeight - totalVerticalGaps) / rows;
 
-                    if (cardWidth <= 0 || cardHeight <= 0) {
-                      return const Center(child: Text("레이아웃 계산 중..."));
-                    }
+                        if (cardWidth <= 0 || cardHeight <= 0) {
+                          return const Center(child: Text("레이아웃 계산 중..."));
+                        }
 
-                    final double cardAspectRatio = cardWidth / cardHeight;
+                        final double cardAspectRatio = cardWidth / cardHeight;
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: cols,
-                          childAspectRatio: cardAspectRatio,
-                          crossAxisSpacing: horizontalSpacing,
-                          mainAxisSpacing: verticalSpacing,
-                        ),
-                        itemCount: totalCards,
-                        itemBuilder: (context, index) {
-                          // 카드가 로드되지 않은 경우 로딩 상태 표시
-                          if (index >= cards.length || cards[index].emoji == '❓') {
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            );
-                          }
-                          
-                          return MemoryCard(
-                            card: cards[index],
-                            onTap: () => onCardPressed(index),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+                          child: GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: cols,
+                              childAspectRatio: cardAspectRatio,
+                              crossAxisSpacing: horizontalSpacing,
+                              mainAxisSpacing: verticalSpacing,
+                            ),
+                            itemCount: totalCards,
+                            itemBuilder: (context, index) {
+                              // 카드가 로드되지 않은 경우 로딩 상태 표시
+                              if (index >= cards.length || cards[index].emoji == '❓') {
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                );
+                              }
+                              
+                              return MemoryCard(
+                                card: cards[index],
+                                onTap: () => onCardPressed(index),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
+              // 콤보 점수 오버레이
+              if (showComboScore && comboScoreMessage != null)
+                Positioned(
+                  top: MediaQuery.of(context).size.height * 0.3,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isComboScoreSuccess ? Colors.green.shade100 : Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: isComboScoreSuccess ? Colors.green.shade300 : Colors.red.shade300, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        comboScoreMessage!,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isComboScoreSuccess ? Colors.green.shade800 : Colors.red.shade800,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1011,6 +1179,40 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.orange.shade700,
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                children: [
+                  Text(
+                    '성공',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  Text(
+                    '${player.matchCount}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                children: [
+                  Text(
+                    '실패',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  Text(
+                    '${player.failCount}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red.shade700,
                     ),
                   ),
                 ],
