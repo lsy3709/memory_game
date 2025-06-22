@@ -25,11 +25,12 @@ class MemoryCard extends StatelessWidget {
         builder: (context, constraints) {
           // 카드의 높이를 기준으로 폰트와 아이콘 크기를 동적으로 계산
           final double cardHeight = constraints.maxHeight;
-          final double iconSize = cardHeight * 0.5; // 아이콘 크기는 카드 높이의 50%
-          final double fontSize = cardHeight * 0.15; // 폰트 크기는 카드 높이의 15%
+          final double cardWidth = constraints.maxWidth;
+          final double iconSize = (cardHeight * 0.4).clamp(20.0, 60.0); // 아이콘 크기 제한
+          final double fontSize = (cardHeight * 0.12).clamp(8.0, 16.0); // 폰트 크기 제한
 
           return Container(
-            margin: const EdgeInsets.all(4),
+            margin: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
@@ -56,28 +57,42 @@ class MemoryCard extends StatelessWidget {
               ),
               child: Center(
                 child: card.isFlipped
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            card.emoji,
-                            style: TextStyle(fontSize: iconSize),
-                          ),
-                          SizedBox(height: cardHeight * 0.05),
-                          Text(
-                            card.name ?? '',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: fontSize,
-                              fontWeight: FontWeight.bold,
+                    ? Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                card.emoji,
+                                style: TextStyle(fontSize: iconSize),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                        ],
+                            if (card.name != null && card.name!.isNotEmpty) ...[
+                              SizedBox(height: cardHeight * 0.02),
+                              Flexible(
+                                child: Text(
+                                  card.name!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: fontSize,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.question_mark,
                         color: Colors.white,
-                        size: 40,
+                        size: iconSize,
                       ),
               ),
             ),

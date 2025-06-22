@@ -281,6 +281,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     if (cards.every((card) => card.isMatched)) {
       _gameOver(message: "모든 카드를 맞췄습니다!");
+    } else {
+      // 매칭 성공 시에도 턴 변경 (연속 매칭이 아닌 경우)
+      final player = playersData[currentPlayerId];
+      if (player != null && player.combo == 0) {
+        _changeTurn();
+      }
     }
   }
 
@@ -309,8 +315,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
   
   void _changeTurn() {
-      final nextPlayerId = playersData.keys.firstWhere((id) => id != currentTurnPlayerId, orElse: () => currentTurnPlayerId);
+    if (playersData.length < 2) return; // 플레이어가 2명 미만이면 턴 변경 안함
+    
+    final currentPlayerIndex = playersData.keys.toList().indexOf(currentTurnPlayerId);
+    final nextPlayerIndex = (currentPlayerIndex + 1) % playersData.length;
+    final nextPlayerId = playersData.keys.elementAt(nextPlayerIndex);
+    
+    // 유효한 플레이어 ID인지 확인
+    if (nextPlayerId != 'waiting' && playersData.containsKey(nextPlayerId)) {
       firebaseService.syncTurnChange(currentRoom.id, currentTurnPlayerId, nextPlayerId);
+    }
   }
 
   void _gameOver({String? message}) {
@@ -417,8 +431,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (_processedActionIds.contains(actionId)) return;
 
     final nextPlayerId = turnData['nextPlayerId'] as String;
+    
     setState(() {
       currentTurnPlayerId = nextPlayerId;
+      
+      // 내 턴이 시작되면 카드 선택 상태 초기화
+      if (nextPlayerId == currentPlayerId) {
+        firstSelectedIndex = null;
+        secondSelectedIndex = null;
+        isProcessingCardSelection = false;
+      }
     });
 
     _processedActionIds.add(actionId);
@@ -523,27 +545,41 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               Expanded(
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
-                    final gridWidth = constraints.maxWidth;
-                    final gridHeight = constraints.maxHeight;
-                    final cardWidth = gridWidth / cols;
-                    final cardHeight = gridHeight / rows;
+                    // 화면 크기에 맞춰 카드 크기 계산
+                    final availableWidth = constraints.maxWidth;
+                    final availableHeight = constraints.maxHeight;
+                    
+                    // 패딩과 간격을 고려한 실제 사용 가능한 공간
+                    const padding = 8.0;
+                    const spacing = 4.0;
+                    final usableWidth = availableWidth - (padding * 2) - (spacing * (cols - 1));
+                    final usableHeight = availableHeight - (padding * 2) - (spacing * (rows - 1));
+                    
+                    // 카드 크기 계산
+                    final cardWidth = usableWidth / cols;
+                    final cardHeight = usableHeight / rows;
+                    
+                    // 카드의 종횡비 계산
                     final cardAspectRatio = cardWidth / cardHeight;
 
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(4.0),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: cols,
-                        childAspectRatio: cardAspectRatio,
-                        crossAxisSpacing: 4,
-                        mainAxisSpacing: 4,
+                    return Padding(
+                      padding: const EdgeInsets.all(padding),
+                      child: GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: cols,
+                          childAspectRatio: cardAspectRatio,
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing: spacing,
+                        ),
+                        itemCount: totalCards,
+                        itemBuilder: (context, index) {
+                          return MemoryCard(
+                            card: cards[index],
+                            onTap: () => onCardPressed(index),
+                          );
+                        },
                       ),
-                      itemCount: totalCards,
-                      itemBuilder: (context, index) {
-                        return MemoryCard(
-                          card: cards[index],
-                          onTap: () => onCardPressed(index),
-                        );
-                      },
                     );
                   },
                 ),
@@ -561,28 +597,76 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     if (p1 == null) return const SizedBox.shrink();
 
-    return Padding(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+        ),
+      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildPlayerInfo(p1),
-              Column(
-                children: [
-                  Text('남은 시간', style: Theme.of(context).textTheme.titleMedium),
-                  Text(_formatTime(), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                ],
+              Expanded(
+                child: _buildPlayerInfo(p1),
               ),
-              if (p2 != null) _buildPlayerInfo(p2),
-              if (p2 == null) Expanded(child: Container()), // p2가 없을 경우 공간 채우기
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '남은 시간',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatTime(),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: timeLeft < 60 ? Colors.red : Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (p2 != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildPlayerInfo(p2),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            '현재 턴: ${playersData[currentTurnPlayerId]?.name ?? ''}',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.deepPurple),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Text(
+              '현재 턴: ${playersData[currentTurnPlayerId]?.name ?? ''}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.blue.shade800,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -591,27 +675,70 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   Widget _buildPlayerInfo(PlayerGameData player) {
     bool isTurn = player.id == currentTurnPlayerId;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          color: isTurn ? Colors.green.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: isTurn ? Border.all(color: Colors.green, width: 2) : Border.all(color: Colors.grey.shade300),
+    return Container(
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: isTurn ? Colors.green.shade50 : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isTurn ? Colors.green.shade400 : Colors.grey.shade300,
+          width: isTurn ? 2 : 1,
         ),
-        child: Column(
-          children: [
-            Text(
-              player.name,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              overflow: TextOverflow.ellipsis,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            player.name,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isTurn ? Colors.green.shade800 : Colors.black87,
             ),
-            const SizedBox(height: 4),
-            Text('점수: ${player.score}', style: Theme.of(context).textTheme.bodyLarge),
-            const SizedBox(height: 4),
-            Text('콤보: ${player.combo}', style: Theme.of(context).textTheme.bodyLarge),
-          ],
-        ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Column(
+                children: [
+                  Text(
+                    '점수',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  Text(
+                    '${player.score}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                children: [
+                  Text(
+                    '콤보',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  Text(
+                    '${player.combo}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
