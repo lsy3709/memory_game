@@ -129,11 +129,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 호스트인 경우에만 카드를 생성하고 저장
     if (currentRoom.isHost(currentPlayerId)) {
       cards = _generateCards();
+      print('호스트가 카드 생성: ${cards.length}개 카드');
       // 생성된 카드 정보를 Firestore에 저장
       firebaseService.saveGameCards(currentRoom.id, cards.map((c) => c.toJson()).toList());
     } else {
       // 게스트인 경우 카드 정보를 로드할 때까지 임시로 빈 리스트 사용
       cards = List.generate(totalCards, (index) => CardModel(id: index, emoji: '❓'));
+      print('게스트가 임시 카드 생성: ${cards.length}개 카드');
     }
   }
   
@@ -143,11 +145,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     List<CardModel> generatedCards = [];
     for (int i = 0; i < numPairs; i++) {
-      generatedCards.add(CardModel(id: i * 2, emoji: cardValues[i]));
-      generatedCards.add(CardModel(id: i * 2 + 1, emoji: cardValues[i]));
+      final emoji = cardValues[i];
+      generatedCards.add(CardModel(id: i * 2, emoji: emoji));
+      generatedCards.add(CardModel(id: i * 2 + 1, emoji: emoji));
     }
     
     generatedCards.shuffle();
+    print('카드 생성 완료: ${generatedCards.length}개 (${numPairs}쌍)');
     return generatedCards;
   }
 
@@ -367,8 +371,45 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
   }
   
+  void _handleTurnChange(Map<String, dynamic>? turnData) {
+    if (!mounted || turnData == null) return;
+    
+    final actionId = turnData['id'] as String;
+    if (_processedActionIds.contains(actionId)) {
+      print('이미 처리된 턴 변경 액션: $actionId');
+      return;
+    }
+
+    final nextPlayerId = turnData['nextPlayerId'] as String;
+    print('턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId');
+    print('현재 플레이어 ID: $currentPlayerId');
+    print('내 턴 여부: ${nextPlayerId == currentPlayerId}');
+    
+    // 강제로 상태 업데이트
+    if (mounted) {
+      setState(() {
+        currentTurnPlayerId = nextPlayerId;
+        
+        // 내 턴이 시작되면 카드 선택 상태 초기화
+        if (nextPlayerId == currentPlayerId) {
+          firstSelectedIndex = null;
+          secondSelectedIndex = null;
+          isProcessingCardSelection = false;
+          print('내 턴 시작 - 카드 선택 상태 초기화');
+        }
+      });
+      
+      // 턴 변경 후 상태 확인
+      print('턴 변경 완료 - 현재 턴: $currentTurnPlayerId, 내 턴: ${currentTurnPlayerId == currentPlayerId}');
+    }
+
+    _processedActionIds.add(actionId);
+  }
+
   void _forceTurnChange() {
     print('강제 턴 변경 시작');
+    print('현재 플레이어 데이터: $playersData');
+    print('현재 턴 플레이어: $currentTurnPlayerId');
     
     if (playersData.length < 2) {
       print('플레이어가 2명 미만이므로 턴 변경 안함');
@@ -376,12 +417,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
     
     final validPlayerIds = playersData.keys.where((id) => id != 'waiting').toList();
+    print('유효한 플레이어 ID 목록: $validPlayerIds');
+    
     if (validPlayerIds.length < 2) {
       print('유효한 플레이어가 2명 미만이므로 턴 변경 안함');
       return;
     }
     
     final currentPlayerIndex = validPlayerIds.indexOf(currentTurnPlayerId);
+    print('현재 턴 플레이어 인덱스: $currentPlayerIndex');
+    
     final nextPlayerIndex = (currentPlayerIndex + 1) % validPlayerIds.length;
     final nextPlayerId = validPlayerIds[nextPlayerIndex];
     
@@ -398,6 +443,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         secondSelectedIndex = null;
         isProcessingCardSelection = false;
       });
+      
+      print('로컬 상태 업데이트 완료 - 새로운 턴: $currentTurnPlayerId');
     }
     
     // Firebase에 턴 변경 전송
@@ -508,36 +555,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         }
         _processedActionIds.add(actionId);
     }
-  }
-
-  void _handleTurnChange(Map<String, dynamic>? turnData) {
-    if (!mounted || turnData == null) return;
-    
-    final actionId = turnData['id'] as String;
-    if (_processedActionIds.contains(actionId)) {
-      print('이미 처리된 턴 변경 액션: $actionId');
-      return;
-    }
-
-    final nextPlayerId = turnData['nextPlayerId'] as String;
-    print('턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId');
-    
-    // 강제로 상태 업데이트
-    if (mounted) {
-      setState(() {
-        currentTurnPlayerId = nextPlayerId;
-        
-        // 내 턴이 시작되면 카드 선택 상태 초기화
-        if (nextPlayerId == currentPlayerId) {
-          firstSelectedIndex = null;
-          secondSelectedIndex = null;
-          isProcessingCardSelection = false;
-          print('내 턴 시작 - 카드 선택 상태 초기화');
-        }
-      });
-    }
-
-    _processedActionIds.add(actionId);
   }
 
   void _handleCardMatch(List<Map<String, dynamic>> matches) {
@@ -661,33 +678,66 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     
                     print('사용 가능한 공간: ${availableWidth.toInt()} x ${availableHeight.toInt()}');
                     
-                    // 간단한 카드 크기 계산
-                    final cardWidth = availableWidth / cols;
-                    final cardHeight = availableHeight / rows;
+                    // 고정된 카드 크기 계산 (최소 크기 보장)
+                    final minCardWidth = 50.0;
+                    final minCardHeight = 60.0;
                     
-                    print('카드 크기: ${cardWidth.toInt()} x ${cardHeight.toInt()}');
+                    // 사용 가능한 공간을 6x8로 분할 (패딩 고려)
+                    final padding = 8.0;
+                    final spacing = 2.0;
+                    final cardAreaWidth = availableWidth - (padding * 2) - (spacing * (cols - 1));
+                    final cardAreaHeight = availableHeight - (padding * 2) - (spacing * (rows - 1));
+                    
+                    final cardWidth = cardAreaWidth / cols;
+                    final cardHeight = cardAreaHeight / rows;
+                    
+                    // 최소 크기 보장
+                    final finalCardWidth = cardWidth < minCardWidth ? minCardWidth : cardWidth;
+                    final finalCardHeight = cardHeight < minCardHeight ? minCardHeight : cardHeight;
+                    
+                    print('카드 크기: ${finalCardWidth.toInt()} x ${finalCardHeight.toInt()}');
+                    print('총 카드 수: $totalCards (${cols}x${rows})');
                     
                     // 카드의 종횡비 계산
-                    final cardAspectRatio = cardWidth / cardHeight;
+                    final cardAspectRatio = finalCardWidth / finalCardHeight;
                     
                     print('카드 종횡비: ${cardAspectRatio.toStringAsFixed(2)}');
 
-                    return GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(4),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: cols,
-                        childAspectRatio: cardAspectRatio,
-                        crossAxisSpacing: 2,
-                        mainAxisSpacing: 2,
+                    return Container(
+                      width: availableWidth,
+                      height: availableHeight,
+                      padding: const EdgeInsets.all(8),
+                      child: GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: cols,
+                          childAspectRatio: cardAspectRatio,
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing: spacing,
+                        ),
+                        itemCount: totalCards,
+                        itemBuilder: (context, index) {
+                          if (index >= cards.length) {
+                            print('카드 인덱스 오류: $index >= ${cards.length}');
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.red),
+                              ),
+                              child: const Center(
+                                child: Text('오류', style: TextStyle(color: Colors.red)),
+                              ),
+                            );
+                          }
+                          
+                          return MemoryCard(
+                            card: cards[index],
+                            onTap: () => onCardPressed(index),
+                          );
+                        },
                       ),
-                      itemCount: totalCards,
-                      itemBuilder: (context, index) {
-                        return MemoryCard(
-                          card: cards[index],
-                          onTap: () => onCardPressed(index),
-                        );
-                      },
                     );
                   },
                 ),
@@ -762,16 +812,19 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: isMyTurn ? Colors.green.shade50 : Colors.blue.shade50,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.shade200),
+              border: Border.all(
+                color: isMyTurn ? Colors.green.shade200 : Colors.blue.shade200,
+                width: 2,
+              ),
             ),
             child: Column(
               children: [
                 Text(
-                  '현재 턴: ${playersData[currentTurnPlayerId]?.name ?? ''}',
+                  '현재 턴: ${playersData[currentTurnPlayerId]?.name ?? '알 수 없음'}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.blue.shade800,
+                    color: isMyTurn ? Colors.green.shade800 : Colors.blue.shade800,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
@@ -779,12 +832,29 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '내 턴: ${isMyTurn ? "예" : "아니오"} | 플레이어 수: ${playersData.length}',
+                  '내 턴: ${isMyTurn ? "✅ 예" : "❌ 아니오"} | 플레이어 수: ${playersData.length} | 턴 ID: $currentTurnPlayerId',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade600,
                   ),
                   textAlign: TextAlign.center,
                 ),
+                if (isMyTurn) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '카드를 클릭하세요!',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.green.shade800,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

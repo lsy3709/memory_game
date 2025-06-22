@@ -26,8 +26,8 @@ class MemoryCard extends StatelessWidget {
           // 카드의 높이를 기준으로 폰트와 아이콘 크기를 동적으로 계산
           final double cardHeight = constraints.maxHeight;
           final double cardWidth = constraints.maxWidth;
-          final double iconSize = (cardHeight * 0.5).clamp(20.0, 80.0); // 아이콘 크기 조정
-          final double fontSize = (cardHeight * 0.15).clamp(8.0, 20.0); // 폰트 크기 조정
+          final double iconSize = (cardHeight * 0.4).clamp(16.0, 40.0); // 아이콘 크기 조정
+          final double fontSize = (cardHeight * 0.12).clamp(6.0, 12.0); // 폰트 크기 조정
 
           return Container(
             margin: const EdgeInsets.all(1), // 최소 마진
@@ -36,7 +36,7 @@ class MemoryCard extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
-                  blurRadius: 2,
+                  blurRadius: 1,
                   offset: const Offset(0, 1),
                 ),
               ],
@@ -52,7 +52,7 @@ class MemoryCard extends StatelessWidget {
                     ? Colors.white
                     : Colors.blue.shade600,
                 border: card.isMatched
-                    ? Border.all(color: Colors.green, width: 2)
+                    ? Border.all(color: Colors.green, width: 1)
                     : null,
               ),
               child: Center(
@@ -63,22 +63,27 @@ class MemoryCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              card.emoji,
-                              style: TextStyle(fontSize: iconSize),
-                              textAlign: TextAlign.center,
+                            Flexible(
+                              child: Text(
+                                card.emoji,
+                                style: TextStyle(fontSize: iconSize),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             if (card.name != null && card.name!.isNotEmpty) ...[
                               SizedBox(height: cardHeight * 0.02),
-                              Text(
-                                card.name!,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: fontSize,
-                                  fontWeight: FontWeight.bold,
+                              Flexible(
+                                child: Text(
+                                  card.name!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: fontSize,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
                               ),
                             ],
                           ],
