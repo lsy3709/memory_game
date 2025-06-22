@@ -1390,7 +1390,7 @@ class FirebaseService {
     }
   }
 
-  /// 카드 플립 동기화 - 개선된 버전
+  /// 카드 플립 동기화 - 최적화된 버전
   Future<void> syncCardFlip(String roomId, int cardIndex, bool isFlipped, String playerId) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
@@ -1400,8 +1400,6 @@ class FirebaseService {
     try {
       // 현재 시간을 밀리초로 기록
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      
-      print('카드 플립 동기화 시작: 카드=$cardIndex, 뒤집힘=$isFlipped, 플레이어=$playerId (시간: $timestamp)');
       
       await _firestore!.collection('online_rooms').doc(roomId)
           .collection('card_actions')
@@ -1413,7 +1411,6 @@ class FirebaseService {
         'clientTimestamp': FieldValue.serverTimestamp(), // 서버 타임스탬프도 함께 저장
       });
       
-      print('카드 플립 동기화 완료');
     } catch (e) {
       print('카드 플립 동기화 오류: $e');
       throw Exception('카드 플립 동기화에 실패했습니다.');
@@ -1441,7 +1438,7 @@ class FirebaseService {
         });
   }
 
-  /// 턴 변경 동기화 - 개선된 버전
+  /// 턴 변경 동기화 - 최적화된 버전
   Future<void> syncTurnChange(String roomId, String currentPlayerId, String nextPlayerId) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
@@ -1452,8 +1449,6 @@ class FirebaseService {
       // 현재 시간을 밀리초로 기록
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       
-      print('턴 변경 동기화 시작: $currentPlayerId -> $nextPlayerId (시간: $timestamp)');
-      
       await _firestore!.collection('online_rooms').doc(roomId)
           .collection('turn_changes')
           .add({
@@ -1463,7 +1458,6 @@ class FirebaseService {
         'clientTimestamp': FieldValue.serverTimestamp(), // 서버 타임스탬프도 함께 저장
       });
       
-      print('턴 변경 동기화 완료');
     } catch (e) {
       print('턴 변경 동기화 오류: $e');
       throw Exception('턴 변경 동기화에 실패했습니다.');
@@ -1491,7 +1485,7 @@ class FirebaseService {
         });
   }
 
-  /// 카드 매칭 동기화 - 개선된 버전
+  /// 카드 매칭 동기화 - 최적화된 버전
   Future<void> syncCardMatch(String roomId, int cardIndex1, int cardIndex2, bool isMatched, String playerId, [int? score]) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
@@ -1501,8 +1495,6 @@ class FirebaseService {
     try {
       // 현재 시간을 밀리초로 기록
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      
-      print('카드 매칭 동기화 시작: 카드1=$cardIndex1, 카드2=$cardIndex2, 매칭=$isMatched, 플레이어=$playerId, 점수=$score (시간: $timestamp)');
       
       final matchData = {
         'cardIndex1': cardIndex1,
@@ -1522,7 +1514,6 @@ class FirebaseService {
           .collection('card_matches')
           .add(matchData);
       
-      print('카드 매칭 동기화 완료');
     } catch (e) {
       print('카드 매칭 동기화 오류: $e');
       throw Exception('카드 매칭 동기화에 실패했습니다.');

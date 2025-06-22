@@ -333,58 +333,39 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void onCardPressed(int index) {
-    print('카드 클릭 시도: 인덱스=$index, 현재 턴=$currentTurnPlayerId, 내 ID=$currentPlayerId, isMyTurn=$isMyTurn');
-    
     if (isProcessingCardSelection) {
-      print('카드 처리 중 - 클릭 무시');
-      return;
-    }
-    
-    if (cards[index].isFlipped) {
-      print('이미 뒤집힌 카드 - 클릭 무시');
-      return;
-    }
-    
-    if (cards[index].isMatched) {
-      print('이미 매칭된 카드 - 클릭 무시');
       return;
     }
     
     if (!isMyTurn) {
-      print('내 턴이 아님 - 클릭 무시');
       return;
     }
     
     if (!isGameRunning) {
-      print('게임이 진행 중이 아님 - 클릭 무시');
       return;
     }
 
-    print('카드 클릭 성공: 인덱스=$index, 카드 내용: ${cards[index].emoji} - ${cards[index].name}');
-
-    // 즉시 카드 뒤집기
+    // 즉시 카드 뒤집기 (반응성 향상)
     setState(() {
       cards[index].isFlipped = true;
       isProcessingCardSelection = true;
     });
     
-    // Firebase에 동기화
+    // Firebase에 동기화 (비동기로 처리하여 UI 블로킹 방지)
     firebaseService.syncCardFlip(currentRoom.id, index, true, currentPlayerId);
 
     // 첫 번째 카드 선택
     if (firstSelectedIndex == null) {
       firstSelectedIndex = index;
-      print('첫 번째 카드 선택: $index');
       setState(() {
         isProcessingCardSelection = false;
       });
     } else if (secondSelectedIndex == null) {
       // 두 번째 카드 선택
       secondSelectedIndex = index;
-      print('두 번째 카드 선택: $index, 매칭 확인 시작');
       
-      // 매칭 확인
-      Future.delayed(const Duration(milliseconds: 500), () {
+      // 매칭 확인 (지연 시간 단축)
+      Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && firstSelectedIndex != null && secondSelectedIndex != null) {
           _checkForMatch();
         }
@@ -394,20 +375,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   void _checkForMatch() {
     if (firstSelectedIndex == null || secondSelectedIndex == null) {
-      print('매칭 확인 실패: 선택된 카드가 부족');
       setState(() {
         isProcessingCardSelection = false;
       });
       return;
     }
 
-    print('매칭 확인: 카드1=$firstSelectedIndex, 카드2=$secondSelectedIndex');
-    print('카드1 내용: ${cards[firstSelectedIndex!].emoji} (ID: ${cards[firstSelectedIndex!].id})');
-    print('카드2 내용: ${cards[secondSelectedIndex!].emoji} (ID: ${cards[secondSelectedIndex!].id})');
-
     // ID로 매칭 확인 (더 정확함)
     final isMatch = cards[firstSelectedIndex!].id == cards[secondSelectedIndex!].id;
-    print('매칭 결과: $isMatch');
 
     // 선택 상태 초기화
     final index1 = firstSelectedIndex!;
@@ -453,11 +428,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         scoreMessage += ' (${player.combo}콤보!)';
       }
       _showComboScore(scoreMessage);
-      
-      print('매칭 성공! 점수: +$totalScore (기본: +$matchScore, 콤보보너스: +$comboBonus, 콤보: ${player.combo})');
     }
-
-    print('매칭 성공! 턴 유지: $currentPlayerId');
 
     setState(() {
       cards[index1].isMatched = true;
@@ -474,7 +445,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
 
     // 매칭 성공 시 턴 유지 (즉시 다음 카드 선택 가능)
-    Future.delayed(const Duration(milliseconds: 500), () {
+    Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) {
         setState(() {
           isProcessingCardSelection = false;
@@ -495,18 +466,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       
       // 실패 점수 표시
       _showComboScore('-10 (콤보 리셋)', isSuccess: false);
-      
-      print('매칭 실패! 점수: -10, 콤보 리셋');
     }
 
     // 매칭 실패도 Firebase에 동기화
     firebaseService.syncCardMatch(currentRoom.id, index1, index2, false, currentPlayerId, player?.score);
 
-    // 매칭 실패 시 카드를 다시 뒤집는 동기화
-    firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
-    firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
+    // 매칭 실패 시 카드를 다시 뒤집는 동기화 (최적화: 매칭 동기화에서 이미 처리됨)
+    // firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
+    // firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
 
-    Future.delayed(const Duration(milliseconds: 1000), () {
+    Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
       
       setState(() {
@@ -524,7 +493,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     final validPlayerIds = playersData.keys.where((id) => id.isNotEmpty && id != 'waiting').toList();
     if (validPlayerIds.length < 2) {
-      print("턴 변경 불가: 유효한 플레이어가 2명 미만입니다.");
       setState(() { isProcessingCardSelection = false; });
       return;
     }
@@ -533,15 +501,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final currentIndex = validPlayerIds.indexOf(previousPlayerId);
     
     if (currentIndex == -1) {
-        print("오류: 현재 턴 플레이어($previousPlayerId)를 유효한 플레이어 목록에서 찾을 수 없습니다.");
         setState(() { isProcessingCardSelection = false; });
         return;
     }
 
     final nextIndex = (currentIndex + 1) % validPlayerIds.length;
     final nextPlayerId = validPlayerIds[nextIndex];
-    
-    print("--- 턴 변경: $previousPlayerId -> $nextPlayerId ---");
 
     setState(() {
       currentTurnPlayerId = nextPlayerId;
@@ -740,8 +705,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                             scoreMessage += ' (${player.combo}콤보!)';
                         }
                         _showComboScore(scoreMessage);
-                        
-                        print('다른 플레이어 매칭 성공! $playerId: +$totalScore (기본: +$matchScore, 콤보보너스: +$comboBonus, 콤보: ${player.combo})');
                     }
                 } else {
                     // 매칭 실패
@@ -756,8 +719,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                         
                         // 실패 점수 표시 (다른 플레이어)
                         _showComboScore('${player.name}: -10 (콤보 리셋)', isSuccess: false);
-                        
-                        print('다른 플레이어 매칭 실패! $playerId: -10, 콤보 리셋');
                     }
                 }
             });
@@ -773,7 +734,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     if (currentTurnPlayerId == nextPlayerId) return;
 
-    print("Firebase로부터 턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId");
     setState(() {
       currentTurnPlayerId = nextPlayerId;
       isProcessingCardSelection = false;
@@ -811,7 +771,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
     
     comboScoreTimer?.cancel();
-    comboScoreTimer = Timer(const Duration(seconds: 2), () {
+    comboScoreTimer = Timer(const Duration(milliseconds: 1000), () {
       if (mounted) {
         setState(() {
           showComboScore = false;
