@@ -140,14 +140,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
   
   List<CardModel> _generateCards() {
-    final List<String> cardValues = ['🐧', '🐨', '🦄', '🦊', '🦉', '🦋', '🐳', '🦖', '🐙', '🐸', '🦁', '🐵', '🐰', '🐼', '🐷', '🐻', '🐶', '🐱', '🐭', '🐹', '🐻‍❄️', '🐯', '🐮', '🐴'];
+    final List<String> cardValues = [
+      '🇰🇷', '🇺🇸', '🇯🇵', '🇨🇳', '🇬🇧', '🇫🇷', '🇩🇪', '🇮🇹',
+      '🇪🇸', '🇨🇦', '🇦🇺', '🇧🇷', '🇦🇷', '🇲🇽', '🇮🇳', '🇷🇺',
+      '🇰🇵', '🇹🇭', '🇻🇳', '🇵🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇹🇼'
+    ];
     cardValues.shuffle();
     
     List<CardModel> generatedCards = [];
     for (int i = 0; i < numPairs; i++) {
       final emoji = cardValues[i];
-      generatedCards.add(CardModel(id: i * 2, emoji: emoji));
-      generatedCards.add(CardModel(id: i * 2 + 1, emoji: emoji));
+      generatedCards.add(CardModel(id: i, emoji: emoji));
+      generatedCards.add(CardModel(id: i, emoji: emoji));
     }
     
     generatedCards.shuffle();
