@@ -1620,7 +1620,7 @@ class FirebaseService {
     }
   }
 
-  /// 개선된 이메일 중복체크 (로그인 시도 방식으로 안정성 향상)
+  /// 개선된 이메일 중복체크 (회원가입 시도 방식으로 안정성 및 정확성 극대화)
   Future<bool> checkEmailDuplicateImproved(String email) async {
     await _initialize();
     if (!_isInitialized || _auth == null) {
@@ -1628,55 +1628,46 @@ class FirebaseService {
     }
 
     final lowercasedEmail = email.toLowerCase();
-    if (lowercasedEmail.isEmpty) return false;
-
-    print('이메일 중복체크 (로그인 시도 방식) 시작: $lowercasedEmail');
-
-    // 방법 1: fetchSignInMethodsForEmail을 먼저 시도 (빠른 경로)
-    // 이 방법이 항상 정확하지 않을 수 있어, 추가 검사를 진행합니다.
-    try {
-      final methods = await _auth!.fetchSignInMethodsForEmail(lowercasedEmail);
-      if (methods.isNotEmpty) {
-        print('fetchSignInMethodsForEmail: 중복된 이메일 발견');
-        return true;
-      }
-      print('fetchSignInMethodsForEmail: 사용 가능한 이메일로 확인됨. 추가 검사 진행.');
-    } catch (e) {
-      if (!e.toString().contains('user-not-found')) {
-        print('fetchSignInMethodsForEmail 확인 중 오류 발생 (무시하고 계속): $e');
-      }
-    }
     
-    // 방법 2: 임시 비밀번호로 로그인 시도를 통해 이메일 존재 여부 재확인 (가장 확실한 방법)
+    print('이메일 중복체크 (약한 비밀번호 회원가입 시도 방식) 시작: $lowercasedEmail');
+
     try {
-      await _auth!.signInWithEmailAndPassword(
+      // 일부러 약한 비밀번호로 회원가입을 시도하여 Firebase의 오류 응답을 유도합니다.
+      final tempWeakPassword = '12345';
+      UserCredential credential = await _auth!.createUserWithEmailAndPassword(
         email: lowercasedEmail,
-        password: 'dummy_password_for_check_${DateTime.now().millisecondsSinceEpoch}',
+        password: tempWeakPassword,
       );
-      // 이 코드가 실행될 일은 거의 없지만, 성공했다는 것은 계정이 존재한다는 의미
-      print('로그인 시도: 성공 (계정 존재)');
-      return true;
+
+      // 만약 위 코드가 성공하면 (프로젝트의 비밀번호 정책이 매우 약한 경우),
+      // 이메일은 사용 가능한 것이므로 생성된 임시 계정을 즉시 삭제하고 '중복 아님'을 반환합니다.
+      print('임시 계정 생성 성공 (중복 아님). 즉시 삭제합니다.');
+      await credential.user?.delete();
+      print('임시 계정 삭제 완료.');
+      return false; // 중복 아님
+
     } catch (e) {
       final errorStr = e.toString();
-      print('로그인 시도 결과: $errorStr');
+      print('중복 체크 중 예외 발생: $errorStr');
 
-      if (errorStr.contains('user-not-found')) {
-        // 사용자가 없으므로, 중복이 아님
-        print('로그인 시도: user-not-found (중복 아님)');
-        return false;
-      }
-      if (errorStr.contains('wrong-password')) {
-        // 비밀번호가 틀렸다는 것은, 해당 이메일의 사용자가 존재한다는 의미
-        print('로그인 시도: wrong-password (중복임)');
+      if (errorStr.contains('email-already-in-use')) {
+        // 가장 확실한 "중복" 신호입니다.
+        print('결과: 중복된 이메일입니다.');
         return true;
       }
+
+      if (errorStr.contains('weak-password')) {
+        // 'weak-password' 오류는 비밀번호가 약할 뿐, 이메일은 사용 가능하다는 의미이므로 '중복 아님'으로 판단합니다.
+        print('결과: 약한 비밀번호 오류 (중복 아님)');
+        return false;
+      }
       
-      if (errorStr.contains('network-request-failed')) {
-        throw Exception('네트워크 연결을 확인해주세요.');
+      if (errorStr.contains('invalid-email')) {
+        throw Exception('올바르지 않은 이메일 형식입니다.');
       }
 
-      // AppCheck, 403 오류 등 기타 예상치 못한 오류는 예외를 발생시켜 사용자에게 알림
-      throw Exception('이메일 확인 중 예상치 못한 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      // 그 외 다른 Firebase 관련 오류 (네트워크 등)
+      throw Exception('이메일 확인 중 예상치 못한 오류가 발생했습니다: ${e.toString()}');
     }
   }
 }
