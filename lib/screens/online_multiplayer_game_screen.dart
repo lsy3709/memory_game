@@ -353,8 +353,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       setState(() {
         cards[index1].isFlipped = false;
         cards[index2].isFlipped = false;
-        firstSelectedIndex = null;
-        secondSelectedIndex = null;
       });
       
       _changeTurn();
@@ -367,24 +365,32 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final validPlayerIds = playersData.keys.where((id) => id.isNotEmpty && id != 'waiting').toList();
     if (validPlayerIds.length < 2) {
       print("턴 변경 불가: 유효한 플레이어가 2명 미만입니다.");
-      setState(() => isProcessingCardSelection = false);
+      setState(() { isProcessingCardSelection = false; });
       return;
     }
 
-    final currentIndex = validPlayerIds.indexOf(currentTurnPlayerId);
+    final String previousPlayerId = currentTurnPlayerId;
+    final currentIndex = validPlayerIds.indexOf(previousPlayerId);
+    
+    if (currentIndex == -1) {
+        print("오류: 현재 턴 플레이어($previousPlayerId)를 유효한 플레이어 목록에서 찾을 수 없습니다.");
+        setState(() { isProcessingCardSelection = false; });
+        return;
+    }
+
     final nextIndex = (currentIndex + 1) % validPlayerIds.length;
     final nextPlayerId = validPlayerIds[nextIndex];
     
-    print("턴 변경: $currentTurnPlayerId -> $nextPlayerId");
+    print("--- 턴 변경: $previousPlayerId -> $nextPlayerId ---");
 
-    // 로컬 상태를 즉시 업데이트
     setState(() {
       currentTurnPlayerId = nextPlayerId;
+      firstSelectedIndex = null;
+      secondSelectedIndex = null;
       isProcessingCardSelection = false;
     });
 
-    // Firebase에 턴 변경 동기화
-    firebaseService.syncTurnChange(currentRoom.id, currentTurnPlayerId, nextPlayerId);
+    firebaseService.syncTurnChange(currentRoom.id, previousPlayerId, nextPlayerId);
   }
 
   void _gameOver({String? message}) {
@@ -519,7 +525,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     final String nextPlayerId = turnData['nextPlayerId'] as String;
     
-    // 이미 올바른 턴인 경우 중복 업데이트 방지
     if (currentTurnPlayerId == nextPlayerId) return;
 
     print("Firebase로부터 턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId");
@@ -612,13 +617,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     final availableWidth = constraints.maxWidth;
                     final availableHeight = constraints.maxHeight;
 
-                    print('--- Layout Recalculation ---');
-                    print('Available Grid Space: ${availableWidth.toStringAsFixed(2)}w x ${availableHeight.toStringAsFixed(2)}h');
-
-                    const double horizontalPadding = 8.0;
-                    const double verticalPadding = 8.0;
-                    const double horizontalSpacing = 4.0;
-                    const double verticalSpacing = 4.0;
+                    // Tighten padding and spacing for a better fit
+                    const double horizontalPadding = 4.0;
+                    const double verticalPadding = 4.0;
+                    const double horizontalSpacing = 2.0;
+                    const double verticalSpacing = 2.0;
 
                     final double totalHorizontalGaps = (horizontalPadding * 2) + (horizontalSpacing * (cols - 1));
                     final double totalVerticalGaps = (verticalPadding * 2) + (verticalSpacing * (rows - 1));
@@ -626,14 +629,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     final double cardWidth = (availableWidth - totalHorizontalGaps) / cols;
                     final double cardHeight = (availableHeight - totalVerticalGaps) / rows;
 
-                    print('Card Dimensions: ${cardWidth.toStringAsFixed(2)}w x ${cardHeight.toStringAsFixed(2)}h');
-
                     if (cardWidth <= 0 || cardHeight <= 0) {
-                      return const Center(child: Text("Calculating layout..."));
+                      return const Center(child: Text("레이아웃 계산 중..."));
                     }
 
                     final double cardAspectRatio = cardWidth / cardHeight;
-                    print('Card Aspect Ratio: ${cardAspectRatio.toStringAsFixed(2)}');
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
