@@ -224,12 +224,34 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void onCardPressed(int index) {
-    if (isProcessingCardSelection || cards[index].isFlipped || cards[index].isMatched || !isMyTurn || !isGameRunning) {
-      print('카드 클릭 무시: isProcessing=$isProcessingCardSelection, isFlipped=${cards[index].isFlipped}, isMatched=${cards[index].isMatched}, isMyTurn=$isMyTurn, isGameRunning=$isGameRunning');
+    print('카드 클릭 시도: 인덱스=$index, 현재 턴=$currentTurnPlayerId, 내 ID=$currentPlayerId, isMyTurn=$isMyTurn');
+    
+    if (isProcessingCardSelection) {
+      print('카드 처리 중 - 클릭 무시');
+      return;
+    }
+    
+    if (cards[index].isFlipped) {
+      print('이미 뒤집힌 카드 - 클릭 무시');
+      return;
+    }
+    
+    if (cards[index].isMatched) {
+      print('이미 매칭된 카드 - 클릭 무시');
+      return;
+    }
+    
+    if (!isMyTurn) {
+      print('내 턴이 아님 - 클릭 무시');
+      return;
+    }
+    
+    if (!isGameRunning) {
+      print('게임이 진행 중이 아님 - 클릭 무시');
       return;
     }
 
-    print('카드 클릭: 인덱스=$index, 현재 턴=$currentTurnPlayerId, 내 ID=$currentPlayerId');
+    print('카드 클릭 성공: 인덱스=$index');
 
     setState(() {
       cards[index].isFlipped = true;
@@ -241,57 +263,78 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (firstSelectedIndex == null) {
       firstSelectedIndex = index;
       print('첫 번째 카드 선택: $index');
+      setState(() {
+        isProcessingCardSelection = false;
+      });
     } else {
       secondSelectedIndex = index;
       print('두 번째 카드 선택: $index, 매칭 확인 시작');
       _checkForMatch();
     }
-    
-    setState(() {
-      isProcessingCardSelection = false;
-    });
   }
 
   void _checkForMatch() {
-    final int index1 = firstSelectedIndex!;
-    final int index2 = secondSelectedIndex!;
+    if (firstSelectedIndex == null || secondSelectedIndex == null) {
+      print('매칭 확인 실패: 선택된 카드가 부족');
+      setState(() {
+        isProcessingCardSelection = false;
+      });
+      return;
+    }
 
-    firstSelectedIndex = null;
-    secondSelectedIndex = null;
+    print('매칭 확인: 카드1=$firstSelectedIndex, 카드2=$secondSelectedIndex');
+    print('카드1 내용: ${cards[firstSelectedIndex!].emoji}');
+    print('카드2 내용: ${cards[secondSelectedIndex!].emoji}');
 
-    if (cards[index1].emoji == cards[index2].emoji) {
-      _handleMatchSuccess(index1, index2);
+    final isMatch = cards[firstSelectedIndex!].emoji == cards[secondSelectedIndex!].emoji;
+    print('매칭 결과: $isMatch');
+
+    if (isMatch) {
+      _handleMatchSuccess(firstSelectedIndex!, secondSelectedIndex!);
     } else {
-      _handleMatchFailure(index1, index2);
+      _handleMatchFailure(firstSelectedIndex!, secondSelectedIndex!);
     }
   }
   
   void _handleMatchSuccess(int index1, int index2) {
     soundService.playMatchSound();
     
+    final player = playersData[currentPlayerId];
+    if(player != null) {
+      player.combo++;
+      player.matchCount++;
+      player.score += 10 * player.combo;
+      if(player.combo > player.maxCombo) {
+        player.maxCombo = player.combo;
+      }
+    }
+
+    print('매칭 성공! 턴 유지: $currentPlayerId');
+
     setState(() {
       cards[index1].isMatched = true;
       cards[index2].isMatched = true;
-      
-      final player = playersData[currentPlayerId];
-      if(player != null) {
-        player.score += 10;
-        player.combo++;
-        player.matchCount++;
-        if(player.combo > player.maxCombo) {
-          player.maxCombo = player.combo;
-        }
-      }
+      firstSelectedIndex = null;
+      secondSelectedIndex = null;
+      isProcessingCardSelection = false;
     });
 
-    firebaseService.syncCardMatch(currentRoom.id, index1, index2, true, currentPlayerId, playersData[currentPlayerId]?.score);
+    firebaseService.syncCardMatch(currentRoom.id, index1, index2, true, currentPlayerId, player?.score);
 
+    // 게임 종료 조건 확인
     if (cards.every((card) => card.isMatched)) {
       _gameOver(message: "모든 카드를 맞췄습니다!");
-    } else {
-      // 매칭 성공 시 턴 유지 (연속 매칭 가능)
-      print('매칭 성공 - 턴 유지: ${currentPlayerId} (콤보: ${playersData[currentPlayerId]?.combo})');
+      return;
     }
+
+    // 매칭 성공 시 턴 유지 (즉시 다음 카드 선택 가능)
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          isProcessingCardSelection = false;
+        });
+      }
+    });
   }
 
   void _handleMatchFailure(int index1, int index2) {
@@ -310,17 +353,23 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         setState(() {
           cards[index1].isFlipped = false;
           cards[index2].isFlipped = false;
+          firstSelectedIndex = null;
+          secondSelectedIndex = null;
+          isProcessingCardSelection = false;
         });
+        
         firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
         firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
         
-        // 턴 변경 - 즉시 실행
-        _changeTurn();
+        // 턴 변경 - 강제 실행
+        _forceTurnChange();
       }
     });
   }
   
-  void _changeTurn() {
+  void _forceTurnChange() {
+    print('강제 턴 변경 시작');
+    
     if (playersData.length < 2) {
       print('플레이어가 2명 미만이므로 턴 변경 안함');
       return;
@@ -336,14 +385,20 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final nextPlayerIndex = (currentPlayerIndex + 1) % validPlayerIds.length;
     final nextPlayerId = validPlayerIds[nextPlayerIndex];
     
-    print('턴 변경 시도: $currentTurnPlayerId -> $nextPlayerId');
+    print('강제 턴 변경: $currentTurnPlayerId -> $nextPlayerId');
     print('유효한 플레이어 목록: $validPlayerIds');
     print('현재 플레이어: $currentPlayerId, 다음 턴: $nextPlayerId');
     
-    // 로컬 상태 먼저 업데이트
-    setState(() {
-      currentTurnPlayerId = nextPlayerId;
-    });
+    // 로컬 상태 강제 업데이트
+    if (mounted) {
+      setState(() {
+        currentTurnPlayerId = nextPlayerId;
+        // 카드 선택 상태 초기화
+        firstSelectedIndex = null;
+        secondSelectedIndex = null;
+        isProcessingCardSelection = false;
+      });
+    }
     
     // Firebase에 턴 변경 전송
     try {
@@ -352,6 +407,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     } catch (e) {
       print('턴 변경 Firebase 전송 실패: $e');
     }
+  }
+  
+  void _changeTurn() {
+    _forceTurnChange();
   }
 
   void _gameOver({String? message}) {
@@ -575,7 +634,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               icon: const Icon(Icons.swap_horiz),
               onPressed: () {
                 print('수동 턴 변경 버튼 클릭');
-                _changeTurn();
+                _forceTurnChange();
               },
               tooltip: '턴 변경 (디버그)',
             ),
@@ -602,17 +661,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     
                     print('사용 가능한 공간: ${availableWidth.toInt()} x ${availableHeight.toInt()}');
                     
-                    // 패딩 설정
-                    const padding = 8.0;
-                    const spacing = 4.0;
-                    
-                    // 실제 카드 영역 계산 (패딩 제외)
-                    final cardAreaWidth = availableWidth - (padding * 2);
-                    final cardAreaHeight = availableHeight - (padding * 2);
-                    
-                    // 카드 크기 계산 (6x8 그리드)
-                    final cardWidth = (cardAreaWidth - (spacing * (cols - 1))) / cols;
-                    final cardHeight = (cardAreaHeight - (spacing * (rows - 1))) / rows;
+                    // 간단한 카드 크기 계산
+                    final cardWidth = availableWidth / cols;
+                    final cardHeight = availableHeight / rows;
                     
                     print('카드 크기: ${cardWidth.toInt()} x ${cardHeight.toInt()}');
                     
@@ -621,24 +672,22 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     
                     print('카드 종횡비: ${cardAspectRatio.toStringAsFixed(2)}');
 
-                    return Padding(
-                      padding: const EdgeInsets.all(padding),
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: cols,
-                          childAspectRatio: cardAspectRatio,
-                          crossAxisSpacing: spacing,
-                          mainAxisSpacing: spacing,
-                        ),
-                        itemCount: totalCards,
-                        itemBuilder: (context, index) {
-                          return MemoryCard(
-                            card: cards[index],
-                            onTap: () => onCardPressed(index),
-                          );
-                        },
+                    return GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(4),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: cols,
+                        childAspectRatio: cardAspectRatio,
+                        crossAxisSpacing: 2,
+                        mainAxisSpacing: 2,
                       ),
+                      itemCount: totalCards,
+                      itemBuilder: (context, index) {
+                        return MemoryCard(
+                          card: cards[index],
+                          onTap: () => onCardPressed(index),
+                        );
+                      },
                     );
                   },
                 ),
