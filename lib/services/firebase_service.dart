@@ -1677,4 +1677,49 @@ class FirebaseService {
       throw Exception('이메일 확인 중 예상치 못한 오류가 발생했습니다: ${e.toString()}');
     }
   }
+
+  /// 게임 종료 이벤트를 기록
+  Future<void> recordGameEndEvent(String roomId, Map<String, dynamic> gameEndData) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('game_events')
+          .add({
+        'type': 'game_end',
+        'data': gameEndData,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      
+      print('게임 종료 이벤트 기록 완료: $roomId');
+    } catch (e) {
+      print('게임 종료 이벤트 기록 오류: $e');
+      throw Exception('게임 종료 이벤트 기록에 실패했습니다.');
+    }
+  }
+
+  /// 게임 종료 이벤트 스트림 가져오기
+  Stream<Map<String, dynamic>?> getGameEndEventStream(String roomId) {
+    if (!_isInitialized || _firestore == null) {
+      return Stream.value(null);
+    }
+
+    return _firestore!.collection('online_rooms').doc(roomId)
+        .collection('game_events')
+        .where('type', isEqualTo: 'game_end')
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) {
+          if (snapshot.docs.isNotEmpty) {
+            final data = snapshot.docs.first.data();
+            data['id'] = snapshot.docs.first.id;
+            return data;
+          }
+          return null;
+        });
+  }
 }

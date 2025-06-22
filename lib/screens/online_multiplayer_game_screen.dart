@@ -69,9 +69,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   StreamSubscription? _cardActionsSubscription;
   StreamSubscription? _turnChangeSubscription;
   StreamSubscription? _cardMatchesSubscription;
+  StreamSubscription? _gameEndEventSubscription;
   final Set<String> _processedActionIds = {};
 
   bool gameCompleted = false;
+  int matchedCardCount = 0; // 매칭된 카드 수 추적
 
   @override
   void initState() {
@@ -98,6 +100,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _cardActionsSubscription?.cancel();
     _turnChangeSubscription?.cancel();
     _cardMatchesSubscription?.cancel();
+    _gameEndEventSubscription?.cancel();
     soundService.stopBackgroundMusic();
     
     // 방에서 나가기 (화면이 종료될 때) - 안전하게 처리
@@ -124,10 +127,39 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     currentPlayerName = userData?['playerName'] ?? user.displayName ?? '플레이어';
 
     setState(() {
-      final hostData = PlayerGameData(id: currentRoom.hostId, name: currentRoom.hostName);
-      final guestData = currentRoom.guestId != null
-          ? PlayerGameData(id: currentRoom.guestId!, name: currentRoom.guestName ?? '게스트')
-          : PlayerGameData(id: 'waiting', name: '대기 중...');
+      // 호스트와 게스트 정보를 명확하게 설정
+      final hostData = PlayerGameData(
+        id: currentRoom.hostId, 
+        name: currentRoom.hostName,
+        score: 0,
+        matchCount: 0,
+        failCount: 0,
+        combo: 0,
+        maxCombo: 0,
+      );
+      
+      PlayerGameData guestData;
+      if (currentRoom.guestId != null && currentRoom.guestId!.isNotEmpty) {
+        guestData = PlayerGameData(
+          id: currentRoom.guestId!, 
+          name: currentRoom.guestName ?? '게스트',
+          score: 0,
+          matchCount: 0,
+          failCount: 0,
+          combo: 0,
+          maxCombo: 0,
+        );
+      } else {
+        guestData = PlayerGameData(
+          id: 'waiting', 
+          name: '대기 중...',
+          score: 0,
+          matchCount: 0,
+          failCount: 0,
+          combo: 0,
+          maxCombo: 0,
+        );
+      }
       
       playersData = {
         hostData.id: hostData,
@@ -136,7 +168,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
       // 호스트가 선공하도록 설정
       currentTurnPlayerId = currentRoom.hostId;
-      print('초기 턴 설정: $currentTurnPlayerId (호스트)');
+      print('플레이어 정보 초기화 완료:');
+      print('  호스트: ${hostData.name} (${hostData.id})');
+      print('  게스트: ${guestData.name} (${guestData.id})');
+      print('  현재 플레이어: $currentPlayerName ($currentPlayerId)');
+      print('  초기 턴: $currentTurnPlayerId (호스트)');
     });
   }
 
@@ -326,6 +362,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _cardActionsSubscription = firebaseService.getCardActionsStream(currentRoom.id).listen(_handleCardAction);
     _turnChangeSubscription = firebaseService.getTurnChangeStream(currentRoom.id).listen(_handleTurnChange);
     _cardMatchesSubscription = firebaseService.getCardMatchesStream(currentRoom.id).listen(_handleCardMatch);
+    _gameEndEventSubscription = firebaseService.getGameEndEventStream(currentRoom.id).listen(_handleGameEndEvent);
   }
 
   void _startGame() {
@@ -335,6 +372,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     firstSelectedIndex = null;
     secondSelectedIndex = null;
     isProcessingCardSelection = false;
+    matchedCardCount = 0; // 매칭된 카드 수 초기화
+    gameCompleted = false; // 게임 완료 상태 초기화
     
     setState(() {
       isGameRunning = true;
@@ -500,6 +539,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       cards[index1].isMatched = true;
       cards[index2].isMatched = true;
       isProcessingCardSelection = false;
+      matchedCardCount += 2; // 매칭된 카드 수 증가
     });
 
     firebaseService.syncCardMatch(
@@ -515,12 +555,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       player?.maxCombo,
     );
 
-    // 게임 종료 조건 확인 - 모든 카드가 매칭되었는지 확인
-    final matchedCards = cards.where((card) => card.isMatched).length;
-    final totalCards = cards.length;
-    print('매칭된 카드: $matchedCards / $totalCards');
+    // 게임 종료 조건 확인 - 매칭된 카드 수로 확인
+    print('매칭된 카드: $matchedCardCount / ${cards.length}');
     
-    if (matchedCards == totalCards) {
+    if (matchedCardCount >= cards.length && !gameCompleted) {
       print('모든 카드가 매칭됨 - 게임 종료!');
       print('최종 게임 상태:');
       for (final player in playersData.values) {
@@ -639,11 +677,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (gameCompleted) return;
     gameCompleted = true;
 
+    print('게임 종료 시작: $message');
+    print('현재 플레이어 데이터:');
+    for (final player in playersData.values) {
+      print('  ${player.name}: 점수=${player.score}, 콤보=${player.combo}, 성공=${player.matchCount}, 실패=${player.failCount}, 최대콤보=${player.maxCombo}');
+    }
+
     gameTimer?.cancel();
     soundService.stopBackgroundMusic();
     soundService.playGameWinSound();
 
     final winner = _getWinner();
+    print('승자: ${winner?.name ?? '무승부'}');
     
     if (mounted) {
       showDialog(
@@ -765,6 +810,23 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     textAlign: TextAlign.center,
                   ),
                 ),
+                // 디버그 정보 추가
+                Text(
+                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: $matchedCardCount/${cards.length}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade500,
+                    fontSize: 10,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  '플레이어 정보: ${playersData.length}명 | 호스트: ${playersData[currentRoom.hostId]?.name ?? "없음"} | 게스트: ${playersData[currentRoom.guestId]?.name ?? "없음"}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade500,
+                    fontSize: 10,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),
@@ -781,11 +843,37 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       );
     }
     
+    // 게임 종료 상태를 Firebase에 동기화
     if(currentRoom.isHost(currentPlayerId)) {
         _saveGameRecord();
         firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.finished).catchError((e) {
           print('게임 종료 시 방 상태 업데이트 오류: $e');
         });
+    }
+    
+    // 게임 종료 이벤트를 Firebase에 기록
+    _recordGameEndEvent(winner?.id);
+  }
+
+  // 게임 종료 이벤트를 Firebase에 기록
+  Future<void> _recordGameEndEvent(String? winnerId) async {
+    try {
+      final gameEndData = {
+        'winnerId': winnerId,
+        'endTime': FieldValue.serverTimestamp(),
+        'finalScores': playersData.map((key, value) => MapEntry(key, {
+          'score': value.score,
+          'matchCount': value.matchCount,
+          'failCount': value.failCount,
+          'maxCombo': value.maxCombo,
+        })),
+        'totalTime': gameTimeSec - timeLeft,
+      };
+      
+      await firebaseService.recordGameEndEvent(currentRoom.id, gameEndData);
+      print('게임 종료 이벤트 기록 완료');
+    } catch (e) {
+      print('게임 종료 이벤트 기록 오류: $e');
     }
   }
 
@@ -914,6 +1002,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     cards[index2].isMatched = true;
                     cards[index1].isFlipped = true;
                     cards[index2].isFlipped = true;
+                    matchedCardCount += 2; // 매칭된 카드 수 증가
                 });
 
                 final player = playersData[playerId];
@@ -938,11 +1027,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 }
                 
                 // 게임 종료 조건 확인 (상대방 매칭 성공 시에도)
-                final matchedCards = cards.where((card) => card.isMatched).length;
-                final totalCards = cards.length;
-                print('상대방 매칭 후 카드 상태: $matchedCards / $totalCards');
+                print('상대방 매칭 후 카드 상태: $matchedCardCount / ${cards.length}');
                 
-                if (matchedCards == totalCards) {
+                if (matchedCardCount >= cards.length && !gameCompleted) {
                     print('상대방이 모든 카드를 매칭함 - 게임 종료!');
                     print('최종 게임 상태 (상대방 매칭 완료):');
                     for (final player in playersData.values) {
@@ -1003,6 +1090,46 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       currentTurnPlayerId = nextPlayerId;
       isProcessingCardSelection = false;
     });
+  }
+
+  void _handleGameEndEvent(Map<String, dynamic>? gameEndData) {
+    if (!mounted || gameEndData == null || gameCompleted) return;
+    
+    print('게임 종료 이벤트 수신: $gameEndData');
+    
+    final data = gameEndData['data'] as Map<String, dynamic>?;
+    if (data == null) return;
+    
+    final String? winnerId = data['winnerId'] as String?;
+    final finalScores = data['finalScores'] as Map<String, dynamic>?;
+    
+    // 최종 점수로 플레이어 데이터 업데이트
+    if (finalScores != null) {
+      setState(() {
+        for (final entry in finalScores.entries) {
+          final playerId = entry.key;
+          final scoreData = entry.value as Map<String, dynamic>;
+          final player = playersData[playerId];
+          if (player != null) {
+            player.score = scoreData['score'] as int? ?? player.score;
+            player.matchCount = scoreData['matchCount'] as int? ?? player.matchCount;
+            player.failCount = scoreData['failCount'] as int? ?? player.failCount;
+            player.maxCombo = scoreData['maxCombo'] as int? ?? player.maxCombo;
+          }
+        }
+      });
+    }
+    
+    // 게임 종료 다이얼로그 표시
+    String message = "🎉 게임이 종료되었습니다! 🎉";
+    if (winnerId != null) {
+      final winner = playersData[winnerId];
+      if (winner != null) {
+        message = "🏆 승자: ${winner.name} 🏆";
+      }
+    }
+    
+    _gameOver(message: message);
   }
 
   void _showErrorDialog(String message) {
@@ -1298,7 +1425,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 ),
                 // 디버그 정보 추가
                 Text(
-                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: ${cards.where((c) => c.isMatched).length}/${cards.length}',
+                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: $matchedCardCount/${cards.length}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade500,
+                    fontSize: 10,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  '플레이어 정보: ${playersData.length}명 | 호스트: ${playersData[currentRoom.hostId]?.name ?? "없음"} | 게스트: ${playersData[currentRoom.guestId]?.name ?? "없음"}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
                     fontSize: 10,
