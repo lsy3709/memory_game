@@ -149,6 +149,12 @@ class SoundService {
     });
   }
 
+  /// 게임 실패 사운드
+  Future<void> playGameLose() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/effect/game_lose.wav');
+  }
+
   /// 게임 종료 사운드 (기존 메서드명 호환성)
   Future<void> playGameOverSound() async {
     await playGameWinSound();
