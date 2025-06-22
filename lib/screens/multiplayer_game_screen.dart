@@ -530,31 +530,48 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
           children: [
             // 상단 정보 패널 (점수판)
             _buildScorePanel(),
-            // 반응형 카드 그리드
+            // Game Board
             Expanded(
               child: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
-                  final double screenWidth = constraints.maxWidth;
-                  const double spacing = 4.0;
-                  final double itemWidth = (screenWidth - (spacing * (cols + 1))) / cols;
-                  final double itemHeight = itemWidth * 1.4;
-                  final double childAspectRatio = itemWidth / itemHeight;
+                  final availableWidth = constraints.maxWidth;
+                  final availableHeight = constraints.maxHeight;
 
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(spacing),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: cols,
-                      childAspectRatio: childAspectRatio,
-                      crossAxisSpacing: spacing,
-                      mainAxisSpacing: spacing,
+                  const double horizontalPadding = 4.0;
+                  const double verticalPadding = 4.0;
+                  const double horizontalSpacing = 2.0;
+                  const double verticalSpacing = 2.0;
+
+                  final double totalHorizontalGaps = (horizontalPadding * 2) + (horizontalSpacing * (cols - 1));
+                  final double totalVerticalGaps = (verticalPadding * 2) + (verticalSpacing * (rows - 1));
+
+                  final double cardWidth = (availableWidth - totalHorizontalGaps) / cols;
+                  final double cardHeight = (availableHeight - totalVerticalGaps) / rows;
+
+                  if (cardWidth <= 0 || cardHeight <= 0) {
+                    return const Center(child: Text("레이아웃 계산 중..."));
+                  }
+
+                  final double cardAspectRatio = cardWidth / cardHeight;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: cols,
+                        childAspectRatio: cardAspectRatio,
+                        crossAxisSpacing: horizontalSpacing,
+                        mainAxisSpacing: verticalSpacing,
+                      ),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) {
+                        return MemoryCard(
+                          card: cards[index],
+                          onTap: () => _onCardTap(index),
+                        );
+                      },
                     ),
-                    itemCount: totalCards,
-                    itemBuilder: (context, index) {
-                      return MemoryCard(
-                        card: cards[index],
-                        onTap: () => _onCardTap(index),
-                      );
-                    },
                   );
                 },
               ),
