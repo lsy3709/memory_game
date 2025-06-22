@@ -219,19 +219,15 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
               players[currentPlayerIndex].maxCombo = players[currentPlayerIndex].scoreModel.currentCombo;
             }
             
-            // 매칭된 카드 정보 추가
-            final cardMatch = CardMatch(
-              pairId: cards[a].id,
-              emoji: cards[a].emoji,
-              matchedAt: DateTime.now(),
-            );
-            
             _checkGameEnd();
           } else {
             soundService.playCardMismatch();
             cards[a] = cards[a].copyWith(isFlipped: false);
             cards[b] = cards[b].copyWith(isFlipped: false);
             players[currentPlayerIndex].scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
+            
+            // 턴 교체
+            _switchPlayer();
           }
         });
       }
