@@ -140,7 +140,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       firebaseService.saveGameCards(currentRoom.id, cards.map((c) => c.toJson()).toList());
     } else {
       // 게스트인 경우 카드 정보를 로드할 때까지 임시로 빈 리스트 사용
-      cards = List.generate(totalCards, (index) => CardModel(id: index, emoji: '❓'));
+      cards = List.generate(totalCards, (index) => CardModel(
+        id: index,
+        emoji: '❓',
+        name: '로딩 중...',
+        isMatched: false,
+        isFlipped: false,
+      ));
       print('게스트가 임시 카드 생성: ${cards.length}개 카드');
     }
   }
@@ -281,10 +287,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             }).toList();
           });
           print('카드 로드 완료: ${cards.length}개 카드');
-          // 로드된 카드들의 정보 출력 (디버깅용)
-          for (int i = 0; i < cards.length; i++) {
-            print('카드 $i: ${cards[i].emoji} - ${cards[i].name} (ID: ${cards[i].id})');
-          }
         }
       }
     });
@@ -353,13 +355,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     print('카드 클릭 성공: 인덱스=$index, 카드 내용: ${cards[index].emoji} - ${cards[index].name}');
 
+    // 즉시 카드 뒤집기
     setState(() {
       cards[index].isFlipped = true;
       isProcessingCardSelection = true;
     });
     
+    // Firebase에 동기화
     firebaseService.syncCardFlip(currentRoom.id, index, true, currentPlayerId);
 
+    // 첫 번째 카드 선택
     if (firstSelectedIndex == null) {
       firstSelectedIndex = index;
       print('첫 번째 카드 선택: $index');
@@ -367,11 +372,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         isProcessingCardSelection = false;
       });
     } else if (secondSelectedIndex == null) {
+      // 두 번째 카드 선택
       secondSelectedIndex = index;
       print('두 번째 카드 선택: $index, 매칭 확인 시작');
-      // 매칭 확인은 _handleCardAction에서 처리됨
-      setState(() {
-        isProcessingCardSelection = false;
+      
+      // 매칭 확인
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && firstSelectedIndex != null && secondSelectedIndex != null) {
+          _checkForMatch();
+        }
       });
     }
   }
@@ -393,10 +402,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final isMatch = cards[firstSelectedIndex!].id == cards[secondSelectedIndex!].id;
     print('매칭 결과: $isMatch');
 
+    // 선택 상태 초기화
+    final index1 = firstSelectedIndex!;
+    final index2 = secondSelectedIndex!;
+    firstSelectedIndex = null;
+    secondSelectedIndex = null;
+
     if (isMatch) {
-      _handleMatchSuccess(firstSelectedIndex!, secondSelectedIndex!);
+      _handleMatchSuccess(index1, index2);
     } else {
-      _handleMatchFailure(firstSelectedIndex!, secondSelectedIndex!);
+      _handleMatchFailure(index1, index2);
     }
   }
   
@@ -418,8 +433,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     setState(() {
       cards[index1].isMatched = true;
       cards[index2].isMatched = true;
-      firstSelectedIndex = null;
-      secondSelectedIndex = null;
       isProcessingCardSelection = false;
     });
 
@@ -457,8 +470,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       setState(() {
         cards[index1].isFlipped = false;
         cards[index2].isFlipped = false;
-        firstSelectedIndex = null;
-        secondSelectedIndex = null;
         isProcessingCardSelection = false;
       });
       
@@ -492,8 +503,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     setState(() {
       currentTurnPlayerId = nextPlayerId;
-      firstSelectedIndex = null;
-      secondSelectedIndex = null;
       isProcessingCardSelection = false;
     });
 
@@ -578,6 +587,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   // --- Real-time Sync Handlers ---
   void _handleCardAction(List<Map<String, dynamic>> actions) {
     if (!mounted) return;
+    
+    bool needsUpdate = false;
+    List<int> cardsToUpdate = [];
+    
     for (final action in actions) {
         final actionId = action['id'] as String;
         if (_processedActionIds.contains(actionId)) continue;
@@ -589,33 +602,23 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final isFlipped = action['isFlipped'] as bool;
         
         if (cardIndex >= 0 && cardIndex < cards.length) {
-            setState(() {
-                cards[cardIndex].isFlipped = isFlipped;
-                
-                // 카드가 뒤집힌 경우 선택 상태 업데이트
-                if (isFlipped) {
-                  if (firstSelectedIndex == null) {
-                    firstSelectedIndex = cardIndex;
-                  } else if (secondSelectedIndex == null) {
-                    secondSelectedIndex = cardIndex;
-                    // 두 번째 카드가 뒤집히면 매칭 확인
-                    Future.delayed(const Duration(milliseconds: 500), () {
-                      if (mounted && firstSelectedIndex != null && secondSelectedIndex != null) {
-                        _checkForMatch();
-                      }
-                    });
-                  }
-                } else {
-                  // 카드가 다시 뒤집힌 경우 선택 상태 초기화
-                  if (firstSelectedIndex == cardIndex) {
-                    firstSelectedIndex = null;
-                  } else if (secondSelectedIndex == cardIndex) {
-                    secondSelectedIndex = null;
-                  }
-                }
-            });
+            if (cards[cardIndex].isFlipped != isFlipped) {
+                cardsToUpdate.add(cardIndex);
+                needsUpdate = true;
+            }
         }
         _processedActionIds.add(actionId);
+    }
+    
+    // 배치 업데이트로 성능 향상
+    if (needsUpdate) {
+        setState(() {
+            for (final index in cardsToUpdate) {
+                final action = actions.firstWhere((a) => a['cardIndex'] == index);
+                final isFlipped = action['isFlipped'] as bool;
+                cards[index].isFlipped = isFlipped;
+            }
+        });
     }
   }
 
@@ -659,8 +662,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     print("Firebase로부터 턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId");
     setState(() {
       currentTurnPlayerId = nextPlayerId;
-      firstSelectedIndex = null;
-      secondSelectedIndex = null;
       isProcessingCardSelection = false;
     });
   }
@@ -780,8 +781,20 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                         ),
                         itemCount: totalCards,
                         itemBuilder: (context, index) {
-                          if (index >= cards.length) {
-                            return Container(color: Colors.red.shade100);
+                          // 카드가 로드되지 않은 경우 로딩 상태 표시
+                          if (index >= cards.length || cards[index].emoji == '❓') {
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
                           }
                           
                           return MemoryCard(
