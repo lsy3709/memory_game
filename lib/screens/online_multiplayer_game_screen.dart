@@ -496,10 +496,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 매칭 실패도 Firebase에 동기화
     firebaseService.syncCardMatch(currentRoom.id, index1, index2, false, currentPlayerId, player?.score);
 
-    // 매칭 실패 시 카드를 다시 뒤집는 동기화 (최적화: 매칭 동기화에서 이미 처리됨)
-    // firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
-    // firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
+    // 매칭 실패 시 카드를 다시 뒤집는 동기화 (복원)
+    firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
+    firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
 
+    // 카드 뒤집기 완료 후 턴 변경
     Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
       
@@ -509,7 +510,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         isProcessingCardSelection = false;
       });
       
-      _changeTurn();
+      // 추가 지연으로 카드 뒤집기 애니메이션 완료 후 턴 변경
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          _changeTurn();
+        }
+      });
     });
   }
   
@@ -532,6 +538,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     final nextIndex = (currentIndex + 1) % validPlayerIds.length;
     final nextPlayerId = validPlayerIds[nextIndex];
+
+    // 턴 변경 전에 현재 상태 확인
+    if (nextPlayerId == previousPlayerId) {
+        setState(() { isProcessingCardSelection = false; });
+        return;
+    }
 
     setState(() {
       currentTurnPlayerId = nextPlayerId;
@@ -661,7 +673,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final isFlipped = action['isFlipped'] as bool;
         
         if (cardIndex >= 0 && cardIndex < cards.length) {
-            if (cards[cardIndex].isFlipped != isFlipped) {
+            // 매칭된 카드는 뒤집지 않도록 보호
+            if (!cards[cardIndex].isMatched && cards[cardIndex].isFlipped != isFlipped) {
                 cardsToUpdate.add(cardIndex);
                 needsUpdate = true;
             }
@@ -696,59 +709,75 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final score = match['score'] as int?;
 
         if (index1 >= 0 && index1 < cards.length && index2 >= 0 && index2 < cards.length) {
-            setState(() {
-                if (isMatch) {
-                    // 매칭 성공
+            if (isMatch) {
+                // 매칭 성공 - 즉시 처리
+                setState(() {
                     cards[index1].isMatched = true;
                     cards[index2].isMatched = true;
                     cards[index1].isFlipped = true;
                     cards[index2].isFlipped = true;
+                });
 
-                    final player = playersData[playerId];
-                    if (player != null) {
-                        player.combo++;
-                        player.matchCount++;
-                        
-                        // 기본 매칭 점수 100점
-                        int matchScore = 100;
-                        
-                        // 콤보 보너스 점수 (콤보당 10점 추가)
-                        int comboBonus = (player.combo - 1) * 10;
-                        
-                        // 총 점수 계산
-                        int totalScore = matchScore + comboBonus;
-                        player.score = score ?? (player.score + totalScore);
-                        
-                        if(player.combo > player.maxCombo) {
-                            player.maxCombo = player.combo;
-                        }
-                        
-                        // 콤보 점수 표시 (다른 플레이어)
-                        String scoreMessage = '${player.name}: +$matchScore';
-                        if (comboBonus > 0) {
-                            scoreMessage += ' + 콤보보너스 $comboBonus';
-                        }
-                        if (player.combo > 1) {
-                            scoreMessage += ' (${player.combo}콤보!)';
-                        }
-                        _showComboScore(scoreMessage);
-                    }
-                } else {
-                    // 매칭 실패
-                    cards[index1].isFlipped = false;
-                    cards[index2].isFlipped = false;
+                final player = playersData[playerId];
+                if (player != null) {
+                    player.combo++;
+                    player.matchCount++;
                     
-                    final player = playersData[playerId];
-                    if (player != null) {
-                        player.score = score ?? (player.score - 10);
-                        player.combo = 0; // 콤보 리셋
-                        player.failCount++;
-                        
-                        // 실패 점수 표시 (다른 플레이어)
-                        _showComboScore('${player.name}: -10 (콤보 리셋)', isSuccess: false);
+                    // 기본 매칭 점수 100점
+                    int matchScore = 100;
+                    
+                    // 콤보 보너스 점수 (콤보당 10점 추가)
+                    int comboBonus = (player.combo - 1) * 10;
+                    
+                    // 총 점수 계산
+                    int totalScore = matchScore + comboBonus;
+                    player.score = score ?? (player.score + totalScore);
+                    
+                    if(player.combo > player.maxCombo) {
+                        player.maxCombo = player.combo;
                     }
+                    
+                    // 콤보 점수 표시 (다른 플레이어)
+                    String scoreMessage = '${player.name}: +$matchScore';
+                    if (comboBonus > 0) {
+                        scoreMessage += ' + 콤보보너스 $comboBonus';
+                    }
+                    if (player.combo > 1) {
+                        scoreMessage += ' (${player.combo}콤보!)';
+                    }
+                    _showComboScore(scoreMessage);
                 }
-            });
+            } else {
+                // 매칭 실패 - 지연된 처리로 동기화 개선
+                final player = playersData[playerId];
+                if (player != null) {
+                    player.score = score ?? (player.score - 10);
+                    player.combo = 0; // 콤보 리셋
+                    player.failCount++;
+                    
+                    // 실패 점수 표시 (다른 플레이어)
+                    _showComboScore('${player.name}: -10 (콤보 리셋)', isSuccess: false);
+                }
+                
+                // 지연된 카드 뒤집기로 동기화 개선
+                Future.delayed(const Duration(milliseconds: 600), () {
+                    if (mounted && index1 < cards.length && index2 < cards.length) {
+                        setState(() {
+                            cards[index1].isFlipped = false;
+                            cards[index2].isFlipped = false;
+                        });
+                        
+                        // 다른 플레이어의 매칭 실패 시에도 턴 변경 처리
+                        if (playerId == currentTurnPlayerId) {
+                            Future.delayed(const Duration(milliseconds: 200), () {
+                                if (mounted) {
+                                    _changeTurn();
+                                }
+                            });
+                        }
+                    }
+                });
+            }
         }
         _processedActionIds.add(actionId);
     }
