@@ -1620,7 +1620,7 @@ class FirebaseService {
     }
   }
 
-  /// 개선된 이메일 중복체크 (회원가입 시도 방식으로 안정성 및 정확성 극대화)
+  /// 개선된 이메일 중복체크 (유효한 임시 비밀번호로 회원가입 시도)
   Future<bool> checkEmailDuplicateImproved(String email) async {
     await _initialize();
     if (!_isInitialized || _auth == null) {
@@ -1629,18 +1629,18 @@ class FirebaseService {
 
     final lowercasedEmail = email.toLowerCase();
     
-    print('이메일 중복체크 (약한 비밀번호 회원가입 시도 방식) 시작: $lowercasedEmail');
+    print('이메일 중복체크 (유효한 비밀번호 회원가입 시도 방식) 시작: $lowercasedEmail');
 
     try {
-      // 일부러 약한 비밀번호로 회원가입을 시도하여 Firebase의 오류 응답을 유도합니다.
-      final tempWeakPassword = '12345';
+      // 'weak-password' 오류를 피하기 위해 유효한 길이의 임시 비밀번호를 사용합니다.
+      final tempValidPassword = 'dummy-password-for-check';
       UserCredential credential = await _auth!.createUserWithEmailAndPassword(
         email: lowercasedEmail,
-        password: tempWeakPassword,
+        password: tempValidPassword,
       );
 
-      // 만약 위 코드가 성공하면 (프로젝트의 비밀번호 정책이 매우 약한 경우),
-      // 이메일은 사용 가능한 것이므로 생성된 임시 계정을 즉시 삭제하고 '중복 아님'을 반환합니다.
+      // 만약 위 코드가 성공하면 (이메일이 정말로 사용 가능했다는 의미),
+      // 생성된 임시 계정을 즉시 삭제하고 '중복 아님'을 반환합니다.
       print('임시 계정 생성 성공 (중복 아님). 즉시 삭제합니다.');
       await credential.user?.delete();
       print('임시 계정 삭제 완료.');
@@ -1651,19 +1651,19 @@ class FirebaseService {
       print('중복 체크 중 예외 발생: $errorStr');
 
       if (errorStr.contains('email-already-in-use')) {
-        // 가장 확실한 "중복" 신호입니다.
+        // 이메일이 이미 사용 중이라는 가장 확실한 신호입니다.
         print('결과: 중복된 이메일입니다.');
         return true;
-      }
-
-      if (errorStr.contains('weak-password')) {
-        // 'weak-password' 오류는 비밀번호가 약할 뿐, 이메일은 사용 가능하다는 의미이므로 '중복 아님'으로 판단합니다.
-        print('결과: 약한 비밀번호 오류 (중복 아님)');
-        return false;
       }
       
       if (errorStr.contains('invalid-email')) {
         throw Exception('올바르지 않은 이메일 형식입니다.');
+      }
+      
+      // 'weak-password'는 이제 발생하지 않아야 하지만, 만약을 위해 처리합니다.
+      if (errorStr.contains('weak-password')) {
+        print('예상치 못한 weak-password 오류 발생. 이 경우 이메일은 사용 가능한 것으로 간주합니다.');
+        return false;
       }
 
       // 그 외 다른 Firebase 관련 오류 (네트워크 등)
