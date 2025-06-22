@@ -47,18 +47,11 @@ class _MainScreenState extends State<MainScreen> {
   /// 게임 시작
   void _startGame() {
     _soundService.playButtonClickSound();
-    if (_playerStats != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => GameScreen(playerName: _playerStats!.playerName),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('플레이어 정보를 불러오는 중입니다...')),
-      );
-    }
+    final playerName = _playerStats?.playerName ?? '게스트';
+    Navigator.of(context).pushNamed('/game', arguments: {
+      'playerName': playerName,
+      'email': _playerStats?.email,
+    });
   }
 
   /// 멀티플레이어 게임 시작

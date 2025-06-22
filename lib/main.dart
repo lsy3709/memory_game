@@ -109,7 +109,7 @@ class MemoryGameApp extends StatelessWidget {
         '/ranking': (context) => const RankingScreen(),
         '/multiplayer_setup': (context) => const MultiplayerSetupScreen(),
         '/online_login': (context) => const OnlineLoginScreen(),
-        '/online-main': (context) => const OnlineMainScreen(),
+        '/online_main': (context) => const OnlineMainScreen(),
         '/online-game': (context) => const OnlineGameScreen(),
         '/online-ranking': (context) => const OnlineRankingScreen(),
         '/online-my-records': (context) => const OnlineMyRecordsScreen(),
@@ -120,6 +120,18 @@ class MemoryGameApp extends StatelessWidget {
         '/friend-management': (context) => const FriendManagementScreen(),
       },
       onGenerateRoute: (settings) {
+        // 싱글 플레이어 게임 화면 - 동적 라우팅
+        if (settings.name == '/game') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          if (args != null) {
+            return MaterialPageRoute(
+              builder: (context) => GameScreen(
+                playerName: args['playerName'] ?? '게스트',
+                email: args['email'],
+              ),
+            );
+          }
+        }
         // 멀티플레이어 게임 화면 - 동적 라우팅
         if (settings.name == '/multiplayer-game') {
           final args = settings.arguments as Map<String, dynamic>?;

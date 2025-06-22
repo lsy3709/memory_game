@@ -96,7 +96,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               Navigator.of(context).pushNamedAndRemoveUntil(
-                '/online-main',
+                '/online_main',
                 (route) => false,
               );
             }
@@ -124,7 +124,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               Navigator.of(context).pushNamedAndRemoveUntil(
-                '/online-main',
+                '/online_main',
                 (route) => false,
               );
             }
@@ -146,7 +146,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               Navigator.of(context).pushNamedAndRemoveUntil(
-                '/online-main',
+                '/online_main',
                 (route) => false,
               );
             }
@@ -271,7 +271,7 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         );
         
         // 온라인 메인 화면으로 이동
-        Navigator.of(context).pushReplacementNamed('/online-main');
+        Navigator.of(context).pushReplacementNamed('/online_main');
       }
     } catch (e) {
       print('회원가입 오류: $e');
