@@ -282,11 +282,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (cards.every((card) => card.isMatched)) {
       _gameOver(message: "모든 카드를 맞췄습니다!");
     } else {
-      // 매칭 성공 시에도 턴 변경 (연속 매칭이 아닌 경우)
-      final player = playersData[currentPlayerId];
-      if (player != null && player.combo == 0) {
-        _changeTurn();
-      }
+      // 매칭 성공 시 턴 유지 (연속 매칭 가능)
+      print('매칭 성공 - 턴 유지: ${currentPlayerId} (콤보: ${playersData[currentPlayerId]?.combo})');
     }
   }
 
@@ -298,6 +295,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       player.combo = 0;
       player.failCount++;
     }
+
+    print('매칭 실패 후 턴 변경: ${currentPlayerId} -> 다음 플레이어');
 
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
@@ -315,16 +314,25 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
   
   void _changeTurn() {
-    if (playersData.length < 2) return; // 플레이어가 2명 미만이면 턴 변경 안함
-    
-    final currentPlayerIndex = playersData.keys.toList().indexOf(currentTurnPlayerId);
-    final nextPlayerIndex = (currentPlayerIndex + 1) % playersData.length;
-    final nextPlayerId = playersData.keys.elementAt(nextPlayerIndex);
-    
-    // 유효한 플레이어 ID인지 확인
-    if (nextPlayerId != 'waiting' && playersData.containsKey(nextPlayerId)) {
-      firebaseService.syncTurnChange(currentRoom.id, currentTurnPlayerId, nextPlayerId);
+    if (playersData.length < 2) {
+      print('플레이어가 2명 미만이므로 턴 변경 안함');
+      return;
     }
+    
+    final validPlayerIds = playersData.keys.where((id) => id != 'waiting').toList();
+    if (validPlayerIds.length < 2) {
+      print('유효한 플레이어가 2명 미만이므로 턴 변경 안함');
+      return;
+    }
+    
+    final currentPlayerIndex = validPlayerIds.indexOf(currentTurnPlayerId);
+    final nextPlayerIndex = (currentPlayerIndex + 1) % validPlayerIds.length;
+    final nextPlayerId = validPlayerIds[nextPlayerIndex];
+    
+    print('턴 변경: $currentTurnPlayerId -> $nextPlayerId');
+    print('현재 플레이어: $currentPlayerId, 다음 턴: $nextPlayerId');
+    
+    firebaseService.syncTurnChange(currentRoom.id, currentTurnPlayerId, nextPlayerId);
   }
 
   void _gameOver({String? message}) {
@@ -428,9 +436,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (!mounted || turnData == null) return;
     
     final actionId = turnData['id'] as String;
-    if (_processedActionIds.contains(actionId)) return;
+    if (_processedActionIds.contains(actionId)) {
+      print('이미 처리된 턴 변경 액션: $actionId');
+      return;
+    }
 
     final nextPlayerId = turnData['nextPlayerId'] as String;
+    print('턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId');
     
     setState(() {
       currentTurnPlayerId = nextPlayerId;
@@ -440,6 +452,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         firstSelectedIndex = null;
         secondSelectedIndex = null;
         isProcessingCardSelection = false;
+        print('내 턴 시작 - 카드 선택 상태 초기화');
       }
     });
 
@@ -545,32 +558,34 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               Expanded(
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
-                    // 화면 크기에 맞춰 카드 크기 계산
+                    // 화면 크기에 맞춰 카드 크기 계산 (최적화)
                     final availableWidth = constraints.maxWidth;
                     final availableHeight = constraints.maxHeight;
                     
-                    // 패딩과 간격을 고려한 실제 사용 가능한 공간
-                    const padding = 8.0;
-                    const spacing = 4.0;
-                    final usableWidth = availableWidth - (padding * 2) - (spacing * (cols - 1));
-                    final usableHeight = availableHeight - (padding * 2) - (spacing * (rows - 1));
+                    // 최소 패딩과 간격 설정
+                    const minPadding = 4.0;
+                    const minSpacing = 2.0;
+                    
+                    // 사용 가능한 공간 계산
+                    final usableWidth = availableWidth - (minPadding * 2) - (minSpacing * (cols - 1));
+                    final usableHeight = availableHeight - (minPadding * 2) - (minSpacing * (rows - 1));
                     
                     // 카드 크기 계산
                     final cardWidth = usableWidth / cols;
                     final cardHeight = usableHeight / rows;
                     
-                    // 카드의 종횡비 계산
-                    final cardAspectRatio = cardWidth / cardHeight;
+                    // 카드의 종횡비 계산 (최소 0.8, 최대 1.2로 제한)
+                    final cardAspectRatio = (cardWidth / cardHeight).clamp(0.8, 1.2);
 
                     return Padding(
-                      padding: const EdgeInsets.all(padding),
+                      padding: const EdgeInsets.all(minPadding),
                       child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                        physics: const NeverScrollableScrollPhysics(),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: cols,
                           childAspectRatio: cardAspectRatio,
-                          crossAxisSpacing: spacing,
-                          mainAxisSpacing: spacing,
+                          crossAxisSpacing: minSpacing,
+                          mainAxisSpacing: minSpacing,
                         ),
                         itemCount: totalCards,
                         itemBuilder: (context, index) {
@@ -658,14 +673,26 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.blue.shade200),
             ),
-            child: Text(
-              '현재 턴: ${playersData[currentTurnPlayerId]?.name ?? ''}',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.blue.shade800,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              children: [
+                Text(
+                  '현재 턴: ${playersData[currentTurnPlayerId]?.name ?? ''}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.blue.shade800,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '내 턴: ${isMyTurn ? "예" : "아니오"} | 플레이어 수: ${playersData.length}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
         ],
@@ -675,6 +702,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   Widget _buildPlayerInfo(PlayerGameData player) {
     bool isTurn = player.id == currentTurnPlayerId;
+    bool isMe = player.id == currentPlayerId;
+    
     return Container(
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
@@ -688,15 +717,37 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            player.name,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isTurn ? Colors.green.shade800 : Colors.black87,
-            ),
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                player.name,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isTurn ? Colors.green.shade800 : Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+              if (isMe) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '나',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.blue.shade800,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 8),
           Row(
