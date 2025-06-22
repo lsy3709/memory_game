@@ -100,9 +100,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _cardMatchesSubscription?.cancel();
     soundService.stopBackgroundMusic();
     
-    // 방에서 나가기 (화면이 종료될 때)
+    // 방에서 나가기 (화면이 종료될 때) - 안전하게 처리
     if (mounted && currentRoom.id.isNotEmpty) {
-      firebaseService.leaveOnlineRoom(currentRoom.id);
+      firebaseService.leaveOnlineRoom(currentRoom.id).catchError((e) {
+        print('dispose에서 방 나가기 오류: $e');
+      });
     }
     
     super.dispose();
@@ -214,7 +216,30 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _setupListeners() {
     _roomSubscription = firebaseService.getRoomStream(currentRoom.id).listen((room) async {
       if (room == null) {
-        _gameOver(message: '방이 사라졌습니다.');
+        // 방이 삭제된 경우 (방장이 나간 경우)
+        if (mounted) {
+          // 게임 타이머 정지
+          gameTimer?.cancel();
+          soundService.stopBackgroundMusic();
+          
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('방장이 나갔습니다'),
+              content: const Text('방장이 방을 나가서 게임이 종료되었습니다.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).pop(); // 게임 화면에서 퇴장
+                  },
+                  child: const Text('확인'),
+                ),
+              ],
+            ),
+          );
+        }
         return;
       }
       
@@ -581,7 +606,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     if(currentRoom.isHost(currentPlayerId)) {
         _saveGameRecord();
-        firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.finished);
+        firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.finished).catchError((e) {
+          print('게임 종료 시 방 상태 업데이트 오류: $e');
+        });
     }
   }
 
@@ -1185,7 +1212,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   Future<void> _leaveRoom() async {
-    await firebaseService.leaveOnlineRoom(currentRoom.id);
+    try {
+      await firebaseService.leaveOnlineRoom(currentRoom.id);
+    } catch (e) {
+      // 방 나가기 실패 시에도 화면은 닫기
+      print('방 나가기 오류: $e');
+    }
+    
     if(mounted) {
       Navigator.of(context).pop();
     }

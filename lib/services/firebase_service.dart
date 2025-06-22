@@ -909,7 +909,9 @@ class FirebaseService {
       final roomDoc = await roomRef.get();
 
       if (!roomDoc.exists) {
-        throw Exception('방을 찾을 수 없습니다.');
+        // 방이 이미 삭제된 경우 (다른 플레이어가 이미 나간 경우)
+        print('방이 이미 삭제되었습니다: $roomId');
+        return;
       }
 
       final roomData = roomDoc.data()!;
@@ -924,8 +926,6 @@ class FirebaseService {
         throw Exception('방 데이터가 손상되었습니다. 방을 다시 생성해주세요.');
       }
 
-      print('방 나가기 처리: 플레이어=$currentPlayerId, 방장=$hostId, 게스트=$guestId');
-
       // 방장이 나가는 경우 - 방과 모든 데이터 삭제
       if (currentPlayerId == hostId) {
         print('방장이 나가므로 방과 모든 데이터 삭제');
@@ -938,12 +938,14 @@ class FirebaseService {
             final subcollectionDocs = await subcollectionRef.get();
             
             // 배치 작업으로 모든 문서 삭제
-            final batch = _firestore!.batch();
-            for (final doc in subcollectionDocs.docs) {
-              batch.delete(doc.reference);
+            if (subcollectionDocs.docs.isNotEmpty) {
+              final batch = _firestore!.batch();
+              for (final doc in subcollectionDocs.docs) {
+                batch.delete(doc.reference);
+              }
+              await batch.commit();
+              print('서브컬렉션 삭제 완료: $subcollection');
             }
-            await batch.commit();
-            print('서브컬렉션 삭제 완료: $subcollection');
           } catch (e) {
             print('서브컬렉션 삭제 중 오류 ($subcollection): $e');
           }
