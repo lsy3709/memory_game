@@ -151,22 +151,34 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       '🇪🇸', '🇨🇦', '🇦🇺', '🇧🇷', '🇦🇷', '🇲🇽', '🇮🇳', '🇷🇺',
       '🇰🇵', '🇹🇭', '🇻🇳', '🇵🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇹🇼'
     ];
-    cardValues.shuffle();
+    final List<String> flagNames = [
+      '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
+      '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
+      '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
+    ];
+    
+    // 이모지와 이름을 함께 섞기
+    final List<MapEntry<String, String>> cardPairs = [];
+    for (int i = 0; i < cardValues.length; i++) {
+      cardPairs.add(MapEntry(cardValues[i], flagNames[i]));
+    }
+    cardPairs.shuffle();
     
     List<CardModel> generatedCards = [];
     for (int i = 0; i < numPairs; i++) {
-      final emoji = cardValues[i];
+      final emoji = cardPairs[i].key;
+      final name = cardPairs[i].value;
       generatedCards.add(CardModel(
         id: i,
         emoji: emoji,
-        name: _getFlagName(i),
+        name: name,
         isMatched: false,
         isFlipped: false,
       ));
       generatedCards.add(CardModel(
         id: i,
         emoji: emoji,
-        name: _getFlagName(i),
+        name: name,
         isMatched: false,
         isFlipped: false,
       ));
@@ -175,15 +187,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     generatedCards.shuffle();
     print('카드 생성 완료: ${generatedCards.length}개 (${numPairs}쌍)');
     return generatedCards;
-  }
-
-  String _getFlagName(int index) {
-    final List<String> flagNames = [
-      '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
-      '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
-      '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
-    ];
-    return flagNames[index % flagNames.length];
   }
 
   int _getEmojiIndex(String emoji) {
@@ -266,12 +269,22 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               if (card.name == null || card.name!.isEmpty) {
                 final emojiIndex = _getEmojiIndex(card.emoji);
                 if (emojiIndex != -1) {
-                  return card.copyWith(name: _getFlagName(emojiIndex));
+                  final flagNames = [
+                    '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
+                    '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
+                    '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
+                  ];
+                  return card.copyWith(name: flagNames[emojiIndex]);
                 }
               }
               return card;
             }).toList();
           });
+          print('카드 로드 완료: ${cards.length}개 카드');
+          // 로드된 카드들의 정보 출력 (디버깅용)
+          for (int i = 0; i < cards.length; i++) {
+            print('카드 $i: ${cards[i].emoji} - ${cards[i].name} (ID: ${cards[i].id})');
+          }
         }
       }
     });
@@ -338,7 +351,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       return;
     }
 
-    print('카드 클릭 성공: 인덱스=$index');
+    print('카드 클릭 성공: 인덱스=$index, 카드 내용: ${cards[index].emoji} - ${cards[index].name}');
 
     setState(() {
       cards[index].isFlipped = true;
@@ -353,10 +366,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       setState(() {
         isProcessingCardSelection = false;
       });
-    } else {
+    } else if (secondSelectedIndex == null) {
       secondSelectedIndex = index;
       print('두 번째 카드 선택: $index, 매칭 확인 시작');
-      _checkForMatch();
+      // 매칭 확인은 _handleCardAction에서 처리됨
+      setState(() {
+        isProcessingCardSelection = false;
+      });
     }
   }
 
@@ -431,12 +447,19 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     playersData[currentPlayerId]?.combo = 0;
     playersData[currentPlayerId]?.failCount++;
 
+    // 매칭 실패 시 카드를 다시 뒤집는 동기화
+    firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
+    firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
+
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (!mounted) return;
       
       setState(() {
         cards[index1].isFlipped = false;
         cards[index2].isFlipped = false;
+        firstSelectedIndex = null;
+        secondSelectedIndex = null;
+        isProcessingCardSelection = false;
       });
       
       _changeTurn();
@@ -568,6 +591,28 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         if (cardIndex >= 0 && cardIndex < cards.length) {
             setState(() {
                 cards[cardIndex].isFlipped = isFlipped;
+                
+                // 카드가 뒤집힌 경우 선택 상태 업데이트
+                if (isFlipped) {
+                  if (firstSelectedIndex == null) {
+                    firstSelectedIndex = cardIndex;
+                  } else if (secondSelectedIndex == null) {
+                    secondSelectedIndex = cardIndex;
+                    // 두 번째 카드가 뒤집히면 매칭 확인
+                    Future.delayed(const Duration(milliseconds: 500), () {
+                      if (mounted && firstSelectedIndex != null && secondSelectedIndex != null) {
+                        _checkForMatch();
+                      }
+                    });
+                  }
+                } else {
+                  // 카드가 다시 뒤집힌 경우 선택 상태 초기화
+                  if (firstSelectedIndex == cardIndex) {
+                    firstSelectedIndex = null;
+                  } else if (secondSelectedIndex == cardIndex) {
+                    secondSelectedIndex = null;
+                  }
+                }
             });
         }
         _processedActionIds.add(actionId);
