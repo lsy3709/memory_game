@@ -5,6 +5,7 @@ import '../services/storage_service.dart';
 import '../models/player_stats.dart';
 import '../services/firebase_service.dart';
 import '../services/sound_service.dart';
+import '../screens/game_screen.dart';
 
 /// 메인 화면
 /// 게임 시작, 랭킹 보드, 설정 등의 메뉴를 제공
