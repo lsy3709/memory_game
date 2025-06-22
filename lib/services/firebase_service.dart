@@ -230,7 +230,7 @@ class FirebaseService {
       // Firestore에 사용자 데이터 저장
       await _firestore!.collection('users').doc(credential.user!.uid).set({
         'playerName': playerName,
-        'email': email,
+        'email': email.toLowerCase(),
         'createdAt': FieldValue.serverTimestamp(),
         'lastLoginAt': FieldValue.serverTimestamp(),
       });
@@ -442,59 +442,6 @@ class FirebaseService {
     } catch (e) {
       print('온라인 플레이어 통계 가져오기 오류: $e');
       return null;
-    }
-  }
-
-  /// 안전하고 정확한 이메일 중복체크 (Firebase 요청 제한 고려)
-  Future<bool> checkEmailDuplicateImproved(String email) async {
-    await _initialize();
-    if (!_isInitialized || _auth == null) {
-      throw Exception('Firebase가 초기화되지 않았습니다.');
-    }
-
-    try {
-      print('이메일 중복체크 시작: $email');
-      
-      // 방법 1: Firebase Auth의 fetchSignInMethodsForEmail 사용 (가장 안전하고 권장되는 방법)
-      try {
-        final methods = await _auth!.fetchSignInMethodsForEmail(email);
-        print('fetchSignInMethodsForEmail 결과: $email -> methods: $methods');
-        
-        if (methods.isNotEmpty) {
-          print('Firebase Auth에서 중복 발견');
-          return true;
-        } else {
-          print('Firebase Auth에서 중복되지 않음 확인');
-          return false;
-        }
-      } catch (authError) {
-        print('fetchSignInMethodsForEmail 오류: $authError');
-        
-        // user-not-found 오류는 이메일이 존재하지 않음을 의미
-        if (authError.toString().contains('user-not-found')) {
-          print('user-not-found 오류 - 이메일이 존재하지 않음');
-          return false;
-        }
-        
-        // network-request-failed 오류는 네트워크 문제
-        if (authError.toString().contains('network-request-failed')) {
-          print('network-request-failed 오류 - 네트워크 문제');
-          throw Exception('네트워크 연결을 확인해주세요.');
-        }
-        
-        // too-many-requests 오류는 요청이 너무 많음
-        if (authError.toString().contains('too-many-requests')) {
-          print('too-many-requests 오류 - 요청이 너무 많음');
-          throw Exception('요청이 너무 많습니다. 잠시 후 다시 시도해주세요.');
-        }
-        
-        // 기타 Auth 오류는 다른 방법으로 시도하지 않고 오류 처리
-        print('Auth 오류 발생 - 중복체크 실패');
-        throw Exception('이메일 중복체크에 실패했습니다. 잠시 후 다시 시도해주세요.');
-      }
-    } catch (e) {
-      print('이메일 중복체크 오류: $e');
-      throw Exception('이메일 중복체크 중 오류가 발생했습니다: ${e.toString()}');
     }
   }
 
@@ -1670,6 +1617,56 @@ class FirebaseService {
     } catch (e) {
       print('게임 기록 저장 오류: $e');
       throw Exception('게임 기록 저장에 실패했습니다.');
+    }
+  }
+
+  /// 개선된 이메일 중복체크 (Auth와 Firestore 모두 확인)
+  Future<bool> checkEmailDuplicateImproved(String email) async {
+    await _initialize();
+    if (!_isInitialized || _auth == null || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      print('개선된 이메일 중복체크 시작: $email');
+      
+      // 방법 1: Firebase Auth 사용
+      try {
+        final methods = await _auth!.fetchSignInMethodsForEmail(email);
+        print('Firebase Auth 중복체크 결과: $email -> methods: $methods');
+        
+        if (methods.isNotEmpty) {
+          print('Firebase Auth에서 중복 발견');
+          return true;
+        }
+      } catch (authError) {
+        print('Firebase Auth 중복체크 오류: $authError');
+        // Auth 오류가 발생해도 Firestore로 계속
+      }
+      
+      // 방법 2: Firestore 사용 (대안)
+      try {
+        final userQuery = await _firestore!.collection('users')
+            .where('email', isEqualTo: email.toLowerCase())
+            .limit(1)
+            .get();
+        
+        print('Firestore 중복체크 결과: $email -> 문서 수: ${userQuery.docs.length}');
+        
+        if (userQuery.docs.isNotEmpty) {
+          print('Firestore에서 중복 발견');
+          return true;
+        }
+      } catch (firestoreError) {
+        print('Firestore 중복체크 오류: $firestoreError');
+        throw Exception('데이터베이스 확인 중 오류가 발생했습니다.');
+      }
+      
+      print('중복되지 않음으로 판단');
+      return false;
+    } catch (e) {
+      print('개선된 이메일 중복체크 오류: $e');
+      throw Exception('이메일 중복체크 중 오류가 발생했습니다: ${e.toString()}');
     }
   }
 }
