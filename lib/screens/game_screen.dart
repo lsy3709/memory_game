@@ -143,7 +143,7 @@ class _GameScreenState extends State<GameScreen> {
     List<CardModel> tempCards = [];
     for (int i = 0; i < numPairs; i++) {
       tempCards.add(CardModel(id: i, emoji: cardValues[i]));
-      tempCards.add(CardModel(id: i * 2 + 1, emoji: cardValues[i]));
+      tempCards.add(CardModel(id: i, emoji: cardValues[i]));
     }
     tempCards.shuffle();
     cards = tempCards;
@@ -163,7 +163,7 @@ class _GameScreenState extends State<GameScreen> {
           if (timeLeft > 0) {
             timeLeft--; // 남은 시간 감소
           } else {
-            _gameOver(); // 시간 종료 시 게임 오버
+            _gameOver(byTimeout: true); // 시간 종료 시 게임 오버
           }
         });
       }
@@ -215,23 +215,32 @@ class _GameScreenState extends State<GameScreen> {
         } else {
           soundService.playCardMismatch(); // 카드 매치 실패 사운드
           scoreModel.addFail();
+          cards[a] = cards[a].copyWith(isFlipped: false);
+          cards[b] = cards[b].copyWith(isFlipped: false);
         }
       });
     }
   }
 
   /// 모든 카드가 매칭되었는지 확인 후 게임 종료 처리
-  void _gameOver() {
+  void _gameOver({bool byTimeout = false}) {
     isGameRunning = false;
     gameTimer?.cancel(); // 타이머 중지
     soundService.stopBackgroundMusic(); // 배경음악 중지
-    soundService.playGameWin(); // 승리 사운드
+
+    final bool isCompleted = !byTimeout && cards.every((c) => c.isMatched);
+
+    if (isCompleted) {
+      soundService.playGameWin(); // 승리 사운드
+    } else {
+      soundService.playGameLose(); // 실패 사운드
+    }
     
     // 게임 기록 저장
-    _saveGameRecord(true);
+    _saveGameRecord(isCompleted);
     
     // 게임 결과 다이얼로그 표시
-    _showGameResultDialog();
+    _showGameResultDialog(isCompleted);
   }
 
   /// 게임 기록 저장
@@ -253,6 +262,7 @@ class _GameScreenState extends State<GameScreen> {
 
       // 게임 기록 저장
       await storageService.saveGameRecord(gameRecord);
+      print('게임 기록 저장 완료');
 
       // 플레이어 통계 업데이트 (등록된 플레이어인 경우)
       if (currentPlayerEmail.isNotEmpty) {
@@ -275,18 +285,29 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   /// 게임 결과 다이얼로그 표시
-  void _showGameResultDialog() {
+  void _showGameResultDialog(bool isCompleted) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('축하합니다!'),
+        title: Text(
+          isCompleted ? '🎉 축하합니다! 🎉' : '😭 아쉽네요 😭',
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('모든 카드를 맞췄어요!'),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+            Text(
+              isCompleted ? '모든 카드를 맞췄습니다!' : '시간이 초과되었습니다.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 20),
             Text('최종 점수: ${scoreModel.score}점'),
             Text('최고 연속 매칭: ${maxCombo}회'),
             Text('완료 시간: ${_formatTime()}'),

@@ -71,20 +71,17 @@ class _MainScreenState extends State<MainScreen> {
   void _startOnlineGame() async {
     _soundService.playButtonClickSound();
     try {
-      // Firebase 초기화 확인
       final isInitialized = await _firebaseService.ensureInitialized();
-      
       if (!isInitialized) {
         _showFirebaseErrorDialog();
         return;
       }
 
-      // 로그인 상태 확인
       final currentUser = _firebaseService.currentUser;
       if (currentUser != null) {
-        Navigator.of(context).pushNamed('/online-main');
+        Navigator.of(context).pushNamed('/online_main');
       } else {
-        Navigator.of(context).pushNamed('/online-login');
+        Navigator.of(context).pushNamed('/online_login');
       }
     } catch (e) {
       print('온라인 게임 시작 오류: $e');
@@ -646,7 +643,7 @@ class _MainScreenState extends State<MainScreen> {
                               title: '계정 등록',
                               subtitle: '새로운 계정을 만듭니다',
                               color: Colors.blue,
-                              onTap: () => Navigator.of(context).pushNamed('/player-registration'),
+                              onTap: () => Navigator.of(context).pushNamed('/register'),
                             )
                           else
                             _buildMenuButton(
