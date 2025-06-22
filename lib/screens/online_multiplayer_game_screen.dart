@@ -331,6 +331,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _startGame() {
     if (isGameRunning || !mounted) return;
     
+    // 게임 시작 시 카드 선택 상태 초기화
+    firstSelectedIndex = null;
+    secondSelectedIndex = null;
+    isProcessingCardSelection = false;
+    
     setState(() {
       isGameRunning = true;
       gameStartTime = DateTime.now();
@@ -359,14 +364,29 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   void onCardPressed(int index) {
     if (isProcessingCardSelection) {
+      print('카드 선택 처리 중 - 무시됨');
       return;
     }
     
     if (!isMyTurn) {
+      print('내 턴이 아님 - 무시됨');
       return;
     }
     
     if (!isGameRunning) {
+      print('게임이 진행 중이 아님 - 무시됨');
+      return;
+    }
+
+    // 이미 뒤집힌 카드나 매칭된 카드 클릭 방지
+    if (cards[index].isFlipped || cards[index].isMatched) {
+      print('이미 뒤집힌 카드 또는 매칭된 카드 클릭 - 무시됨');
+      return;
+    }
+
+    // 같은 카드를 두 번 클릭하는 것 방지
+    if (firstSelectedIndex == index || secondSelectedIndex == index) {
+      print('같은 카드를 두 번 클릭 - 무시됨');
       return;
     }
 
@@ -382,24 +402,39 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 첫 번째 카드 선택
     if (firstSelectedIndex == null) {
       firstSelectedIndex = index;
+      print('첫 번째 카드 선택: $index');
       setState(() {
         isProcessingCardSelection = false;
       });
     } else if (secondSelectedIndex == null) {
       // 두 번째 카드 선택
       secondSelectedIndex = index;
+      print('두 번째 카드 선택: $index, 매칭 확인 시작');
       
       // 매칭 확인 (지연 시간 단축)
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted && firstSelectedIndex != null && secondSelectedIndex != null) {
           _checkForMatch();
+        } else {
+          print('매칭 확인 실패: firstSelectedIndex=$firstSelectedIndex, secondSelectedIndex=$secondSelectedIndex');
+          setState(() {
+            isProcessingCardSelection = false;
+          });
         }
+      });
+    } else {
+      // 이미 두 장이 선택된 상태에서 추가 카드 클릭 시 무시
+      print('이미 두 장이 선택됨 - 추가 카드 클릭 무시');
+      setState(() {
+        cards[index].isFlipped = false;
+        isProcessingCardSelection = false;
       });
     }
   }
 
   void _checkForMatch() {
     if (firstSelectedIndex == null || secondSelectedIndex == null) {
+      print('매칭 확인 실패: 선택된 카드가 부족함');
       setState(() {
         isProcessingCardSelection = false;
       });
@@ -408,6 +443,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     // ID로 매칭 확인 (더 정확함)
     final isMatch = cards[firstSelectedIndex!].id == cards[secondSelectedIndex!].id;
+    print('매칭 확인: ${cards[firstSelectedIndex!].emoji} vs ${cards[secondSelectedIndex!].emoji}, 결과: $isMatch');
 
     // 선택 상태 초기화
     final index1 = firstSelectedIndex!;
@@ -527,6 +563,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _changeTurn() {
     if (!mounted) return;
 
+    // 카드 선택 상태 초기화 (안전장치)
+    if (firstSelectedIndex != null || secondSelectedIndex != null) {
+      print('턴 변경 시 카드 선택 상태 초기화: firstSelectedIndex=$firstSelectedIndex, secondSelectedIndex=$secondSelectedIndex');
+      firstSelectedIndex = null;
+      secondSelectedIndex = null;
+    }
+
     final validPlayerIds = playersData.keys.where((id) => id.isNotEmpty && id != 'waiting').toList();
     if (validPlayerIds.length < 2) {
       setState(() { isProcessingCardSelection = false; });
@@ -555,6 +598,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       isProcessingCardSelection = false;
     });
 
+    print('턴 변경: $previousPlayerId -> $nextPlayerId');
     firebaseService.syncTurnChange(currentRoom.id, previousPlayerId, nextPlayerId);
   }
 
@@ -1167,6 +1211,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             ],
           ),
           const SizedBox(height: 8),
+          // 점수 정보
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -1204,6 +1249,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   ),
                 ],
               ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 매칭/실패 정보
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
               Column(
                 children: [
                   Text(
@@ -1214,7 +1266,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   ),
                   Text(
                     '${player.matchCount}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.green.shade700,
                     ),
@@ -1231,9 +1283,26 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   ),
                   Text(
                     '${player.failCount}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.red.shade700,
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                children: [
+                  Text(
+                    '최대콤보',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  Text(
+                    '${player.maxCombo}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple.shade700,
                     ),
                   ),
                 ],
