@@ -22,12 +22,6 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
   
-  // 이메일 중복체크 관련 변수
-  bool _isCheckingEmail = false;
-  bool _isEmailChecked = false;
-  bool _isEmailAvailable = false;
-  String? _emailCheckMessage;
-
   @override
   void initState() {
     super.initState();
@@ -412,81 +406,6 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
     }
   }
 
-  /// 이메일 입력 시 중복체크 상태 초기화
-  void _onEmailChanged(String value) {
-    if (_isEmailChecked) {
-      setState(() {
-        _isEmailChecked = false;
-        _isEmailAvailable = false;
-        _emailCheckMessage = null;
-      });
-    }
-  }
-
-  /// 온라인 이메일 중복체크 실행
-  Future<void> _checkOnlineEmailAvailability() async {
-    final email = _emailController.text.trim();
-    
-    if (email.isEmpty) {
-      setState(() {
-        _emailCheckMessage = '이메일을 입력해주세요.';
-        _isEmailChecked = false;
-      });
-      return;
-    }
-    
-    if (!EmailValidator.validate(email)) {
-      setState(() {
-        _emailCheckMessage = '올바른 이메일 형식을 입력해주세요.';
-        _isEmailChecked = false;
-      });
-      return;
-    }
-    
-    setState(() {
-      _isCheckingEmail = true;
-      _emailCheckMessage = null;
-    });
-    
-    try {
-      print('온라인 이메일 중복체크 시작: $email');
-      
-      // Firebase 초기화 확인
-      final isInitialized = await _firebaseService.ensureInitialized();
-      if (!isInitialized) {
-        setState(() {
-          _isCheckingEmail = false;
-          _isEmailChecked = false;
-          _emailCheckMessage = 'Firebase가 초기화되지 않았습니다.';
-        });
-        return;
-      }
-
-      // 개선된 이메일 중복체크 (두 가지 방법 모두 시도)
-      final isDuplicate = await _firebaseService.checkEmailDuplicateImproved(email);
-      
-      print('온라인 이메일 중복체크 결과: $email -> 중복: $isDuplicate');
-      
-      setState(() {
-        _isCheckingEmail = false;
-        _isEmailChecked = true;
-        _isEmailAvailable = !isDuplicate;
-        _emailCheckMessage = isDuplicate 
-            ? '이미 사용 중인 이메일입니다.' 
-            : '사용 가능한 이메일입니다.';
-      });
-      
-      print('중복체크 상태 업데이트: 사용가능=$_isEmailAvailable, 메시지=$_emailCheckMessage');
-    } catch (e) {
-      print('온라인 이메일 중복체크 오류: $e');
-      setState(() {
-        _isCheckingEmail = false;
-        _isEmailChecked = false;
-        _emailCheckMessage = '중복체크 중 오류가 발생했습니다: ${e.toString()}';
-      });
-    }
-  }
-
   /// Firebase 오류 다이얼로그 표시
   void _showFirebaseErrorDialog() {
     showDialog(
@@ -586,32 +505,10 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          onChanged: _onEmailChanged,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             labelText: '이메일',
-                            prefixIcon: const Icon(Icons.email),
-                            suffixIcon: !_isLoginMode ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_isEmailChecked)
-                                  Icon(
-                                    _isEmailAvailable ? Icons.check_circle : Icons.cancel,
-                                    color: _isEmailAvailable ? Colors.green : Colors.red,
-                                  ),
-                                IconButton(
-                                  icon: _isCheckingEmail
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.search),
-                                  onPressed: _isCheckingEmail ? null : _checkOnlineEmailAvailability,
-                                  tooltip: '이메일 중복체크',
-                                ),
-                              ],
-                            ) : null,
-                            border: const OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.email),
+                            border: OutlineInputBorder(),
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
@@ -620,24 +517,9 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                             if (!EmailValidator.validate(value.trim())) {
                               return '올바른 이메일 형식을 입력해주세요.';
                             }
-                            if (!_isLoginMode && _isEmailChecked && !_isEmailAvailable) {
-                              return '사용할 수 없는 이메일입니다.';
-                            }
                             return null;
                           },
                         ),
-                        // 이메일 중복체크 결과 메시지 (회원가입 모드에서만)
-                        if (!_isLoginMode && _emailCheckMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              _emailCheckMessage!,
-                              style: TextStyle(
-                                color: _isEmailAvailable ? Colors.green : Colors.red,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
                         const SizedBox(height: 16),
 
                         // 플레이어 이름 입력 (회원가입 모드에서만)
@@ -762,10 +644,6 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
                                       setState(() {
                                         _isLoginMode = !_isLoginMode;
                                         _errorMessage = null;
-                                        // 이메일 중복체크 상태 초기화
-                                        _isEmailChecked = false;
-                                        _isEmailAvailable = false;
-                                        _emailCheckMessage = null;
                                         if (_isLoginMode) {
                                           _playerNameController.clear();
                                         }
