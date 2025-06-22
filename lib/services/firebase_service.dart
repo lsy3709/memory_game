@@ -1620,7 +1620,7 @@ class FirebaseService {
     }
   }
 
-  /// 개선된 이메일 중복체크 (Firebase Auth를 통해서만 확인)
+  /// 개선된 이메일 중복체크 (로그인 시도 방식으로 안정성 향상)
   Future<bool> checkEmailDuplicateImproved(String email) async {
     await _initialize();
     if (!_isInitialized || _auth == null) {
@@ -1628,30 +1628,55 @@ class FirebaseService {
     }
 
     final lowercasedEmail = email.toLowerCase();
-    print('개선된 이메일 중복체크 시작: $lowercasedEmail');
+    if (lowercasedEmail.isEmpty) return false;
 
+    print('이메일 중복체크 (로그인 시도 방식) 시작: $lowercasedEmail');
+
+    // 방법 1: fetchSignInMethodsForEmail을 먼저 시도 (빠른 경로)
+    // 이 방법이 항상 정확하지 않을 수 있어, 추가 검사를 진행합니다.
     try {
       final methods = await _auth!.fetchSignInMethodsForEmail(lowercasedEmail);
       if (methods.isNotEmpty) {
-        print('Firebase Auth에서 중복된 이메일 발견');
-        return true; // 이메일이 이미 사용 중입니다.
+        print('fetchSignInMethodsForEmail: 중복된 이메일 발견');
+        return true;
       }
-      print('Firebase Auth에서 이메일 사용 가능 확인');
-      return false; // 이메일 사용 가능.
+      print('fetchSignInMethodsForEmail: 사용 가능한 이메일로 확인됨. 추가 검사 진행.');
     } catch (e) {
-      print('Firebase Auth 이메일 확인 중 오류: $e');
+      if (!e.toString().contains('user-not-found')) {
+        print('fetchSignInMethodsForEmail 확인 중 오류 발생 (무시하고 계속): $e');
+      }
+    }
+    
+    // 방법 2: 임시 비밀번호로 로그인 시도를 통해 이메일 존재 여부 재확인 (가장 확실한 방법)
+    try {
+      await _auth!.signInWithEmailAndPassword(
+        email: lowercasedEmail,
+        password: 'dummy_password_for_check_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      // 이 코드가 실행될 일은 거의 없지만, 성공했다는 것은 계정이 존재한다는 의미
+      print('로그인 시도: 성공 (계정 존재)');
+      return true;
+    } catch (e) {
+      final errorStr = e.toString();
+      print('로그인 시도 결과: $errorStr');
+
+      if (errorStr.contains('user-not-found')) {
+        // 사용자가 없으므로, 중복이 아님
+        print('로그인 시도: user-not-found (중복 아님)');
+        return false;
+      }
+      if (errorStr.contains('wrong-password')) {
+        // 비밀번호가 틀렸다는 것은, 해당 이메일의 사용자가 존재한다는 의미
+        print('로그인 시도: wrong-password (중복임)');
+        return true;
+      }
       
-      final errorMessage = e.toString();
-      if (errorMessage.contains('network-request-failed')) {
+      if (errorStr.contains('network-request-failed')) {
         throw Exception('네트워크 연결을 확인해주세요.');
       }
-      
-      if (errorMessage.contains('403') || errorMessage.contains('permission-denied')) {
-        throw Exception('App Check 또는 권한 문제로 이메일 확인에 실패했습니다.');
-      }
 
-      // 기타 오류에 대한 사용자 친화적 메시지
-      throw Exception('이메일 중복 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      // AppCheck, 403 오류 등 기타 예상치 못한 오류는 예외를 발생시켜 사용자에게 알림
+      throw Exception('이메일 확인 중 예상치 못한 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     }
   }
 }
