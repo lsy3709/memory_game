@@ -313,7 +313,22 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: Text(isDraw ? '무승부!' : '${winner!.name} 승리!'),
+        title: Row(
+          children: [
+            Icon(
+              isDraw ? Icons.emoji_events : Icons.emoji_events,
+              color: isDraw ? Colors.grey : Colors.amber,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isDraw ? '무승부!' : '${winner!.name} 승리!',
+              style: TextStyle(
+                color: isDraw ? Colors.grey : Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,7 +339,30 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
             // 플레이어 2 결과
             _buildPlayerResultCard(players[1], 1),
             const SizedBox(height: 16),
-            Text('게임 시간: ${_formatTime()}'),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '게임 정보',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('총 게임 시간: ${_formatTime()}'),
+                  Text('총 카드 쌍: ${numPairs}쌍'),
+                  Text('완료된 매칭: ${cards.where((c) => c.isMatched).length ~/ 2}쌍'),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [
@@ -377,16 +415,50 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
               ],
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            '점수: ${players[1].scoreModel.score}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-            ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '점수: ${player.scoreModel.score}점',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '매칭: ${player.scoreModel.matchCount}성공 / ${player.scoreModel.failCount}실패',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  Text(
+                    '최고 콤보: ${player.maxCombo}회',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+              if (isWinner) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    '승리!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
-          Text('매칭: ${players[1].scoreModel.matchCount}성공 / ${players[1].scoreModel.failCount}실패'),
-          Text('최고 콤보: ${players[1].maxCombo}회'),
         ],
       ),
     );
@@ -490,18 +562,75 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('시간 초과!'),
+        title: Row(
+          children: [
+            const Icon(Icons.timer_off, color: Colors.red),
+            const SizedBox(width: 8),
+            const Text(
+              '시간 초과!',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('게임 오버'),
-            const SizedBox(height: 8),
-            Text('${players[0].name}: ${players[0].scoreModel.score}점'),
-            Text('${players[1].name}: ${players[1].scoreModel.score}점'),
+            const Text(
+              '게임 오버',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            // 플레이어 1 결과
+            _buildPlayerResultCard(players[0], 0),
+            const SizedBox(height: 16),
+            // 플레이어 2 결과
+            _buildPlayerResultCard(players[1], 1),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '게임 정보',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('총 게임 시간: ${_formatTime()}'),
+                  Text('총 카드 쌍: ${numPairs}쌍'),
+                  Text('완료된 매칭: ${cards.where((c) => c.isMatched).length ~/ 2}쌍'),
+                  const Text(
+                    '시간 초과로 게임이 종료되었습니다.',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showDetailedComparison();
+            },
+            child: const Text('상세 비교'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('확인'),
@@ -657,7 +786,20 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
           const SizedBox(height: 4),
           Text(
             '점수: ${player.scoreModel.score}',
-            style: const TextStyle(fontSize: 14),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '매칭: ${player.scoreModel.matchCount}',
+            style: const TextStyle(fontSize: 12, color: Colors.green),
+          ),
+          Text(
+            '실패: ${player.scoreModel.failCount}',
+            style: const TextStyle(fontSize: 12, color: Colors.red),
+          ),
+          Text(
+            '콤보: ${player.scoreModel.currentCombo}',
+            style: const TextStyle(fontSize: 12, color: Colors.orange),
           ),
         ],
       ),
