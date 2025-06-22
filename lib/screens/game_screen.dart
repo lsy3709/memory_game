@@ -146,8 +146,20 @@ class _GameScreenState extends State<GameScreen> {
     
     List<CardModel> tempCards = [];
     for (int i = 0; i < numPairs; i++) {
-      tempCards.add(CardModel(id: i, emoji: cardValues[i]));
-      tempCards.add(CardModel(id: i, emoji: cardValues[i]));
+      tempCards.add(CardModel(
+        id: i,
+        emoji: cardValues[i],
+        name: _getFlagName(i),
+        isMatched: false,
+        isFlipped: false,
+      ));
+      tempCards.add(CardModel(
+        id: i,
+        emoji: cardValues[i],
+        name: _getFlagName(i),
+        isMatched: false,
+        isFlipped: false,
+      ));
     }
     tempCards.shuffle();
     cards = tempCards;

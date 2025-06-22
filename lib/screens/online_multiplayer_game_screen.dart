@@ -150,13 +150,34 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     List<CardModel> generatedCards = [];
     for (int i = 0; i < numPairs; i++) {
       final emoji = cardValues[i];
-      generatedCards.add(CardModel(id: i, emoji: emoji));
-      generatedCards.add(CardModel(id: i, emoji: emoji));
+      generatedCards.add(CardModel(
+        id: i,
+        emoji: emoji,
+        name: _getFlagName(i),
+        isMatched: false,
+        isFlipped: false,
+      ));
+      generatedCards.add(CardModel(
+        id: i,
+        emoji: emoji,
+        name: _getFlagName(i),
+        isMatched: false,
+        isFlipped: false,
+      ));
     }
     
     generatedCards.shuffle();
     print('카드 생성 완료: ${generatedCards.length}개 (${numPairs}쌍)');
     return generatedCards;
+  }
+
+  String _getFlagName(int index) {
+    final List<String> flagNames = [
+      '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
+      '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
+      '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
+    ];
+    return flagNames[index % flagNames.length];
   }
 
   void _setupListeners() {
