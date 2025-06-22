@@ -52,7 +52,9 @@ class ScoreModel {
 
   /// 매치 성공 (기존 메서드명 호환성)
   void addMatchScore() {
-    addMatch();
+    _matchCount++;
+    _currentCombo++;
+    _score += 100 + (_currentCombo * 10);
   }
 
   /// 매치 실패
@@ -63,7 +65,9 @@ class ScoreModel {
 
   /// 매치 실패 (기존 메서드명 호환성)
   void addFailPenalty() {
-    addFail();
+    _failCount++;
+    _currentCombo = 0;
+    _score = max(0, _score - 10); // 음수 점수 방지
   }
 
   /// 시간 설정

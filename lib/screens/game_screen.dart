@@ -15,7 +15,14 @@ import 'package:firebase_core/firebase_core.dart';
 
 /// 메모리 카드 게임의 메인 화면을 담당하는 StatefulWidget
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final String playerName;
+  final String? email;
+
+  const GameScreen({
+    super.key,
+    required this.playerName,
+    this.email,
+  });
 
   @override
   _GameScreenState createState() => _GameScreenState();
@@ -26,18 +33,18 @@ class _GameScreenState extends State<GameScreen> {
   // 게임 설정 상수
   static const int rows = 8;              // 카드 그리드의 행 수
   static const int cols = 6;              // 카드 그리드의 열 수
-  static const int numPairs = 24;         // 카드 쌍의 개수
+  static const int numPairs = (rows * cols) ~/ 2;         // 카드 쌍의 개수
   static const int totalCards = numPairs * 2; // 전체 카드 수
-  static const int gameTimeSec = 15 * 60; // 15분
+  static const int gameTimeSec = 5 * 60; // 5분
 
   // 게임 상태 변수
-  List<CardModel> cards = [];
+  late List<CardModel> cards;
   int? firstSelectedIndex;
   int? secondSelectedIndex;
   bool isGameRunning = false;
   bool isTimerPaused = false;
   Timer? gameTimer;
-  int timeLeft = gameTimeSec; // 15분
+  int timeLeft = gameTimeSec; // 5분
   int maxCombo = 0;
   final SoundService soundService = SoundService.instance; // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
@@ -59,8 +66,7 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     scoreModel = ScoreModel();
     _loadPlayerInfo();
-    _createCards();
-    _setupTimer();
+    _initGame();
     soundService.playBackgroundMusic();
   }
 
@@ -131,32 +137,16 @@ class _GameScreenState extends State<GameScreen> {
 
   /// 카드 생성 및 섞기
   void _createCards() {
-    final List<CardModel> tempCards = [];
+    final List<String> cardValues = ['🐧', '🐨', '🦄', '🦊', '🦉', '🦋', '🐳', '🦖', '🐙', '🐸', '🦁', '🐵', '🐰', '🐼', '🐷', '🐻', '🐶', '🐱', '🐭', '🐹', '🐻‍❄️', '🐯', '🐮', '🐴'];
+    cardValues.shuffle();
     
-    // 카드 쌍 생성
+    List<CardModel> tempCards = [];
     for (int i = 0; i < numPairs; i++) {
-      tempCards.add(CardModel(
-        id: i,
-        emoji: _getEmoji(i),
-        name: _getFlagName(i),
-        isMatched: false,
-        isFlipped: false,
-      ));
-      tempCards.add(CardModel(
-        id: i,
-        emoji: _getEmoji(i),
-        name: _getFlagName(i),
-        isMatched: false,
-        isFlipped: false,
-      ));
+      tempCards.add(CardModel(id: i, emoji: cardValues[i]));
+      tempCards.add(CardModel(id: i * 2 + 1, emoji: cardValues[i]));
     }
-    
-    // 카드 섞기
-    tempCards.shuffle(Random());
-    
-    setState(() {
-      cards = tempCards;
-    });
+    tempCards.shuffle();
+    cards = tempCards;
   }
 
   /// 1초마다 남은 시간을 감소시키는 타이머 설정
@@ -202,111 +192,46 @@ class _GameScreenState extends State<GameScreen> {
         firstSelectedIndex = index; // 첫 번째 카드 선택
       } else {
         secondSelectedIndex = index; // 두 번째 카드 선택
-        Future.microtask(_checkMatch); // 매칭 검사 예약
+        Future.delayed(const Duration(milliseconds: 500), _checkMatch); // 매칭 검사 예약
       }
     });
   }
 
   /// 카드 매칭 확인
   void _checkMatch() {
-    final firstCard = cards[firstSelectedIndex!];
-    final secondCard = cards[secondSelectedIndex!];
-    
-    if (firstCard.id == secondCard.id) {
-      // 매칭 성공
-      _handleMatchSuccess();
-    } else {
-      // 매칭 실패
-      _handleMatchFailure();
-    }
-  }
-
-  /// 매칭 성공 처리
-  void _handleMatchSuccess() {
-    soundService.playCardMatch(); // 카드 매치 성공 사운드
-    
-    setState(() {
-      cards[firstSelectedIndex!].isMatched = true;
-      cards[secondSelectedIndex!].isMatched = true;
-      
-      // 점수 증가
-      scoreModel.addMatch();
-      
-      // 연속 매칭 기록 업데이트
-      if (scoreModel.currentCombo > maxCombo) {
-        maxCombo = scoreModel.currentCombo;
-      }
-    });
-    
-    // 선택된 카드 초기화
+    if (firstSelectedIndex == null || secondSelectedIndex == null) return;
+    final a = firstSelectedIndex!, b = secondSelectedIndex!;
     firstSelectedIndex = null;
     secondSelectedIndex = null;
-    
-    // 게임 완료 확인
-    _checkGameCompletion();
-  }
 
-  /// 매칭 실패 처리
-  void _handleMatchFailure() {
-    soundService.playCardMismatch(); // 카드 매치 실패 사운드
-    
-    setState(() {
-      // 실패 횟수 증가
-      scoreModel.addFail();
-    });
-    
-    // 1초 후 카드 뒤집기
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          cards[firstSelectedIndex!].isFlipped = false;
-          cards[secondSelectedIndex!].isFlipped = false;
-          firstSelectedIndex = null;
-          secondSelectedIndex = null;
-        });
-      }
-    });
+    if (mounted) {
+      setState(() {
+        if (cards[a].id == cards[b].id) {
+          soundService.playCardMatch(); // 카드 매치 성공 사운드
+          cards[a] = cards[a].copyWith(isMatched: true);
+          cards[b] = cards[b].copyWith(isMatched: true);
+          scoreModel.addMatch();
+          if (cards.every((c) => c.isMatched)) _gameOver();
+        } else {
+          soundService.playCardMismatch(); // 카드 매치 실패 사운드
+          scoreModel.addFail();
+        }
+      });
+    }
   }
 
   /// 모든 카드가 매칭되었는지 확인 후 게임 종료 처리
-  void _checkGameCompletion() {
-    if (cards.every((c) => c.isMatched)) {
-      isGameRunning = false;
-      gameTimer?.cancel(); // 타이머 중지
-      soundService.stopBackgroundMusic(); // 배경음악 중지
-      soundService.playGameWin(); // 승리 사운드
-      
-      // 게임 기록 저장
-      _saveGameRecord(true);
-      
-      // 0.5초 후 축하 다이얼로그 표시
-      Future.delayed(const Duration(milliseconds: 500), () {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text('축하합니다!'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('모든 카드를 맞췄어요!'),
-                const SizedBox(height: 8),
-                Text('최종 점수: ${scoreModel.score}점'),
-                Text('최고 연속 매칭: ${maxCombo}회'),
-                Text('완료 시간: ${_formatTime()}'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('확인'),
-              ),
-            ],
-          ),
-        );
-      });
-    }
+  void _gameOver() {
+    isGameRunning = false;
+    gameTimer?.cancel(); // 타이머 중지
+    soundService.stopBackgroundMusic(); // 배경음악 중지
+    soundService.playGameWin(); // 승리 사운드
+    
+    // 게임 기록 저장
+    _saveGameRecord(true);
+    
+    // 게임 결과 다이얼로그 표시
+    _showGameResultDialog();
   }
 
   /// 게임 기록 저장
@@ -355,7 +280,7 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('게임 완료!'),
+        title: const Text('축하합니다!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,8 +290,6 @@ class _GameScreenState extends State<GameScreen> {
             Text('최종 점수: ${scoreModel.score}점'),
             Text('최고 연속 매칭: ${maxCombo}회'),
             Text('완료 시간: ${_formatTime()}'),
-            if (scoreModel.score > 0)
-              const Text('새로운 최고 점수!', style: TextStyle(color: Colors.green)),
           ],
         ),
         actions: [
@@ -398,7 +321,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   /// 게임 시작
-  void _startGame() {
+  void _initGame() {
     setState(() {
       _createCards();
       timeLeft = gameTimeSec;
@@ -428,27 +351,11 @@ class _GameScreenState extends State<GameScreen> {
     soundService.stopBackgroundMusic();
   }
 
-  /// 시간 초과 시 게임 오버 처리
-  void _gameOver() {
-    setState(() {
-      isGameRunning = false;
-    });
-    
-    soundService.stopAllSounds();
-    soundService.playGameOverSound();
-    
-    // 게임 기록 저장
-    _saveGameRecord(false);
-    
-    // 게임 결과 다이얼로그 표시
-    _showGameResultDialog();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('싱글 플레이'),
+        title: const Text('혼자 하기'),
         actions: [
           // 일시정지 버튼
           IconButton(
@@ -513,7 +420,7 @@ class _GameScreenState extends State<GameScreen> {
       // 게임 시작 버튼 (플로팅)
       floatingActionButton: !isGameRunning
           ? FloatingActionButton.extended(
-              onPressed: _startGame,
+              onPressed: _initGame,
               icon: const Icon(Icons.play_arrow),
               label: const Text('게임 시작'),
             )

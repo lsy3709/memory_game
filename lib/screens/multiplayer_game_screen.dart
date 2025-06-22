@@ -203,30 +203,34 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     firstSelectedIndex = null;
     secondSelectedIndex = null;
     
-    // 0.7초 후 매칭 결과 처리(뒤집힌 카드 보여주기)
     Future.delayed(const Duration(milliseconds: 700), () {
-      // mounted 상태 확인 후 setState 호출
       if (mounted) {
         setState(() {
           if (cards[a].id == cards[b].id) {
             soundService.playCardMatch();
             cards[a] = cards[a].copyWith(isMatched: true);
             cards[b] = cards[b].copyWith(isMatched: true);
-            players[currentPlayerIndex].scoreModel.addMatchScore(); // 매칭 성공 시 점수 추가
+            players[currentPlayerIndex].scoreModel.addMatchScore();
             
-            // 최고 연속 매칭 기록 업데이트
             if (players[currentPlayerIndex].scoreModel.currentCombo > players[currentPlayerIndex].maxCombo) {
               players[currentPlayerIndex].maxCombo = players[currentPlayerIndex].scoreModel.currentCombo;
             }
+            
+            // 매칭된 카드 정보를 현재 플레이어에게만 추가
+            final cardMatch = CardMatch(
+              pairId: cards[a].id,
+              emoji: cards[a].emoji,
+              matchedAt: DateTime.now(),
+            );
+            players[currentPlayerIndex].cardMatches.add(cardMatch);
             
             _checkGameEnd();
           } else {
             soundService.playCardMismatch();
             cards[a] = cards[a].copyWith(isFlipped: false);
             cards[b] = cards[b].copyWith(isFlipped: false);
-            players[currentPlayerIndex].scoreModel.addFailPenalty(); // 매칭 실패 시 패널티
+            players[currentPlayerIndex].scoreModel.addFailPenalty();
             
-            // 턴 교체
             _switchPlayer();
           }
         });
