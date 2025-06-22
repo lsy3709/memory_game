@@ -1,3 +1,5 @@
+import 'dart:math';
+
 /// 게임 점수 모델
 class ScoreModel {
   int _score = 0;
