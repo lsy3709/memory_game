@@ -810,73 +810,72 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   /// 상단 점수판 위젯
   Widget _buildScorePanel() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // 플레이어 1 정보
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: isMyTurn ? Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+    // 플레이어 정보가 아직 로드되지 않았으면 빈 컨테이너 반환
+    if (players.isEmpty) {
+      return const SizedBox(height: 60);
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Card(
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Text(
-                    currentPlayerName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  _buildPlayerScore(players[0]),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('남은 시간', style: TextStyle(fontSize: 14)),
+                      Text(
+                        _formatTime(),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '점수: $currentPlayerScore',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                    ),
-                  ),
+                  _buildPlayerScore(players[1]),
                 ],
               ),
-            ),
+              const SizedBox(height: 8),
+              Text(
+                '현재 턴: ${players[currentPlayerIndex].playerName}',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
+              )
+            ],
           ),
-          const SizedBox(width: 4),
-          // 플레이어 2 정보
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: !isMyTurn ? Colors.orange.withOpacity(0.3) : Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    opponentPlayerName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    '점수: $opponentPlayerScore',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayerScore(Player player) {
+    bool isCurrentTurn = players[currentPlayerIndex].id == player.id;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isCurrentTurn ? Colors.blue.shade100 : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: isCurrentTurn ? Border.all(color: Colors.blue, width: 2) : null,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            player.playerName,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '점수: ${player.score}',
+            style: const TextStyle(fontSize: 14),
           ),
         ],
       ),
