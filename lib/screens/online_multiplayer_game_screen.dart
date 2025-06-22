@@ -365,57 +365,19 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
         firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
         
-        // 턴 변경 - 강제 실행
-        _forceTurnChange();
+        // 턴 변경 - 즉시 실행
+        _executeTurnChange();
       }
     });
   }
   
-  void _handleTurnChange(Map<String, dynamic>? turnData) {
-    if (!mounted || turnData == null) return;
-    
-    final actionId = turnData['id'] as String;
-    if (_processedActionIds.contains(actionId)) {
-      print('이미 처리된 턴 변경 액션: $actionId');
-      return;
-    }
-
-    final nextPlayerId = turnData['nextPlayerId'] as String;
-    print('턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId');
-    print('현재 플레이어 ID: $currentPlayerId');
-    print('내 턴 여부: ${nextPlayerId == currentPlayerId}');
-    
-    // 강제로 상태 업데이트
-    if (mounted) {
-      setState(() {
-        currentTurnPlayerId = nextPlayerId;
-        
-        // 내 턴이 시작되면 카드 선택 상태 초기화
-        if (nextPlayerId == currentPlayerId) {
-          firstSelectedIndex = null;
-          secondSelectedIndex = null;
-          isProcessingCardSelection = false;
-          print('내 턴 시작 - 카드 선택 상태 초기화');
-        }
-      });
-      
-      // 턴 변경 후 상태 확인
-      print('턴 변경 완료 - 현재 턴: $currentTurnPlayerId, 내 턴: ${currentTurnPlayerId == currentPlayerId}');
-    }
-
-    _processedActionIds.add(actionId);
-  }
-
-  void _forceTurnChange() {
-    print('강제 턴 변경 시작');
+  void _executeTurnChange() {
+    print('=== 턴 변경 실행 시작 ===');
     print('현재 플레이어 데이터: $playersData');
     print('현재 턴 플레이어: $currentTurnPlayerId');
+    print('현재 플레이어 ID: $currentPlayerId');
     
-    if (playersData.length < 2) {
-      print('플레이어가 2명 미만이므로 턴 변경 안함');
-      return;
-    }
-    
+    // 유효한 플레이어 목록 생성
     final validPlayerIds = playersData.keys.where((id) => id != 'waiting').toList();
     print('유효한 플레이어 ID 목록: $validPlayerIds');
     
@@ -424,27 +386,37 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       return;
     }
     
+    // 현재 턴 플레이어의 인덱스 찾기
     final currentPlayerIndex = validPlayerIds.indexOf(currentTurnPlayerId);
     print('현재 턴 플레이어 인덱스: $currentPlayerIndex');
     
+    if (currentPlayerIndex == -1) {
+      print('현재 턴 플레이어를 찾을 수 없음. 첫 번째 플레이어로 설정');
+      if (mounted) {
+        setState(() {
+          currentTurnPlayerId = validPlayerIds.first;
+        });
+      }
+      return;
+    }
+    
+    // 다음 플레이어 계산
     final nextPlayerIndex = (currentPlayerIndex + 1) % validPlayerIds.length;
     final nextPlayerId = validPlayerIds[nextPlayerIndex];
     
-    print('강제 턴 변경: $currentTurnPlayerId -> $nextPlayerId');
-    print('유효한 플레이어 목록: $validPlayerIds');
-    print('현재 플레이어: $currentPlayerId, 다음 턴: $nextPlayerId');
+    print('턴 변경 계산: $currentTurnPlayerId (인덱스: $currentPlayerIndex) -> $nextPlayerId (인덱스: $nextPlayerIndex)');
     
-    // 로컬 상태 강제 업데이트
+    // 로컬 상태 업데이트
     if (mounted) {
       setState(() {
         currentTurnPlayerId = nextPlayerId;
-        // 카드 선택 상태 초기화
         firstSelectedIndex = null;
         secondSelectedIndex = null;
         isProcessingCardSelection = false;
       });
       
       print('로컬 상태 업데이트 완료 - 새로운 턴: $currentTurnPlayerId');
+      print('내 턴 여부: ${nextPlayerId == currentPlayerId}');
     }
     
     // Firebase에 턴 변경 전송
@@ -456,8 +428,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
   }
   
+  void _forceTurnChange() {
+    print('=== 강제 턴 변경 시작 ===');
+    _executeTurnChange();
+  }
+  
   void _changeTurn() {
-    _forceTurnChange();
+    print('=== 일반 턴 변경 시작 ===');
+    _executeTurnChange();
   }
 
   void _gameOver({String? message}) {
@@ -587,6 +565,41 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
   }
 
+  void _handleTurnChange(Map<String, dynamic>? turnData) {
+    if (!mounted || turnData == null) return;
+    
+    final actionId = turnData['id'] as String;
+    if (_processedActionIds.contains(actionId)) {
+      print('이미 처리된 턴 변경 액션: $actionId');
+      return;
+    }
+
+    final nextPlayerId = turnData['nextPlayerId'] as String;
+    print('턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId');
+    print('현재 플레이어 ID: $currentPlayerId');
+    print('내 턴 여부: ${nextPlayerId == currentPlayerId}');
+    
+    // 강제로 상태 업데이트
+    if (mounted) {
+      setState(() {
+        currentTurnPlayerId = nextPlayerId;
+        
+        // 내 턴이 시작되면 카드 선택 상태 초기화
+        if (nextPlayerId == currentPlayerId) {
+          firstSelectedIndex = null;
+          secondSelectedIndex = null;
+          isProcessingCardSelection = false;
+          print('내 턴 시작 - 카드 선택 상태 초기화');
+        }
+      });
+      
+      // 턴 변경 후 상태 확인
+      print('턴 변경 완료 - 현재 턴: $currentTurnPlayerId, 내 턴: ${currentTurnPlayerId == currentPlayerId}');
+    }
+
+    _processedActionIds.add(actionId);
+  }
+
   void _showErrorDialog(String message) {
     if (!mounted) return;
     showDialog(
@@ -612,13 +625,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   @override
   Widget build(BuildContext context) {
-    // 화면 크기 정보 가져오기
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-    
-    print('화면 크기: ${screenWidth.toInt()} x ${screenHeight.toInt()}');
-    
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
@@ -676,45 +682,49 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     final availableWidth = constraints.maxWidth;
                     final availableHeight = constraints.maxHeight;
                     
+                    print('=== 카드 레이아웃 계산 ===');
                     print('사용 가능한 공간: ${availableWidth.toInt()} x ${availableHeight.toInt()}');
                     
-                    // 고정된 카드 크기 계산 (최소 크기 보장)
-                    final minCardWidth = 50.0;
-                    final minCardHeight = 60.0;
+                    // 카드 간격과 패딩 설정
+                    const cardMargin = 4.0; // 카드 간 간격
+                    const containerPadding = 8.0; // 컨테이너 패딩
                     
-                    // 사용 가능한 공간을 6x8로 분할 (패딩 고려)
-                    final padding = 8.0;
-                    final spacing = 2.0;
-                    final cardAreaWidth = availableWidth - (padding * 2) - (spacing * (cols - 1));
-                    final cardAreaHeight = availableHeight - (padding * 2) - (spacing * (rows - 1));
+                    // 실제 카드가 배치될 영역 계산
+                    final cardAreaWidth = availableWidth - (containerPadding * 2) - (cardMargin * (cols - 1));
+                    final cardAreaHeight = availableHeight - (containerPadding * 2) - (cardMargin * (rows - 1));
                     
+                    print('카드 영역: ${cardAreaWidth.toInt()} x ${cardAreaHeight.toInt()}');
+                    
+                    // 개별 카드 크기 계산
                     final cardWidth = cardAreaWidth / cols;
                     final cardHeight = cardAreaHeight / rows;
                     
-                    // 최소 크기 보장
-                    final finalCardWidth = cardWidth < minCardWidth ? minCardWidth : cardWidth;
-                    final finalCardHeight = cardHeight < minCardHeight ? minCardHeight : cardHeight;
-                    
-                    print('카드 크기: ${finalCardWidth.toInt()} x ${finalCardHeight.toInt()}');
-                    print('총 카드 수: $totalCards (${cols}x${rows})');
+                    print('개별 카드 크기: ${cardWidth.toInt()} x ${cardHeight.toInt()}');
                     
                     // 카드의 종횡비 계산
-                    final cardAspectRatio = finalCardWidth / finalCardHeight;
+                    final cardAspectRatio = cardWidth / cardHeight;
+                    print('카드 종횡비: ${cardAspectRatio.toStringAsFixed(3)}');
                     
-                    print('카드 종횡비: ${cardAspectRatio.toStringAsFixed(2)}');
+                    // 최소 크기 보장
+                    final minCardWidth = 40.0;
+                    final minCardHeight = 50.0;
+                    
+                    if (cardWidth < minCardWidth || cardHeight < minCardHeight) {
+                      print('경고: 카드가 너무 작습니다. 스크롤이 필요할 수 있습니다.');
+                    }
 
                     return Container(
                       width: availableWidth,
                       height: availableHeight,
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(containerPadding),
                       child: GridView.builder(
                         physics: const NeverScrollableScrollPhysics(),
                         shrinkWrap: true,
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: cols,
                           childAspectRatio: cardAspectRatio,
-                          crossAxisSpacing: spacing,
-                          mainAxisSpacing: spacing,
+                          crossAxisSpacing: cardMargin,
+                          mainAxisSpacing: cardMargin,
                         ),
                         itemCount: totalCards,
                         itemBuilder: (context, index) {
@@ -727,7 +737,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                                 border: Border.all(color: Colors.red),
                               ),
                               child: const Center(
-                                child: Text('오류', style: TextStyle(color: Colors.red)),
+                                child: Text('오류', style: TextStyle(color: Colors.red, fontSize: 10)),
                               ),
                             );
                           }
@@ -735,6 +745,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                           return MemoryCard(
                             card: cards[index],
                             onTap: () => onCardPressed(index),
+                            cardWidth: cardWidth,
+                            cardHeight: cardHeight,
                           );
                         },
                       ),
