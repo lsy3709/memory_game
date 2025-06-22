@@ -230,7 +230,7 @@ class _GameScreenState extends State<GameScreen> {
           if (cards.every((c) => c.isMatched)) _gameOver();
         } else {
           soundService.playCardMismatch(); // 카드 매치 실패 사운드
-          scoreModel.addFail();
+          scoreModel.addFailPenalty();
           cards[a] = cards[a].copyWith(isFlipped: false);
           cards[b] = cards[b].copyWith(isFlipped: false);
         }

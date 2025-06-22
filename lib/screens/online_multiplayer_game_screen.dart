@@ -433,8 +433,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       // 기본 매칭 점수 100점
       int matchScore = 100;
       
-      // 콤보 보너스 점수 (콤보당 10점 추가)
-      int comboBonus = (player.combo - 1) * 10;
+      // 콤보 보너스 점수 (2콤보부터 적용, 콤보당 10점 추가)
+      int comboBonus = 0;
+      if (player.combo >= 2) {
+        comboBonus = (player.combo - 1) * 10;
+      }
       
       // 총 점수 계산
       int totalScore = matchScore + comboBonus;
@@ -484,8 +487,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     final player = playersData[currentPlayerId];
     if(player != null) {
-      // 매칭 실패 시 -10점
-      player.score -= 10;
+      // 매칭 실패 시 -10점 (0점인 경우는 적용하지 않음)
+      if (player.score > 0) {
+        player.score = (player.score - 10).clamp(0, double.infinity).toInt();
+      }
       player.combo = 0; // 콤보 리셋
       player.failCount++;
       

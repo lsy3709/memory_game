@@ -49,14 +49,45 @@ class ScoreModel {
   /// 매치 성공
   void addMatch() {
     _matchCount++;
-    addScore(10);
+    _currentCombo++;
+    if (_currentCombo > _maxCombo) {
+      _maxCombo = _currentCombo;
+    }
+    
+    // 기본 매칭 점수 100점
+    int matchScore = 100;
+    
+    // 콤보 보너스 점수 (2콤보부터 적용, 콤보당 10점 추가)
+    int comboBonus = 0;
+    if (_currentCombo >= 2) {
+      comboBonus = (_currentCombo - 1) * 10;
+    }
+    
+    // 총 점수 계산
+    int totalScore = matchScore + comboBonus;
+    _score += totalScore;
   }
 
   /// 매치 성공 (기존 메서드명 호환성)
   void addMatchScore() {
     _matchCount++;
     _currentCombo++;
-    _score += 100 + (_currentCombo * 10);
+    if (_currentCombo > _maxCombo) {
+      _maxCombo = _currentCombo;
+    }
+    
+    // 기본 매칭 점수 100점
+    int matchScore = 100;
+    
+    // 콤보 보너스 점수 (2콤보부터 적용, 콤보당 10점 추가)
+    int comboBonus = 0;
+    if (_currentCombo >= 2) {
+      comboBonus = (_currentCombo - 1) * 10;
+    }
+    
+    // 총 점수 계산
+    int totalScore = matchScore + comboBonus;
+    _score += totalScore;
   }
 
   /// 매치 실패
@@ -69,7 +100,10 @@ class ScoreModel {
   void addFailPenalty() {
     _failCount++;
     _currentCombo = 0;
-    _score = max(0, _score - 10); // 음수 점수 방지
+    // 미스매칭 시 -10점 (0점인 경우는 적용하지 않음)
+    if (_score > 0) {
+      _score = max(0, _score - 10);
+    }
   }
 
   /// 시간 설정
