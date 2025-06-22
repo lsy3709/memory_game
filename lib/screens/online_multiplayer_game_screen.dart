@@ -307,8 +307,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
         firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
         
-        // 턴 변경
-        _changeTurn();
+        // 턴 변경 - 약간의 지연 후 실행
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            _changeTurn();
+          }
+        });
       }
     });
   }
@@ -329,10 +333,22 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final nextPlayerIndex = (currentPlayerIndex + 1) % validPlayerIds.length;
     final nextPlayerId = validPlayerIds[nextPlayerIndex];
     
-    print('턴 변경: $currentTurnPlayerId -> $nextPlayerId');
+    print('턴 변경 시도: $currentTurnPlayerId -> $nextPlayerId');
+    print('유효한 플레이어 목록: $validPlayerIds');
     print('현재 플레이어: $currentPlayerId, 다음 턴: $nextPlayerId');
     
-    firebaseService.syncTurnChange(currentRoom.id, currentTurnPlayerId, nextPlayerId);
+    // 로컬 상태 먼저 업데이트
+    setState(() {
+      currentTurnPlayerId = nextPlayerId;
+    });
+    
+    // Firebase에 턴 변경 전송
+    try {
+      firebaseService.syncTurnChange(currentRoom.id, currentTurnPlayerId, nextPlayerId);
+      print('턴 변경 Firebase 전송 완료');
+    } catch (e) {
+      print('턴 변경 Firebase 전송 실패: $e');
+    }
   }
 
   void _gameOver({String? message}) {
@@ -514,6 +530,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   @override
   Widget build(BuildContext context) {
+    // 화면 크기 정보 가져오기
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    
+    print('화면 크기: ${screenWidth.toInt()} x ${screenHeight.toInt()}');
+    
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
@@ -558,43 +581,44 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               Expanded(
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
-                    // 화면 크기에 맞춰 카드 크기 계산 (최적화)
+                    // 헤더 영역을 제외한 실제 사용 가능한 공간
                     final availableWidth = constraints.maxWidth;
                     final availableHeight = constraints.maxHeight;
                     
-                    // 최소 패딩과 간격 설정
-                    const minPadding = 4.0;
-                    const minSpacing = 2.0;
+                    print('사용 가능한 공간: ${availableWidth.toInt()} x ${availableHeight.toInt()}');
                     
-                    // 사용 가능한 공간 계산
-                    final usableWidth = availableWidth - (minPadding * 2) - (minSpacing * (cols - 1));
-                    final usableHeight = availableHeight - (minPadding * 2) - (minSpacing * (rows - 1));
+                    // 카드 영역을 정확히 6x8로 분할
+                    final cardWidth = availableWidth / cols;
+                    final cardHeight = availableHeight / rows;
                     
-                    // 카드 크기 계산
-                    final cardWidth = usableWidth / cols;
-                    final cardHeight = usableHeight / rows;
+                    print('카드 크기: ${cardWidth.toInt()} x ${cardHeight.toInt()}');
                     
-                    // 카드의 종횡비 계산 (최소 0.8, 최대 1.2로 제한)
-                    final cardAspectRatio = (cardWidth / cardHeight).clamp(0.8, 1.2);
+                    // 카드의 종횡비 계산
+                    final cardAspectRatio = cardWidth / cardHeight;
+                    
+                    print('카드 종횡비: ${cardAspectRatio.toStringAsFixed(2)}');
 
-                    return Padding(
-                      padding: const EdgeInsets.all(minPadding),
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: cols,
-                          childAspectRatio: cardAspectRatio,
-                          crossAxisSpacing: minSpacing,
-                          mainAxisSpacing: minSpacing,
-                        ),
-                        itemCount: totalCards,
-                        itemBuilder: (context, index) {
-                          return MemoryCard(
+                    return GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero, // 패딩 제거
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: cols,
+                        childAspectRatio: cardAspectRatio,
+                        crossAxisSpacing: 0, // 간격 제거
+                        mainAxisSpacing: 0, // 간격 제거
+                      ),
+                      itemCount: totalCards,
+                      itemBuilder: (context, index) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300, width: 0.5),
+                          ),
+                          child: MemoryCard(
                             card: cards[index],
                             onTap: () => onCardPressed(index),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
