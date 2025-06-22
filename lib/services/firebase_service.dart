@@ -1488,7 +1488,7 @@ class FirebaseService {
   }
 
   /// 카드 매칭 동기화 - 최적화된 버전
-  Future<void> syncCardMatch(String roomId, int cardIndex1, int cardIndex2, bool isMatched, String playerId, [int? score]) async {
+  Future<void> syncCardMatch(String roomId, int cardIndex1, int cardIndex2, bool isMatched, String playerId, [int? score, int? combo, int? matchCount, int? failCount, int? maxCombo]) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
       throw Exception('Firebase가 초기화되지 않았습니다.');
@@ -1507,14 +1507,28 @@ class FirebaseService {
         'clientTimestamp': FieldValue.serverTimestamp(), // 서버 타임스탬프도 함께 저장
       };
       
-      // 점수 정보가 있으면 추가
+      // 플레이어 상세 정보 추가
       if (score != null) {
         matchData['score'] = score;
+      }
+      if (combo != null) {
+        matchData['combo'] = combo;
+      }
+      if (matchCount != null) {
+        matchData['matchCount'] = matchCount;
+      }
+      if (failCount != null) {
+        matchData['failCount'] = failCount;
+      }
+      if (maxCombo != null) {
+        matchData['maxCombo'] = maxCombo;
       }
       
       await _firestore!.collection('online_rooms').doc(roomId)
           .collection('card_matches')
           .add(matchData);
+      
+      print('카드 매칭 동기화 완료: 플레이어=$playerId, 매칭=$isMatched, 점수=$score, 콤보=$combo');
       
     } catch (e) {
       print('카드 매칭 동기화 오류: $e');

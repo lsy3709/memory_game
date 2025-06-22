@@ -348,6 +348,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (currentRoom.isHost(currentPlayerId)) {
         firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
     }
+    
+    print('게임 시작! 총 카드 수: ${cards.length}, 매칭해야 할 쌍: ${cards.length ~/ 2}');
   }
 
   void _updateTimer(Timer timer) {
@@ -500,11 +502,31 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       isProcessingCardSelection = false;
     });
 
-    firebaseService.syncCardMatch(currentRoom.id, index1, index2, true, currentPlayerId, player?.score);
+    firebaseService.syncCardMatch(
+      currentRoom.id, 
+      index1, 
+      index2, 
+      true, 
+      currentPlayerId, 
+      player?.score,
+      player?.combo,
+      player?.matchCount,
+      player?.failCount,
+      player?.maxCombo,
+    );
 
-    // 게임 종료 조건 확인
-    if (cards.every((card) => card.isMatched)) {
-      _gameOver(message: "모든 카드를 맞췄습니다!");
+    // 게임 종료 조건 확인 - 모든 카드가 매칭되었는지 확인
+    final matchedCards = cards.where((card) => card.isMatched).length;
+    final totalCards = cards.length;
+    print('매칭된 카드: $matchedCards / $totalCards');
+    
+    if (matchedCards == totalCards) {
+      print('모든 카드가 매칭됨 - 게임 종료!');
+      print('최종 게임 상태:');
+      for (final player in playersData.values) {
+        print('  ${player.name}: 점수=${player.score}, 콤보=${player.combo}, 성공=${player.matchCount}, 실패=${player.failCount}, 최대콤보=${player.maxCombo}');
+      }
+      _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
       return;
     }
 
@@ -535,7 +557,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
 
     // 매칭 실패도 Firebase에 동기화
-    firebaseService.syncCardMatch(currentRoom.id, index1, index2, false, currentPlayerId, player?.score);
+    firebaseService.syncCardMatch(
+      currentRoom.id, 
+      index1, 
+      index2, 
+      false, 
+      currentPlayerId, 
+      player?.score,
+      player?.combo,
+      player?.matchCount,
+      player?.failCount,
+      player?.maxCombo,
+    );
 
     // 매칭 실패 시 카드를 다시 뒤집는 동기화 (복원)
     firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
@@ -618,39 +651,122 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         barrierDismissible: false,
         builder: (context) => AlertDialog(
           title: Text(message ?? "게임 종료!"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("승자: ${winner?.name ?? '무승부'}", 
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: winner != null ? Colors.green.shade700 : Colors.grey.shade700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              ...playersData.values.map((p) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("${p.name}: ${p.score}점", 
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 승자 표시
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: winner != null ? Colors.green.shade50 : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: winner != null ? Colors.green.shade200 : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Text(
+                    winner != null ? "🏆 승자: ${winner.name} 🏆" : "🤝 무승부 🤝",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: p.id == winner?.id ? Colors.green.shade700 : Colors.black87,
+                      color: winner != null ? Colors.green.shade800 : Colors.grey.shade800,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // 각 플레이어의 상세 결과
+                ...playersData.values.map((p) => Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: p.id == winner?.id ? Colors.green.shade50 : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: p.id == winner?.id ? Colors.green.shade300 : Colors.grey.shade300,
+                      width: p.id == winner?.id ? 2 : 1,
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16.0),
-                    child: Text(
-                      "성공: ${p.matchCount}회 | 실패: ${p.failCount}회 | 최대콤보: ${p.maxCombo}",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            p.name,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: p.id == winner?.id ? Colors.green.shade800 : Colors.black87,
+                            ),
+                          ),
+                          if (p.id == currentPlayerId) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '나',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.blue.shade800,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (p.id == winner?.id) ...[
+                            const SizedBox(width: 8),
+                            const Text('👑', style: TextStyle(fontSize: 16)),
+                          ],
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      // 점수 정보
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildStatItem('점수', '${p.score}', Colors.blue.shade700),
+                          _buildStatItem('콤보', '${p.combo}', Colors.orange.shade700),
+                          _buildStatItem('최대콤보', '${p.maxCombo}', Colors.purple.shade700),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // 매칭/실패 정보
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildStatItem('성공', '${p.matchCount}', Colors.green.shade700),
+                          _buildStatItem('실패', '${p.failCount}', Colors.red.shade700),
+                          _buildStatItem('정확도', '${p.matchCount + p.failCount > 0 ? ((p.matchCount / (p.matchCount + p.failCount)) * 100).round() : 0}%', Colors.indigo.shade700),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                ],
-              )).toList(),
-            ],
+                )).toList(),
+                const SizedBox(height: 16),
+                // 게임 시간 정보
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '게임 시간: ${_formatGameTime()}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -671,6 +787,33 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           print('게임 종료 시 방 상태 업데이트 오류: $e');
         });
     }
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.grey.shade600,
+          ),
+        ),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatGameTime() {
+    final totalTime = gameTimeSec - timeLeft;
+    final minutes = (totalTime / 60).floor();
+    final seconds = totalTime % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   PlayerGameData? _getWinner() {
@@ -755,7 +898,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final index1 = match['cardIndex1'] as int;
         final index2 = match['cardIndex2'] as int;
         final isMatch = match['isMatch'] as bool;
+        
+        // 상대방의 상세 정보 받기
         final score = match['score'] as int?;
+        final combo = match['combo'] as int?;
+        final matchCount = match['matchCount'] as int?;
+        final failCount = match['failCount'] as int?;
+        final maxCombo = match['maxCombo'] as int?;
 
         if (index1 >= 0 && index1 < cards.length && index2 >= 0 && index2 < cards.length) {
             if (isMatch) {
@@ -769,43 +918,54 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
                 final player = playersData[playerId];
                 if (player != null) {
-                    player.combo++;
-                    player.matchCount++;
-                    
-                    // 기본 매칭 점수 100점
-                    int matchScore = 100;
-                    
-                    // 콤보 보너스 점수 (콤보당 10점 추가)
-                    int comboBonus = (player.combo - 1) * 10;
-                    
-                    // 총 점수 계산
-                    int totalScore = matchScore + comboBonus;
-                    player.score = score ?? (player.score + totalScore);
-                    
-                    if(player.combo > player.maxCombo) {
-                        player.maxCombo = player.combo;
-                    }
+                    // 상대방의 상세 정보로 업데이트
+                    if (score != null) player.score = score;
+                    if (combo != null) player.combo = combo;
+                    if (matchCount != null) player.matchCount = matchCount;
+                    if (failCount != null) player.failCount = failCount;
+                    if (maxCombo != null) player.maxCombo = maxCombo;
                     
                     // 콤보 점수 표시 (다른 플레이어)
-                    String scoreMessage = '${player.name}: +$matchScore';
-                    if (comboBonus > 0) {
-                        scoreMessage += ' + 콤보보너스 $comboBonus';
-                    }
+                    String scoreMessage = '${player.name}: +100';
                     if (player.combo > 1) {
+                        int comboBonus = (player.combo - 1) * 10;
+                        scoreMessage += ' + 콤보보너스 $comboBonus';
                         scoreMessage += ' (${player.combo}콤보!)';
                     }
                     _showComboScore(scoreMessage);
+                    
+                    print('상대방 매칭 성공: ${player.name} - 점수: ${player.score}, 콤보: ${player.combo}, 성공: ${player.matchCount}');
+                }
+                
+                // 게임 종료 조건 확인 (상대방 매칭 성공 시에도)
+                final matchedCards = cards.where((card) => card.isMatched).length;
+                final totalCards = cards.length;
+                print('상대방 매칭 후 카드 상태: $matchedCards / $totalCards');
+                
+                if (matchedCards == totalCards) {
+                    print('상대방이 모든 카드를 매칭함 - 게임 종료!');
+                    print('최종 게임 상태 (상대방 매칭 완료):');
+                    for (final player in playersData.values) {
+                      print('  ${player.name}: 점수=${player.score}, 콤보=${player.combo}, 성공=${player.matchCount}, 실패=${player.failCount}, 최대콤보=${player.maxCombo}');
+                    }
+                    _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
+                    return;
                 }
             } else {
                 // 매칭 실패 - 지연된 처리로 동기화 개선
                 final player = playersData[playerId];
                 if (player != null) {
-                    player.score = score ?? (player.score - 10);
-                    player.combo = 0; // 콤보 리셋
-                    player.failCount++;
+                    // 상대방의 상세 정보로 업데이트
+                    if (score != null) player.score = score;
+                    if (combo != null) player.combo = combo;
+                    if (matchCount != null) player.matchCount = matchCount;
+                    if (failCount != null) player.failCount = failCount;
+                    if (maxCombo != null) player.maxCombo = maxCombo;
                     
                     // 실패 점수 표시 (다른 플레이어)
                     _showComboScore('${player.name}: -10 (콤보 리셋)', isSuccess: false);
+                    
+                    print('상대방 매칭 실패: ${player.name} - 점수: ${player.score}, 콤보: ${player.combo}, 실패: ${player.failCount}');
                 }
                 
                 // 지연된 카드 뒤집기로 동기화 개선
@@ -1133,6 +1293,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   '내 턴: ${isMyTurn ? "✅ 예" : "❌ 아니오"} | 플레이어 수: ${playersData.length} | 턴 ID: $currentTurnPlayerId',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                // 디버그 정보 추가
+                Text(
+                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: ${cards.where((c) => c.isMatched).length}/${cards.length}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade500,
+                    fontSize: 10,
                   ),
                   textAlign: TextAlign.center,
                 ),
