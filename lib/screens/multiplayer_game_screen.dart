@@ -607,7 +607,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '현재 턴: ${players[currentPlayerIndex].playerName}',
+                '현재 턴: ${currentPlayerIndex == 0 ? widget.player1Name : widget.player2Name}',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -621,7 +621,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     );
   }
 
-  Widget _buildPlayerScore(Player player, String name) {
+  Widget _buildPlayerScore(PlayerGameData player, String name) {
     bool isCurrentTurn = players[currentPlayerIndex] == player;
     return Container(
       padding: const EdgeInsets.all(8),

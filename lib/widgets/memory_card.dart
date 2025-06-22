@@ -65,7 +65,7 @@ class MemoryCard extends StatelessWidget {
                           ),
                           SizedBox(height: cardHeight * 0.05),
                           Text(
-                            card.name,
+                            card.name ?? '',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: fontSize,
