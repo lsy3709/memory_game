@@ -25,88 +25,85 @@ class MemoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: isEnabled && !card.isMatched ? onTap : null,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // 제공된 크기 또는 제약 조건에서 크기 가져오기
-          final double actualCardWidth = cardWidth ?? constraints.maxWidth;
-          final double actualCardHeight = cardHeight ?? constraints.maxHeight;
-          
-          // 카드 크기에 따른 요소 크기 계산
-          final double iconSize = (actualCardHeight * 0.35).clamp(12.0, 32.0);
-          final double fontSize = (actualCardHeight * 0.10).clamp(6.0, 10.0);
-          final double padding = (actualCardHeight * 0.05).clamp(1.0, 4.0);
-          final double borderRadius = (actualCardHeight * 0.08).clamp(2.0, 6.0);
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8.0),
+          color: card.isMatched
+              ? Colors.green.shade100
+              : card.isFlipped
+                  ? Colors.white
+                  : Colors.blue.shade600,
+          border: Border.all(
+            color: card.isMatched ? Colors.green.shade400 : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 2,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: card.isFlipped
+            ? _buildCardFace()
+            : _buildCardBack(),
+      ),
+    );
+  }
 
-          return Container(
-            width: actualCardWidth,
-            height: actualCardHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(borderRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 1,
-                  offset: const Offset(0, 1),
+  Widget _buildCardFace() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          flex: 8,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Text(
+                  card.emoji,
+                  style: const TextStyle(fontSize: 100), // 큰 기본값, FittedBox가 줄여줌
                 ),
-              ],
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(borderRadius),
-                color: card.isMatched
-                    ? Colors.green.shade100
-                    : card.isFlipped
-                    ? Colors.white
-                    : Colors.blue.shade600,
-                border: card.isMatched
-                    ? Border.all(color: Colors.green, width: 1)
-                    : null,
-              ),
-              child: Center(
-                child: card.isFlipped
-                    ? Padding(
-                        padding: EdgeInsets.all(padding),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                card.emoji,
-                                style: TextStyle(fontSize: iconSize),
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (card.name != null && card.name!.isNotEmpty) ...[
-                              SizedBox(height: actualCardHeight * 0.02),
-                              Flexible(
-                                child: Text(
-                                  card.name!,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: fontSize,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      )
-                    : Icon(
-                        Icons.question_mark,
-                        color: Colors.white,
-                        size: iconSize,
-                      ),
               ),
             ),
-          );
-        },
+          ),
+        ),
+        if (card.name != null && card.name!.isNotEmpty)
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                  child: Text(
+                    card.name!,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20, // 큰 기본값, FittedBox가 줄여줌
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCardBack() {
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Icon(Icons.question_mark, color: Colors.white, size: 100),
+        ),
       ),
     );
   }
