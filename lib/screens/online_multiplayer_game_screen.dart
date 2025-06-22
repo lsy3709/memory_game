@@ -743,231 +743,140 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-    
-    // 고정 그리드 크기: 가로 6 x 세로 8
-    const int gridColumns = 6;
-    const int gridRows = 8;
-    const int totalCards = gridColumns * gridRows; // 48개 카드
-    
-    // 레이아웃 계산 - 더 효율적인 공간 활용
-    final headerHeight = 60.0; // 헤더 높이
-    final controlHeight = 60.0; // 컨트롤 영역 높이
-    final padding = 16.0; // 패딩
-    final availableHeight = screenHeight - headerHeight - controlHeight - padding;
-    
-    // 카드 간격 최소화
-    const cardSpacing = 2.0; // 카드 간격을 2px로 고정
-    
-    // 가용 그리드 영역 계산
-    final availableGridWidth = screenWidth - padding - (gridColumns - 1) * cardSpacing;
-    final availableGridHeight = availableHeight - (gridRows - 1) * cardSpacing;
-    
-    // 카드 크기 계산 - 높이 기준으로 계산
-    final cardHeight = availableGridHeight / gridRows;
-    final cardWidth = availableGridWidth / gridColumns;
-    
-    // 카드 크기 결정 - 높이와 너비 중 작은 값 사용 (정사각형 유지)
-    final cardSize = cardHeight < cardWidth ? cardHeight : cardWidth;
-    
-    // 최소/최대 카드 크기 제한
-    final finalCardSize = cardSize.clamp(30.0, 80.0);
-    
-    // 실제 그리드 크기 계산
-    final actualGridWidth = (finalCardSize * gridColumns) + ((gridColumns - 1) * cardSpacing);
-    final actualGridHeight = (finalCardSize * gridRows) + ((gridRows - 1) * cardSpacing);
-    
-    // 스크롤 필요 여부 확인
-    final needsScroll = screenWidth < 412 || screenHeight < 732;
-    
     return Scaffold(
       appBar: AppBar(
-        title: Text(currentRoom.roomName),
-        centerTitle: true,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        title: Text(widget.room.roomName),
         actions: [
           IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: () => _showExitDialog(),
+            icon: Icon(isTimerPaused ? Icons.play_arrow : Icons.pause),
+            onPressed: _togglePause,
+            tooltip: isTimerPaused ? '계속하기' : '일시정지',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _restartGame,
+            tooltip: '다시 시작',
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue, Colors.purple],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // 게임 정보 헤더 (고정 높이)
-              Container(
-                height: headerHeight,
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // 플레이어 1 정보
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: isMyTurn ? Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              currentPlayerName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              '점수: $currentPlayerScore',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 상단 정보 패널 (점수판)
+            _buildScorePanel(),
+            // 반응형 카드 그리드
+            Expanded(
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final double screenWidth = constraints.maxWidth;
+                  const double spacing = 4.0;
+                  final double itemWidth = (screenWidth - (spacing * (cols + 1))) / cols;
+                  final double itemHeight = itemWidth * 1.4;
+                  final double childAspectRatio = itemWidth / itemHeight;
+
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(spacing),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: cols,
+                      childAspectRatio: childAspectRatio,
+                      crossAxisSpacing: spacing,
+                      mainAxisSpacing: spacing,
                     ),
-                    const SizedBox(width: 4),
-                    // 플레이어 2 정보
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: !isMyTurn ? Colors.orange.withOpacity(0.3) : Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              opponentPlayerName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              '점수: $opponentPlayerScore',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                    itemCount: totalCards,
+                    itemBuilder: (context, index) {
+                      return MemoryCard(
+                        card: cards[index],
+                        onTap: () => _onCardTap(index),
+                      );
+                    },
+                  );
+                },
               ),
-              
-              // 카드 그리드 (고정 6x8 레이아웃)
-              if (isGameRunning)
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    child: Center(
-                      child: SizedBox(
-                        width: actualGridWidth,
-                        height: actualGridHeight,
-                        child: GridView.builder(
-                          // 그리드가 화면보다 클 때만 스크롤 활성화
-                          physics: needsScroll
-                              ? const AlwaysScrollableScrollPhysics()
-                              : const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: gridColumns,
-                            childAspectRatio: 1.0, // 정사각형 카드
-                            crossAxisSpacing: cardSpacing,
-                            mainAxisSpacing: cardSpacing,
-                          ),
-                          itemCount: cards.length,
-                          itemBuilder: (context, index) {
-                            return SizedBox(
-                              width: finalCardSize,
-                              height: finalCardSize,
-                              child: MemoryCard(
-                                card: cards[index],
-                                onTap: () => _onCardTap(index),
-                                isEnabled: isMyTurn && isGameRunning,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              // 게임 완료 메시지
-              if (!isGameRunning && gameCompleted)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Text(
-                        '게임 완료!',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '최고 연속 매칭: $maxCombo',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // 게임 컨트롤
-              _buildGameControls(),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+      // 게임 시작 버튼 (플로팅)
+      floatingActionButton: !isGameRunning
+          ? FloatingActionButton.extended(
+              onPressed: _startGame,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('게임 시작'),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
-  /// 게임 컨트롤 위젯
-  Widget _buildGameControls() {
+  /// 상단 점수판 위젯
+  Widget _buildScorePanel() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+          // 플레이어 1 정보
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: isMyTurn ? Colors.green.withOpacity(0.3) : Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    currentPlayerName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '점수: $currentPlayerScore',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: const Text('방 나가기'),
+          ),
+          const SizedBox(width: 4),
+          // 플레이어 2 정보
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: !isMyTurn ? Colors.orange.withOpacity(0.3) : Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    opponentPlayerName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '점수: $opponentPlayerScore',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -1008,5 +917,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         ],
       ),
     );
+  }
+
+  /// 게임 리셋
+  void _restartGame() {
+    _resetGame();
+  }
+
+  /// 타이머 일시정지
+  void _togglePause() {
+    setState(() {
+      isTimerPaused = !isTimerPaused;
+    });
   }
 } 

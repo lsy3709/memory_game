@@ -446,218 +446,139 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-    
-    // 고정 그리드 크기: 가로 6 x 세로 8
-    const int gridColumns = 6;
-    const int gridRows = 8;
-    const int totalCards = gridColumns * gridRows; // 48개 카드
-    
-    // 레이아웃 계산 - 더 효율적인 공간 활용
-    final headerHeight = 60.0; // 헤더 높이
-    final controlHeight = 60.0; // 컨트롤 영역 높이
-    final padding = 16.0; // 패딩
-    final availableHeight = screenHeight - headerHeight - controlHeight - padding;
-    
-    // 카드 간격 최소화
-    const cardSpacing = 2.0; // 카드 간격을 2px로 고정
-    
-    // 가용 그리드 영역 계산
-    final availableGridWidth = screenWidth - padding - (gridColumns - 1) * cardSpacing;
-    final availableGridHeight = availableHeight - (gridRows - 1) * cardSpacing;
-    
-    // 카드 크기 계산 - 높이 기준으로 계산
-    final cardHeight = availableGridHeight / gridRows;
-    final cardWidth = availableGridWidth / gridColumns;
-    
-    // 카드 크기 결정 - 높이와 너비 중 작은 값 사용 (정사각형 유지)
-    final cardSize = cardHeight < cardWidth ? cardHeight : cardWidth;
-    
-    // 최소/최대 카드 크기 제한
-    final finalCardSize = cardSize.clamp(30.0, 80.0);
-    
-    // 실제 그리드 크기 계산
-    final actualGridWidth = (finalCardSize * gridColumns) + ((gridColumns - 1) * cardSpacing);
-    final actualGridHeight = (finalCardSize * gridRows) + ((gridRows - 1) * cardSpacing);
-    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('메모리 게임'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        title: const Text('싱글 플레이'),
         actions: [
+          // 일시정지 버튼
+          IconButton(
+            icon: Icon(isTimerPaused ? Icons.play_arrow : Icons.pause),
+            onPressed: _togglePause,
+            tooltip: isTimerPaused ? '계속하기' : '일시정지',
+          ),
+          // 재시작 버튼
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _restartGame,
+            tooltip: '다시 시작',
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 상단 정보 패널
+            _buildTopPanel(),
+            // 반응형 카드 그리드
+            Expanded(
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  // 화면의 너비와 높이를 기반으로 카드 크기 및 비율 계산
+                  final double screenWidth = constraints.maxWidth;
+                  
+                  // 아이템 간의 간격
+                  const double spacing = 4.0;
+                  
+                  // 카드의 너비 계산
+                  final double itemWidth = (screenWidth - (spacing * (cols + 1))) / cols;
+                  
+                  // 카드의 높이는 너비에 비율을 곱하여 설정
+                  final double itemHeight = itemWidth * 1.4;
+                  
+                  // 자식 위젯의 가로세로 비율
+                  final double childAspectRatio = itemWidth / itemHeight;
+
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(spacing),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: cols,
+                      childAspectRatio: childAspectRatio,
+                      crossAxisSpacing: spacing,
+                      mainAxisSpacing: spacing,
+                    ),
+                    itemCount: totalCards,
+                    itemBuilder: (context, index) {
+                      return MemoryCard(
+                        card: cards[index],
+                        onTap: () => _onCardTap(index),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      // 게임 시작 버튼 (플로팅)
+      floatingActionButton: !isGameRunning
+          ? FloatingActionButton.extended(
+              onPressed: _startGame,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('게임 시작'),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  /// 상단 정보 패널 위젯
+  Widget _buildTopPanel() {
+    return Container(
+      height: 60.0,
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // 점수
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.timer, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  '${timeLeft ~/ 60}:${(timeLeft % 60).toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '점수: $score',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          
+          // 최고 콤보
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '최고 콤보: $maxCombo',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue, Colors.purple],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // 게임 정보 헤더 (고정 높이)
-              Container(
-                height: headerHeight,
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // 점수
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '점수: $score',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    
-                    // 최고 콤보
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '최고 콤보: $maxCombo',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // 카드 그리드 (고정 6x8 레이아웃)
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  child: Center(
-                    child: SizedBox(
-                      width: actualGridWidth,
-                      height: actualGridHeight,
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(), // 스크롤 비활성화
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: gridColumns,
-                          childAspectRatio: 1.0, // 정사각형 카드
-                          crossAxisSpacing: cardSpacing,
-                          mainAxisSpacing: cardSpacing,
-                        ),
-                        itemCount: cards.length,
-                        itemBuilder: (context, index) {
-                          return SizedBox(
-                            width: finalCardSize,
-                            height: finalCardSize,
-                            child: MemoryCard(
-                              card: cards[index],
-                              onTap: () => _onCardTap(index),
-                              isEnabled: isGameRunning,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              
-              // 게임 완료 메시지
-              if (!isGameRunning && gameCompleted)
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    children: [
-                      Text(
-                        '게임 완료!',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '최고 연속 매칭: $maxCombo',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              
-              // 게임 컨트롤 (고정 높이)
-              Container(
-                height: controlHeight,
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    if (!isGameRunning)
-                      ElevatedButton(
-                        onPressed: () {
-                          soundService.playButtonClickSound();
-                          _startGame();
-                        },
-                        child: Text('시작'),
-                      ),
-                    if (isGameRunning && !isTimerPaused)
-                      ElevatedButton(
-                        onPressed: _pauseGame,
-                        child: Text('멈춤'),
-                      ),
-                    if (isGameRunning && isTimerPaused)
-                      ElevatedButton(
-                        onPressed: _resumeGame,
-                        child: Text('계속'),
-                      ),
-                    ElevatedButton(
-                      onPressed: () {
-                        soundService.playButtonClickSound();
-                        Navigator.of(context).pop();
-                      },
-                      child: Text('나가기'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
+  }
+
+  /// 게임 일시정지 및 재시작
+  void _togglePause() {
+    if (isGameRunning) {
+      _pauseGame();
+    } else {
+      _resumeGame();
+    }
+  }
+
+  /// 게임 재시작
+  void _restartGame() {
+    _resetGame();
   }
 }
