@@ -42,6 +42,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   Timer? gameTimer;
   final SoundService soundService = SoundService.instance;
   final FirebaseService firebaseService = FirebaseService.instance;
+  DateTime gameStartTime = DateTime.now();
 
   // 온라인 멀티플레이어 관련 변수
   late OnlineRoom currentRoom;
@@ -130,7 +131,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       firebaseService.saveGameCards(currentRoom.id, cards.map((c) => c.toJson()).toList());
     } else {
       // 게스트인 경우 카드 정보를 로드할 때까지 임시로 빈 리스트 사용
-      cards = List.generate(totalCards, (index) => CardModel(id: index, value: '❓', emoji: '❓'));
+      cards = List.generate(totalCards, (index) => CardModel(id: index, emoji: '❓'));
     }
   }
   
@@ -140,8 +141,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     List<CardModel> generatedCards = [];
     for (int i = 0; i < numPairs; i++) {
-      generatedCards.add(CardModel(id: i * 2, value: cardValues[i], emoji: cardValues[i]));
-      generatedCards.add(CardModel(id: i * 2 + 1, value: cardValues[i], emoji: cardValues[i]));
+      generatedCards.add(CardModel(id: i * 2, emoji: cardValues[i]));
+      generatedCards.add(CardModel(id: i * 2 + 1, emoji: cardValues[i]));
     }
     
     generatedCards.shuffle();
@@ -176,7 +177,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       }
       
       // 게스트이고 카드가 아직 로드되지 않은 경우 카드 로드
-      if (!currentRoom.isHost(currentPlayerId) && cards.every((c) => c.value == '❓')) {
+      if (!currentRoom.isHost(currentPlayerId) && cards.every((c) => c.emoji == '❓')) {
         final loadedCardsData = await firebaseService.loadGameCards(room.id);
         if (loadedCardsData.isNotEmpty) {
           setState(() {
@@ -199,7 +200,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       gameStartTime = DateTime.now();
     });
     
-    soundService.playBackgroundMusic('game.mp3');
+    soundService.playBackgroundMusic();
     gameTimer = Timer.periodic(const Duration(seconds: 1), _updateTimer);
     
     // 호스트가 시작했으므로 게스트에게도 시작 알림
@@ -251,7 +252,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     firstSelectedIndex = null;
     secondSelectedIndex = null;
 
-    if (cards[index1].value == cards[index2].value) {
+    if (cards[index1].emoji == cards[index2].emoji) {
       _handleMatchSuccess(index1, index2);
     } else {
       _handleMatchFailure(index1, index2);
@@ -259,7 +260,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
   
   void _handleMatchSuccess(int index1, int index2) {
-    soundService.playSound('match.mp3');
+    soundService.playMatchSound();
     
     setState(() {
       cards[index1].isMatched = true;
@@ -284,7 +285,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void _handleMatchFailure(int index1, int index2) {
-    soundService.playSound('flip.mp3');
+    soundService.playMismatchSound();
     
     final player = playersData[currentPlayerId];
     if(player != null) {
@@ -318,7 +319,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     gameTimer?.cancel();
     soundService.stopBackgroundMusic();
-    soundService.playSound(cards.every((c) => c.isMatched) ? 'success.mp3' : 'failure.mp3');
+    soundService.playGameWinSound();
 
     final winner = _getWinner();
     
@@ -372,11 +373,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       gameTitle: currentRoom.roomName,
       players: playersData.values.map((p) => PlayerGameResult(
         playerName: p.name,
-        playerId: p.id,
+        email: '', // playerId 대신 email 사용
         score: p.score,
         matchCount: p.matchCount,
         failCount: p.failCount,
-        maxCombo: p.maxCombo
+        maxCombo: p.maxCombo,
+        timeLeft: timeLeft,
       )).toList(),
       createdAt: DateTime.now(),
       isCompleted: true,
@@ -539,7 +541,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                       itemBuilder: (context, index) {
                         return MemoryCard(
                           card: cards[index],
-                          onCardPressed: () => onCardPressed(index),
+                          onTap: () => onCardPressed(index),
                         );
                       },
                     );
