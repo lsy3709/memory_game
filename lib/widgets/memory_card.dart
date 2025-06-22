@@ -26,17 +26,17 @@ class MemoryCard extends StatelessWidget {
           // 카드의 높이를 기준으로 폰트와 아이콘 크기를 동적으로 계산
           final double cardHeight = constraints.maxHeight;
           final double cardWidth = constraints.maxWidth;
-          final double iconSize = (cardHeight * 0.35).clamp(16.0, 50.0); // 아이콘 크기 조정
-          final double fontSize = (cardHeight * 0.1).clamp(6.0, 14.0); // 폰트 크기 조정
+          final double iconSize = (cardHeight * 0.4).clamp(20.0, 60.0); // 아이콘 크기 조정
+          final double fontSize = (cardHeight * 0.12).clamp(8.0, 16.0); // 폰트 크기 조정
 
           return Container(
-            margin: const EdgeInsets.all(1), // 최소 마진
+            margin: const EdgeInsets.all(2), // 적절한 마진
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4), // 작은 둥근 모서리
+              borderRadius: BorderRadius.circular(6), // 적당한 둥근 모서리
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 2,
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 3,
                   offset: const Offset(0, 1),
                 ),
               ],
@@ -45,20 +45,20 @@ class MemoryCard extends StatelessWidget {
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(6),
                 color: card.isMatched
                     ? Colors.green.shade100
                     : card.isFlipped
                     ? Colors.white
                     : Colors.blue.shade600,
                 border: card.isMatched
-                    ? Border.all(color: Colors.green, width: 1)
+                    ? Border.all(color: Colors.green, width: 2)
                     : null,
               ),
               child: Center(
                 child: card.isFlipped
                     ? Padding(
-                        padding: const EdgeInsets.all(2.0), // 최소 패딩
+                        padding: const EdgeInsets.all(4.0), // 적절한 패딩
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
@@ -72,7 +72,7 @@ class MemoryCard extends StatelessWidget {
                               ),
                             ),
                             if (card.name != null && card.name!.isNotEmpty) ...[
-                              SizedBox(height: cardHeight * 0.01),
+                              SizedBox(height: cardHeight * 0.02),
                               Flexible(
                                 child: Text(
                                   card.name!,

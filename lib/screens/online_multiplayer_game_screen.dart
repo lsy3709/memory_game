@@ -119,7 +119,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         guestData.id: guestData,
       };
 
-      currentTurnPlayerId = currentRoom.hostId; // 호스트가 선공
+      // 호스트가 선공하도록 설정
+      currentTurnPlayerId = currentRoom.hostId;
+      print('초기 턴 설정: $currentTurnPlayerId (호스트)');
     });
   }
 
@@ -223,8 +225,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   void onCardPressed(int index) {
     if (isProcessingCardSelection || cards[index].isFlipped || cards[index].isMatched || !isMyTurn || !isGameRunning) {
+      print('카드 클릭 무시: isProcessing=$isProcessingCardSelection, isFlipped=${cards[index].isFlipped}, isMatched=${cards[index].isMatched}, isMyTurn=$isMyTurn, isGameRunning=$isGameRunning');
       return;
     }
+
+    print('카드 클릭: 인덱스=$index, 현재 턴=$currentTurnPlayerId, 내 ID=$currentPlayerId');
 
     setState(() {
       cards[index].isFlipped = true;
@@ -235,8 +240,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     if (firstSelectedIndex == null) {
       firstSelectedIndex = index;
+      print('첫 번째 카드 선택: $index');
     } else {
       secondSelectedIndex = index;
+      print('두 번째 카드 선택: $index, 매칭 확인 시작');
       _checkForMatch();
     }
     
@@ -307,12 +314,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
         firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
         
-        // 턴 변경 - 약간의 지연 후 실행
-        Future.delayed(const Duration(milliseconds: 200), () {
-          if (mounted) {
-            _changeTurn();
-          }
-        });
+        // 턴 변경 - 즉시 실행
+        _changeTurn();
       }
     });
   }
@@ -460,17 +463,20 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final nextPlayerId = turnData['nextPlayerId'] as String;
     print('턴 변경 수신: $currentTurnPlayerId -> $nextPlayerId');
     
-    setState(() {
-      currentTurnPlayerId = nextPlayerId;
-      
-      // 내 턴이 시작되면 카드 선택 상태 초기화
-      if (nextPlayerId == currentPlayerId) {
-        firstSelectedIndex = null;
-        secondSelectedIndex = null;
-        isProcessingCardSelection = false;
-        print('내 턴 시작 - 카드 선택 상태 초기화');
-      }
-    });
+    // 강제로 상태 업데이트
+    if (mounted) {
+      setState(() {
+        currentTurnPlayerId = nextPlayerId;
+        
+        // 내 턴이 시작되면 카드 선택 상태 초기화
+        if (nextPlayerId == currentPlayerId) {
+          firstSelectedIndex = null;
+          secondSelectedIndex = null;
+          isProcessingCardSelection = false;
+          print('내 턴 시작 - 카드 선택 상태 초기화');
+        }
+      });
+    }
 
     _processedActionIds.add(actionId);
   }
@@ -564,6 +570,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         appBar: AppBar(
           title: Text(widget.room.roomName),
           actions: [
+            // 디버그용 턴 변경 버튼
+            IconButton(
+              icon: const Icon(Icons.swap_horiz),
+              onPressed: () {
+                print('수동 턴 변경 버튼 클릭');
+                _changeTurn();
+              },
+              tooltip: '턴 변경 (디버그)',
+            ),
             IconButton(
               icon: Icon(isTimerPaused ? Icons.play_arrow : Icons.pause),
               onPressed: () {
@@ -587,9 +602,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     
                     print('사용 가능한 공간: ${availableWidth.toInt()} x ${availableHeight.toInt()}');
                     
-                    // 카드 영역을 정확히 6x8로 분할
-                    final cardWidth = availableWidth / cols;
-                    final cardHeight = availableHeight / rows;
+                    // 패딩 설정
+                    const padding = 8.0;
+                    const spacing = 4.0;
+                    
+                    // 실제 카드 영역 계산 (패딩 제외)
+                    final cardAreaWidth = availableWidth - (padding * 2);
+                    final cardAreaHeight = availableHeight - (padding * 2);
+                    
+                    // 카드 크기 계산 (6x8 그리드)
+                    final cardWidth = (cardAreaWidth - (spacing * (cols - 1))) / cols;
+                    final cardHeight = (cardAreaHeight - (spacing * (rows - 1))) / rows;
                     
                     print('카드 크기: ${cardWidth.toInt()} x ${cardHeight.toInt()}');
                     
@@ -598,27 +621,24 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     
                     print('카드 종횡비: ${cardAspectRatio.toStringAsFixed(2)}');
 
-                    return GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: EdgeInsets.zero, // 패딩 제거
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: cols,
-                        childAspectRatio: cardAspectRatio,
-                        crossAxisSpacing: 0, // 간격 제거
-                        mainAxisSpacing: 0, // 간격 제거
-                      ),
-                      itemCount: totalCards,
-                      itemBuilder: (context, index) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300, width: 0.5),
-                          ),
-                          child: MemoryCard(
+                    return Padding(
+                      padding: const EdgeInsets.all(padding),
+                      child: GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: cols,
+                          childAspectRatio: cardAspectRatio,
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing: spacing,
+                        ),
+                        itemCount: totalCards,
+                        itemBuilder: (context, index) {
+                          return MemoryCard(
                             card: cards[index],
                             onTap: () => onCardPressed(index),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     );
                   },
                 ),
