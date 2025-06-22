@@ -92,6 +92,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _turnChangeSubscription?.cancel();
     _cardMatchesSubscription?.cancel();
     soundService.stopBackgroundMusic();
+    
+    // 방에서 나가기 (화면이 종료될 때)
+    if (mounted && currentRoom.id.isNotEmpty) {
+      firebaseService.leaveOnlineRoom(currentRoom.id);
+    }
+    
     super.dispose();
   }
 
@@ -180,6 +186,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     return flagNames[index % flagNames.length];
   }
 
+  int _getEmojiIndex(String emoji) {
+    final List<String> flagEmojis = [
+      '🇰🇷', '🇺🇸', '🇯🇵', '🇨🇳', '🇬🇧', '🇫🇷', '🇩🇪', '🇮🇹',
+      '🇪🇸', '🇨🇦', '🇦🇺', '🇧🇷', '🇦🇷', '🇲🇽', '🇮🇳', '🇷🇺',
+      '🇰🇵', '🇹🇭', '🇻🇳', '🇵🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇹🇼'
+    ];
+    return flagEmojis.indexOf(emoji);
+  }
+
   void _setupListeners() {
     _roomSubscription = firebaseService.getRoomStream(currentRoom.id).listen((room) async {
       if (room == null) {
@@ -200,6 +215,39 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           await _loadPlayerInfo();
         }
 
+        // 게스트가 나간 경우 처리
+        if (room.guestId == null && playersData.length > 1) {
+          // 게스트가 나간 경우, 남은 플레이어만 유지
+          final remainingPlayers = playersData.entries
+              .where((entry) => entry.key != 'waiting' && entry.key.isNotEmpty)
+              .toList();
+          
+          if (remainingPlayers.length == 1) {
+            // 방장만 남은 경우
+            setState(() {
+              playersData = {remainingPlayers.first.key: remainingPlayers.first.value};
+              currentTurnPlayerId = remainingPlayers.first.key;
+            });
+            
+            // 게임 중이었다면 일시정지
+            if (isGameRunning) {
+              setState(() {
+                isTimerPaused = true;
+              });
+            }
+            
+            // 게스트 나감 알림
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('다른 플레이어가 방을 나갔습니다.'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          }
+        }
+
         if (room.status == RoomStatus.playing && !isGameRunning) {
           _startGame();
         } else if (room.status == RoomStatus.finished || room.status == RoomStatus.cancelled) {
@@ -212,7 +260,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final loadedCardsData = await firebaseService.loadGameCards(room.id);
         if (loadedCardsData.isNotEmpty) {
           setState(() {
-            cards = loadedCardsData.map((data) => CardModel.fromJson(data)).toList();
+            cards = loadedCardsData.map((data) {
+              final card = CardModel.fromJson(data);
+              // name이 없거나 비어있는 경우 emoji에 따라 설정
+              if (card.name == null || card.name!.isEmpty) {
+                final emojiIndex = _getEmojiIndex(card.emoji);
+                if (emojiIndex != -1) {
+                  return card.copyWith(name: _getFlagName(emojiIndex));
+                }
+              }
+              return card;
+            }).toList();
           });
         }
       }
@@ -312,10 +370,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
 
     print('매칭 확인: 카드1=$firstSelectedIndex, 카드2=$secondSelectedIndex');
-    print('카드1 내용: ${cards[firstSelectedIndex!].emoji}');
-    print('카드2 내용: ${cards[secondSelectedIndex!].emoji}');
+    print('카드1 내용: ${cards[firstSelectedIndex!].emoji} (ID: ${cards[firstSelectedIndex!].id})');
+    print('카드2 내용: ${cards[secondSelectedIndex!].emoji} (ID: ${cards[secondSelectedIndex!].id})');
 
-    final isMatch = cards[firstSelectedIndex!].emoji == cards[secondSelectedIndex!].emoji;
+    // ID로 매칭 확인 (더 정확함)
+    final isMatch = cards[firstSelectedIndex!].id == cards[secondSelectedIndex!].id;
     print('매칭 결과: $isMatch');
 
     if (isMatch) {
@@ -590,23 +649,27 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
-        final shouldLeave = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('게임 나가기'),
-                content: const Text('정말로 게임을 나가시겠습니까? 게임 기록은 저장되지 않습니다.'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('나가기')),
-                ],
-              ),
-            ) ?? false;
+        
+        // 게임 중이고 다른 플레이어가 있는 경우 확인
+        if (isGameRunning && playersData.length > 1) {
+          final shouldLeave = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('게임 나가기'),
+              content: const Text('게임이 진행 중입니다. 정말로 나가시겠습니까? 다른 플레이어에게 영향을 줄 수 있습니다.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
+                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('나가기')),
+              ],
+            ),
+          ) ?? false;
 
-        if (shouldLeave) {
-          await firebaseService.leaveOnlineRoom(currentRoom.id);
-          if(mounted) {
-            Navigator.of(context).pop();
+          if (shouldLeave) {
+            await _leaveRoom();
           }
+        } else {
+          // 게임이 끝났거나 혼자 있는 경우 바로 나가기
+          await _leaveRoom();
         }
       },
       child: Scaffold(
@@ -899,6 +962,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         ],
       ),
     );
+  }
+
+  Future<void> _leaveRoom() async {
+    await firebaseService.leaveOnlineRoom(currentRoom.id);
+    if(mounted) {
+      Navigator.of(context).pop();
+    }
   }
 }
 
