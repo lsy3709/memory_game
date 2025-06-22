@@ -35,7 +35,7 @@ class _GameScreenState extends State<GameScreen> {
   static const int cols = 6;              // 카드 그리드의 열 수
   static const int numPairs = (rows * cols) ~/ 2;         // 카드 쌍의 개수
   static const int totalCards = numPairs * 2; // 전체 카드 수
-  static const int gameTimeSec = 5 * 60; // 5분
+  static const int gameTimeSec = 15 * 60; // 15분
 
   // 게임 상태 변수
   late List<CardModel> cards;
