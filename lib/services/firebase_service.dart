@@ -126,9 +126,9 @@ class FirebaseService {
     }
 
     try {
-      // 로그인 시도
+      // 로그인 시도 (이메일을 소문자로 변환하여 일관성 유지)
       final credential = await _auth!.signInWithEmailAndPassword(
-        email: email,
+        email: email.toLowerCase(),
         password: password,
       );
       
@@ -1627,46 +1627,40 @@ class FirebaseService {
       throw Exception('Firebase가 초기화되지 않았습니다.');
     }
 
+    final lowercasedEmail = email.toLowerCase();
+    print('개선된 이메일 중복체크 시작: $lowercasedEmail');
+
+    // 방법 1: Firebase Auth를 통해 이메일 존재 여부 확인
     try {
-      print('개선된 이메일 중복체크 시작: $email');
-      
-      // 방법 1: Firebase Auth 사용
-      try {
-        final methods = await _auth!.fetchSignInMethodsForEmail(email);
-        print('Firebase Auth 중복체크 결과: $email -> methods: $methods');
-        
-        if (methods.isNotEmpty) {
-          print('Firebase Auth에서 중복 발견');
-          return true;
-        }
-      } catch (authError) {
-        print('Firebase Auth 중복체크 오류: $authError');
-        // Auth 오류가 발생해도 Firestore로 계속
+      final methods = await _auth!.fetchSignInMethodsForEmail(lowercasedEmail);
+      if (methods.isNotEmpty) {
+        print('Firebase Auth에서 중복된 이메일 발견');
+        return true;
       }
-      
-      // 방법 2: Firestore 사용 (대안)
-      try {
-        final userQuery = await _firestore!.collection('users')
-            .where('email', isEqualTo: email.toLowerCase())
-            .limit(1)
-            .get();
-        
-        print('Firestore 중복체크 결과: $email -> 문서 수: ${userQuery.docs.length}');
-        
-        if (userQuery.docs.isNotEmpty) {
-          print('Firestore에서 중복 발견');
-          return true;
-        }
-      } catch (firestoreError) {
-        print('Firestore 중복체크 오류: $firestoreError');
-        throw Exception('데이터베이스 확인 중 오류가 발생했습니다.');
-      }
-      
-      print('중복되지 않음으로 판단');
-      return false;
     } catch (e) {
-      print('개선된 이메일 중복체크 오류: $e');
-      throw Exception('이메일 중복체크 중 오류가 발생했습니다: ${e.toString()}');
+      print('Firebase Auth 이메일 확인 중 오류 (Firestore로 계속): $e');
+      // Auth에 문제가 생겨도 Firestore 확인을 시도하도록 오류를 던지지 않음
     }
+
+    // 방법 2: Auth에서 중복이 아니거나 확인 중 오류가 발생한 경우, Firestore에서 추가 확인
+    try {
+      final querySnapshot = await _firestore!
+          .collection('users')
+          .where('email', isEqualTo: lowercasedEmail)
+          .limit(1)
+          .get();
+      
+      if (querySnapshot.docs.isNotEmpty) {
+        print('Firestore에서 중복된 이메일 발견');
+        return true;
+      }
+    } catch (e) {
+      print('Firestore 이메일 확인 중 오류: $e');
+      // Firestore 접근 오류 시, 사용자에게 문제 알림
+      throw Exception('데이터베이스 오류로 이메일 중복 확인에 실패했습니다.');
+    }
+
+    print('이메일 사용 가능: $lowercasedEmail');
+    return false;
   }
 }
