@@ -9,6 +9,7 @@ import '../models/multiplayer_game_record.dart';
 import '../models/online_room.dart';
 import '../services/sound_service.dart';
 import '../services/firebase_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// 온라인 멀티플레이어 메모리 카드 게임 화면
 class OnlineMultiplayerGameScreen extends StatefulWidget {
