@@ -1620,47 +1620,38 @@ class FirebaseService {
     }
   }
 
-  /// 개선된 이메일 중복체크 (Auth와 Firestore 모두 확인)
+  /// 개선된 이메일 중복체크 (Firebase Auth를 통해서만 확인)
   Future<bool> checkEmailDuplicateImproved(String email) async {
     await _initialize();
-    if (!_isInitialized || _auth == null || _firestore == null) {
+    if (!_isInitialized || _auth == null) {
       throw Exception('Firebase가 초기화되지 않았습니다.');
     }
 
     final lowercasedEmail = email.toLowerCase();
     print('개선된 이메일 중복체크 시작: $lowercasedEmail');
 
-    // 방법 1: Firebase Auth를 통해 이메일 존재 여부 확인
     try {
       final methods = await _auth!.fetchSignInMethodsForEmail(lowercasedEmail);
       if (methods.isNotEmpty) {
         print('Firebase Auth에서 중복된 이메일 발견');
-        return true;
+        return true; // 이메일이 이미 사용 중입니다.
       }
+      print('Firebase Auth에서 이메일 사용 가능 확인');
+      return false; // 이메일 사용 가능.
     } catch (e) {
-      print('Firebase Auth 이메일 확인 중 오류 (Firestore로 계속): $e');
-      // Auth에 문제가 생겨도 Firestore 확인을 시도하도록 오류를 던지지 않음
-    }
-
-    // 방법 2: Auth에서 중복이 아니거나 확인 중 오류가 발생한 경우, Firestore에서 추가 확인
-    try {
-      final querySnapshot = await _firestore!
-          .collection('users')
-          .where('email', isEqualTo: lowercasedEmail)
-          .limit(1)
-          .get();
+      print('Firebase Auth 이메일 확인 중 오류: $e');
       
-      if (querySnapshot.docs.isNotEmpty) {
-        print('Firestore에서 중복된 이메일 발견');
-        return true;
+      final errorMessage = e.toString();
+      if (errorMessage.contains('network-request-failed')) {
+        throw Exception('네트워크 연결을 확인해주세요.');
       }
-    } catch (e) {
-      print('Firestore 이메일 확인 중 오류: $e');
-      // Firestore 접근 오류 시, 사용자에게 문제 알림
-      throw Exception('데이터베이스 오류로 이메일 중복 확인에 실패했습니다.');
-    }
+      
+      if (errorMessage.contains('403') || errorMessage.contains('permission-denied')) {
+        throw Exception('App Check 또는 권한 문제로 이메일 확인에 실패했습니다.');
+      }
 
-    print('이메일 사용 가능: $lowercasedEmail');
-    return false;
+      // 기타 오류에 대한 사용자 친화적 메시지
+      throw Exception('이메일 중복 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    }
   }
 }
