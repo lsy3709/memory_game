@@ -86,35 +86,21 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
 
       // 로그인 후 사용자 상태 확인
       if (_firebaseService.currentUser != null) {
-        print('로그인 사용자 정보 - UID: ${_firebaseService.currentUser?.uid}, 이메일: ${_firebaseService.currentUser?.email}');
-        
-        try {
-          // 사용자 데이터 로드 시도 (추가 검증)
-          final userData = await _firebaseService.getUserData(_firebaseService.currentUser!.uid);
-          if (userData != null) {
-            print('사용자 데이터 로드 성공: ${userData['playerName']}');
-          } else {
-            print('사용자 데이터가 없습니다. 기본값 사용');
-          }
-        } catch (e) {
-          // 사용자 데이터 로드 실패해도 로그인은 성공으로 처리
-          print('사용자 데이터 로드 실패: $e');
-          // 오류가 발생해도 로그인 성공으로 처리
-        }
-        
-        // 로그인 성공 후 화면 전환 - mounted 확인 중요
         if (mounted) {
           print('로그인 성공 - 온라인 메인 화면으로 이동');
-          // 성공 시 오류 메시지 초기화
+          // setState로 UI를 먼저 업데이트하고, 다음 프레임에서 안전하게 화면을 전환합니다.
           setState(() {
             _errorMessage = null;
             _isLoading = false;
           });
-          // 온라인 메인 화면으로 이동
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/online-main',
-            (route) => false,
-          );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/online-main',
+                (route) => false,
+              );
+            }
+          });
         }
       } else {
         // 로그인은 성공했지만 currentUser가 null인 경우
@@ -135,11 +121,14 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
             _errorMessage = null;
             _isLoading = false;
           });
-          // 온라인 메인 화면으로 이동
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/online-main',
-            (route) => false,
-          );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/online-main',
+                (route) => false,
+              );
+            }
+          });
         }
         return;
       }
@@ -154,11 +143,14 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
             _errorMessage = null;
             _isLoading = false;
           });
-          // 온라인 메인 화면으로 이동
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/online-main',
-            (route) => false,
-          );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/online-main',
+                (route) => false,
+              );
+            }
+          });
         }
         return;
       }
