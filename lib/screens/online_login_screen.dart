@@ -462,8 +462,8 @@ class _OnlineLoginScreenState extends State<OnlineLoginScreen> {
         return;
       }
 
-      // Firebase Auth에서 실제 이메일 중복체크
-      final isDuplicate = await _firebaseService.checkEmailDuplicate(email);
+      // 개선된 이메일 중복체크 (두 가지 방법 모두 시도)
+      final isDuplicate = await _firebaseService.checkEmailDuplicateImproved(email);
       
       print('온라인 이메일 중복체크 결과: $email -> 중복: $isDuplicate');
       

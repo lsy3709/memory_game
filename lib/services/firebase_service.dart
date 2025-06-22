@@ -484,6 +484,82 @@ class FirebaseService {
     }
   }
 
+  /// 개선된 이메일 중복체크 (두 가지 방법 모두 시도)
+  Future<bool> checkEmailDuplicateImproved(String email) async {
+    await _initialize();
+    if (!_isInitialized || _auth == null || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      print('개선된 이메일 중복체크 시작: $email');
+      
+      // 방법 1: Firebase Auth 사용
+      try {
+        final methods = await _auth!.fetchSignInMethodsForEmail(email);
+        print('Firebase Auth 중복체크 결과: $email -> methods: $methods');
+        
+        if (methods.isNotEmpty) {
+          print('Firebase Auth에서 중복 발견');
+          return true;
+        }
+      } catch (authError) {
+        print('Firebase Auth 중복체크 오류: $authError');
+        // Auth 오류가 발생해도 Firestore로 계속 시도
+      }
+      
+      // 방법 2: Firestore 사용 (대안)
+      try {
+        final userQuery = await _firestore!.collection('users')
+            .where('email', isEqualTo: email.toLowerCase())
+            .limit(1)
+            .get();
+        
+        print('Firestore 중복체크 결과: $email -> 문서 수: ${userQuery.docs.length}');
+        
+        if (userQuery.docs.isNotEmpty) {
+          print('Firestore에서 중복 발견');
+          return true;
+        }
+      } catch (firestoreError) {
+        print('Firestore 중복체크 오류: $firestoreError');
+        // Firestore 오류가 발생해도 Auth 결과를 사용
+      }
+      
+      print('중복되지 않음으로 판단');
+      return false;
+    } catch (e) {
+      print('개선된 이메일 중복체크 오류: $e');
+      throw Exception('이메일 중복체크 중 오류가 발생했습니다: ${e.toString()}');
+    }
+  }
+
+  /// Firestore를 사용한 이메일 중복체크 (대안)
+  Future<bool> checkEmailDuplicateInFirestore(String email) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      print('Firestore 이메일 중복체크 시작: $email');
+      
+      // users 컬렉션에서 이메일로 검색
+      final userQuery = await _firestore!.collection('users')
+          .where('email', isEqualTo: email.toLowerCase())
+          .limit(1)
+          .get();
+      
+      final isDuplicate = userQuery.docs.isNotEmpty;
+      print('Firestore 이메일 중복 여부: $isDuplicate');
+      
+      return isDuplicate;
+    } catch (e) {
+      print('Firestore 이메일 중복체크 오류: $e');
+      throw Exception('이메일 중복체크 중 오류가 발생했습니다: ${e.toString()}');
+    }
+  }
+
   /// 온라인 랭킹 가져오기 (싱글플레이어)
   Future<List<GameRecord>> getOnlineRankings({
     int limit = 50,
