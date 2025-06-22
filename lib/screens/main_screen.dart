@@ -64,7 +64,7 @@ class _MainScreenState extends State<MainScreen> {
   /// 멀티플레이어 게임 시작
   void _startMultiplayerGame() {
     _soundService.playButtonClickSound();
-    Navigator.of(context).pushNamed('/multiplayer-setup');
+    Navigator.of(context).pushNamed('/multiplayer_setup');
   }
 
   /// 온라인 게임 시작
