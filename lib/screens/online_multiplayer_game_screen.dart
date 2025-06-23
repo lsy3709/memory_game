@@ -92,7 +92,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   
   Future<void> _initializeGameAndPlayers() async {
     await _loadPlayerInfo();
-    _initGameCards();
+    await _initGameCards();
     _setupListeners();
     // 호스트만 게임 시작을 트리거
     if (currentRoom.isHost(currentPlayerId)) {
@@ -186,7 +186,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
   }
 
-  void _initGameCards() {
+  Future<void> _initGameCards() async {
     if (currentRoom.isHost(currentPlayerId)) {
       // 호스트인 경우 카드 생성
       final generatedCards = _generateCards();
