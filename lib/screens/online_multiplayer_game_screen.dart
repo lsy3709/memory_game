@@ -1025,13 +1025,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final index1 = match['cardIndex1'] as int;
         final index2 = match['cardIndex2'] as int;
         final isMatch = match['isMatch'] as bool;
-        
-        // 상대방의 상세 정보 받기
-        final score = match['score'] as int?;
-        final combo = match['combo'] as int?;
-        final matchCount = match['matchCount'] as int?;
-        final failCount = match['failCount'] as int?;
-        final maxCombo = match['maxCombo'] as int?;
 
         if (index1 >= 0 && index1 < cards.length && index2 >= 0 && index2 < cards.length) {
             if (isMatch) {
@@ -1044,27 +1037,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     matchedCardCount += 2; // 매칭된 카드 수 증가
                 });
 
+                // 콤보 메시지만 표시, 점수 업데이트는 _handlePlayerStates에서 처리
                 final player = playersData[playerId];
                 if (player != null) {
-                    // 상대방의 상세 정보로 업데이트
-                    setState(() {
-                        if (score != null) player.score = score;
-                        if (combo != null) player.combo = combo;
-                        if (matchCount != null) player.matchCount = matchCount;
-                        if (failCount != null) player.failCount = failCount;
-                        if (maxCombo != null) player.maxCombo = maxCombo;
-                    });
-                    
-                    // 콤보 점수 표시 (다른 플레이어)
-                    String scoreMessage = '${player.name}: +100';
-                    if (player.combo > 1) {
-                        int comboBonus = (player.combo - 1) * 10;
-                        scoreMessage += ' + 콤보보너스 $comboBonus';
-                        scoreMessage += ' (${player.combo}콤보!)';
-                    }
-                    _showComboScore(scoreMessage);
-                    
-                    print('상대방 매칭 성공: ${player.name} - 점수: ${player.score}, 콤보: ${player.combo}, 성공: ${player.matchCount}');
+                    _showComboScore('${player.name}님이 카드를 맞췄습니다!', isSuccess: true);
                 }
                 
                 // 게임 종료 조건 확인 (상대방 매칭 성공 시에도)
@@ -1072,48 +1048,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 
                 if (matchedCardCount >= cards.length && !gameCompleted) {
                     print('상대방이 모든 카드를 매칭함 - 게임 종료!');
-                    print('최종 게임 상태 (상대방 매칭 완료):');
-                    for (final player in playersData.values) {
-                      print('  ${player.name}: 점수=${player.score}, 콤보=${player.combo}, 성공=${player.matchCount}, 실패=${player.failCount}, 최대콤보=${player.maxCombo}');
-                    }
                     _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
                     return;
                 }
             } else {
-                // 매칭 실패 - 지연된 처리로 동기화 개선
-                final player = playersData[playerId];
-                if (player != null) {
-                    // 상대방의 상세 정보로 업데이트
-                    setState(() {
-                        if (score != null) player.score = score;
-                        if (combo != null) player.combo = combo;
-                        if (matchCount != null) player.matchCount = matchCount;
-                        if (failCount != null) player.failCount = failCount;
-                        if (maxCombo != null) player.maxCombo = maxCombo;
-                    });
-                    
-                    // 실패 점수 표시 (다른 플레이어)
-                    _showComboScore('${player.name}: -10 (콤보 리셋)', isSuccess: false);
-                    
-                    print('상대방 매칭 실패: ${player.name} - 점수: ${player.score}, 콤보: ${player.combo}, 실패: ${player.failCount}');
-                }
-                
-                // 지연된 카드 뒤집기로 동기화 개선
+                // 매칭 실패 - 카드를 다시 뒤집기만 함
                 Future.delayed(const Duration(milliseconds: 600), () {
                     if (mounted && index1 < cards.length && index2 < cards.length) {
                         setState(() {
-                            cards[index1].isFlipped = false;
-                            cards[index2].isFlipped = false;
+                            // 이미 매칭된 카드는 뒤집지 않도록 방어 코드 추가
+                            if (!cards[index1].isMatched) cards[index1].isFlipped = false;
+                            if (!cards[index2].isMatched) cards[index2].isFlipped = false;
                         });
-                        
-                        // 다른 플레이어의 매칭 실패 시에도 턴 변경 처리
-                        if (playerId == currentTurnPlayerId) {
-                            Future.delayed(const Duration(milliseconds: 200), () {
-                                if (mounted) {
-                                    _changeTurn();
-                                }
-                            });
-                        }
                     }
                 });
             }
@@ -1178,12 +1124,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _handlePlayerStates(List<Map<String, dynamic>> states) {
     if (!mounted) return;
     
+    print('[SYNC] Received ${states.length} player states.');
+    
     for (final state in states) {
       final stateId = state['id'] as String;
-      if (_processedStateIds.contains(stateId)) continue;
+      if (_processedStateIds.contains(stateId)) {
+        continue;
+      }
       
       final playerId = state['playerId'] as String;
-      if (playerId == currentPlayerId) continue; // 현재 플레이어의 상태는 무시
+      print('[SYNC] Processing state $stateId for player: $playerId.');
+      
+      if (playerId == currentPlayerId) {
+        _processedStateIds.add(stateId);
+        continue;
+      }
       
       final score = state['score'] as int?;
       final combo = state['combo'] as int?;
@@ -1194,6 +1149,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       if (playersData.containsKey(playerId)) {
         final player = playersData[playerId];
         if (player != null) {
+          print('[SYNC] Updating UI for opponent: ${player.name}');
           setState(() {
             if (score != null) player.score = score;
             if (combo != null) player.combo = combo;
@@ -1202,8 +1158,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             if (maxCombo != null) player.maxCombo = maxCombo;
           });
           
-          print('상대방 상태 업데이트: ${player.name} - 점수: $score, 콤보: $combo, 성공: $matchCount, 실패: $failCount');
+          print('[SYNC] Opponent state updated in UI: ${player.name} - Score: ${player.score}, Combo: ${player.combo}');
+        } else {
+           print('[SYNC ERROR] Player object is null for id: $playerId');
         }
+      } else {
+        print('[SYNC ERROR] playersData does not contain key for playerId: $playerId. Available keys: ${playersData.keys}');
       }
       
       _processedStateIds.add(stateId);
