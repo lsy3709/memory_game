@@ -84,9 +84,10 @@ class SoundService {
       await initialize();
     }
 
+    final bgmPath = _getRandomBGM();
+    
     try {
       _backgroundPlayer ??= AudioPlayer();
-      final bgmPath = _getRandomBGM();
       
       // 이전 배경 음악이 재생 중이면 정지
       await _backgroundPlayer!.stop();
