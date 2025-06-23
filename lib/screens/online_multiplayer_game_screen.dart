@@ -380,7 +380,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     // 호스트가 시작했으므로 게스트에게도 시작 알림
     if (currentRoom.isHost(currentPlayerId)) {
-        firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
+      firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
+      
+      // 호스트가 카드를 Firebase에 저장 (게스트가 로딩할 수 있도록)
+      if (cards != null && cards!.isNotEmpty) {
+        print('호스트가 카드를 Firebase에 저장: ${cards!.length}개');
+        firebaseService.saveGameCards(currentRoom.id, cards!);
+      }
     }
     
     // 게임 시작 시 현재 플레이어의 초기 상태를 동기화
@@ -1477,9 +1483,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '내 턴: ${isMyTurn ? "✅ 예" : "❌ 아니오"} | 플레이어 수: ${playersData.length} | 턴 ID: $currentTurnPlayerId',
+                  '내 턴: ${isMyTurn ? "✅" : "❌"} | ${playersData.length}명',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade600,
+                    fontSize: 9,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -1488,7 +1495,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   '${isGameRunning ? "진행중" : "대기중"} | ${matchedCardCount}/${cards?.length ?? 0}매칭',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
-                    fontSize: 8,
+                    fontSize: 7,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -1496,7 +1503,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   '${isCardsLoading ? "로딩(${cardLoadRetryCount + 1}/$maxCardLoadRetries)" : "완료"}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
-                    fontSize: 8,
+                    fontSize: 7,
                   ),
                   textAlign: TextAlign.center,
                 ),
