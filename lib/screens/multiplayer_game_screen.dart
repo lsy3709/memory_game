@@ -189,9 +189,13 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       cards[index] = cards[index].copyWith(isFlipped: true);
     });
 
-    // 사운드는 비동기로 처리 (UI 블로킹 방지)
+    // 사운드는 비동기로 처리하되, 오류가 발생해도 게임 진행에 영향 없도록
     Future.microtask(() {
-      soundService.playCardFlipSound();
+      try {
+        soundService.playCardFlipSound();
+      } catch (e) {
+        print('카드 뒤집기 사운드 재생 실패: $e');
+      }
     });
 
     if (firstSelectedIndex == null) {
@@ -213,9 +217,13 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       if (mounted) {
         setState(() {
           if (cards[a].id == cards[b].id) {
-            // 사운드는 비동기로 처리
+            // 사운드는 비동기로 처리하되, 오류가 발생해도 게임 진행에 영향 없도록
             Future.microtask(() {
-              soundService.playCardMatch();
+              try {
+                soundService.playCardMatch();
+              } catch (e) {
+                print('카드 매칭 사운드 재생 실패: $e');
+              }
             });
             cards[a] = cards[a].copyWith(isMatched: true);
             cards[b] = cards[b].copyWith(isMatched: true);
@@ -235,9 +243,13 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
             
             _checkGameEnd();
           } else {
-            // 사운드는 비동기로 처리
+            // 사운드는 비동기로 처리하되, 오류가 발생해도 게임 진행에 영향 없도록
             Future.microtask(() {
-              soundService.playCardMismatch();
+              try {
+                soundService.playCardMismatch();
+              } catch (e) {
+                print('카드 매칭 실패 사운드 재생 실패: $e');
+              }
             });
             cards[a] = cards[a].copyWith(isFlipped: false);
             cards[b] = cards[b].copyWith(isFlipped: false);

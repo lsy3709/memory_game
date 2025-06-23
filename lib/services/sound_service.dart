@@ -12,13 +12,15 @@ class SoundService {
   SoundService._();
 
   AudioPlayer? _backgroundPlayer;
-  AudioPlayer? _effectPlayer;
+  List<AudioPlayer> _effectPlayers = [];
   bool _isSoundEnabled = true;
   bool _isMusicEnabled = true;
   double _soundVolume = 1.0;
   double _musicVolume = 0.5;
   final Random _random = Random();
   bool _isInitialized = false;
+  int _currentEffectPlayerIndex = 0;
+  static const int maxEffectPlayers = 3; // 최대 3개의 효과음 플레이어 사용
 
   /// 사운드 서비스 초기화
   Future<void> initialize() async {
@@ -26,7 +28,9 @@ class SoundService {
     
     try {
       _backgroundPlayer = AudioPlayer();
-      _effectPlayer = AudioPlayer();
+      for (int i = 0; i < maxEffectPlayers; i++) {
+        _effectPlayers.add(AudioPlayer());
+      }
       _isInitialized = true;
       print('🔊 사운드 서비스 초기화 완료');
     } catch (e) {
@@ -240,19 +244,49 @@ class SoundService {
       await initialize();
     }
     
-    try {
-      _effectPlayer ??= AudioPlayer();
+    // 사용 가능한 플레이어 찾기
+    AudioPlayer? availablePlayer;
+    int attempts = 0;
+    
+    while (attempts < maxEffectPlayers) {
+      final player = _effectPlayers[_currentEffectPlayerIndex];
       
-      // 이전 사운드가 재생 중이면 정지
-      await _effectPlayer!.stop();
-      
-      // AudioPlayer 상태 확인 후 재생
-      if (_effectPlayer!.state == PlayerState.stopped || 
-          _effectPlayer!.state == PlayerState.completed) {
-        await _effectPlayer!.play(AssetSource(assetPath));
-        await _effectPlayer!.setVolume(_soundVolume);
-        print('🔊 효과음 재생 성공: $assetPath');
+      try {
+        // 플레이어 상태 확인
+        if (player.state == PlayerState.stopped || 
+            player.state == PlayerState.completed) {
+          availablePlayer = player;
+          break;
+        }
+      } catch (e) {
+        // 상태 확인 실패 시 다음 플레이어 시도
+        print('플레이어 상태 확인 실패: $e');
       }
+      
+      // 다음 플레이어로 이동
+      _currentEffectPlayerIndex = (_currentEffectPlayerIndex + 1) % maxEffectPlayers;
+      attempts++;
+    }
+    
+    // 사용 가능한 플레이어가 없으면 첫 번째 플레이어 강제 사용
+    if (availablePlayer == null) {
+      availablePlayer = _effectPlayers[0];
+      try {
+        await availablePlayer.stop();
+      } catch (e) {
+        print('플레이어 강제 정지 실패: $e');
+        return; // 재생 포기
+      }
+    }
+    
+    try {
+      // 안전하게 재생
+      await availablePlayer.play(AssetSource(assetPath));
+      await availablePlayer.setVolume(_soundVolume);
+      print('🔊 효과음 재생 성공: $assetPath');
+      
+      // 다음 플레이어로 인덱스 이동
+      _currentEffectPlayerIndex = (_currentEffectPlayerIndex + 1) % maxEffectPlayers;
     } catch (e) {
       // 사운드 파일이 없거나 재생 오류가 발생하면 조용히 무시
       print('🔇 사운드 재생 건너뜀: $assetPath (파일이 없거나 오류 발생)');
@@ -263,7 +297,9 @@ class SoundService {
   Future<void> stopAllSounds() async {
     try {
       await _backgroundPlayer?.stop();
-      await _effectPlayer?.stop();
+      for (AudioPlayer player in _effectPlayers) {
+        await player.stop();
+      }
     } catch (e) {
       print('사운드 정지 오류: $e');
     }
@@ -273,9 +309,11 @@ class SoundService {
   Future<void> dispose() async {
     try {
       await _backgroundPlayer?.dispose();
-      await _effectPlayer?.dispose();
+      for (AudioPlayer player in _effectPlayers) {
+        await player.dispose();
+      }
       _backgroundPlayer = null;
-      _effectPlayer = null;
+      _effectPlayers.clear();
     } catch (e) {
       print('사운드 서비스 해제 오류: $e');
     }
