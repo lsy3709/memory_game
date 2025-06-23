@@ -350,7 +350,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _cardActionsSubscription = firebaseService.getCardActionsStream(currentRoom.id).listen(_handleCardAction);
     _cardMatchesSubscription = firebaseService.getCardMatchesStream(currentRoom.id).listen(_handleCardMatch);
     _turnChangeSubscription = firebaseService.getTurnChangeStream(currentRoom.id).listen(_handleTurnChange);
-    _gameEndEventSubscription = firebaseService.getGameEndEventStream(currentRoom.id).listen(_handleGameEndEvent);
+    _gameEndEventSubscription = firebaseService.getGameEventsStream(currentRoom.id).listen(_handleGameEndEvent);
     _playerStatesSubscription = firebaseService.getPlayerStatesStream(currentRoom.id).listen(_handlePlayerStates);
   }
 
@@ -1050,9 +1050,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
   }
 
-  void _handleGameEndEvent(Map<String, dynamic>? event) {
-    if (event != null && mounted) {
+  void _handleGameEndEvent(QuerySnapshot snapshot) {
+    if (snapshot.docs.isNotEmpty && mounted) {
+      final doc = snapshot.docs.first;
+      final event = doc.data() as Map<String, dynamic>;
       print('게임 종료 이벤트 수신: $event');
+      
       // 게임 종료 이벤트 처리
       final eventData = event['data'] as Map<String, dynamic>?;
       if (eventData != null) {
