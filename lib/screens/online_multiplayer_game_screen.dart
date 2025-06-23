@@ -64,6 +64,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   Timer? comboScoreTimer;
   bool isComboScoreSuccess = true; // true: 성공, false: 실패
 
+  // 카드 로딩 상태 관리
+  bool isCardsLoading = false;
+  int cardLoadRetryCount = 0;
+  static const int maxCardLoadRetries = 10;
+  Timer? cardLoadRetryTimer;
+
   // 실시간 동기화 관련 변수
   StreamSubscription? _roomSubscription;
   StreamSubscription? _cardActionsSubscription;
@@ -98,6 +104,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void dispose() {
     gameTimer?.cancel();
     comboScoreTimer?.cancel();
+    cardLoadRetryTimer?.cancel();
     _roomSubscription?.cancel();
     _cardActionsSubscription?.cancel();
     _turnChangeSubscription?.cancel();
@@ -200,8 +207,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           emoji: '❓',
           name: '로딩 중...',
         ));
+        isCardsLoading = true;
       });
       print('게스트가 임시 카드 생성: ${cards!.length}개 카드');
+      
+      // 카드 로딩 시작
+      _startCardLoading();
     }
   }
   
@@ -330,14 +341,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       }
       
       // 게스트이고 카드가 아직 로드되지 않은 경우 카드 로드
-      if (!currentRoom.isHost(currentPlayerId) && cards!.every((c) => c.emoji == '❓')) {
-        final loadedCardsData = await firebaseService.loadGameCards(room.id);
-        if (loadedCardsData.isNotEmpty) {
-          setState(() {
-            cards = loadedCardsData;
-          });
-          print('카드 로드 완료: ${cards!.length}개 카드');
-        }
+      if (!currentRoom.isHost(currentPlayerId) && isCardsLoading) {
+        // 카드 로딩이 진행 중인 경우, 로딩 상태를 업데이트
+        print('카드 로딩 상태 업데이트: 시도 ${cardLoadRetryCount + 1}/$maxCardLoadRetries');
       }
     });
 
@@ -350,6 +356,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   void _startGame() {
     if (isGameRunning || !mounted) return;
+    
+    // 게스트이고 카드가 아직 로딩 중인 경우 게임 시작을 지연
+    if (!currentRoom.isHost(currentPlayerId) && isCardsLoading) {
+      print('카드 로딩 중 - 게임 시작 지연');
+      return;
+    }
     
     // 게임 시작 시 카드 선택 상태 초기화
     firstSelectedIndex = null;
@@ -383,7 +395,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       });
     }
     
-    print('게임 시작! 총 카드 수: ${cards!.length}, 매칭해야 할 쌍: ${cards!.length ~/ 2}');
+    print('게임 시작! 총 카드 수: ${cards?.length ?? 0}, 매칭해야 할 쌍: ${(cards?.length ?? 0) ~/ 2}');
   }
 
   void _updateTimer(Timer timer) {
@@ -1111,6 +1123,77 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
   }
 
+  /// 게스트 플레이어의 카드 로딩 처리
+  void _startCardLoading() {
+    if (currentRoom.isHost(currentPlayerId)) return;
+    
+    setState(() {
+      isCardsLoading = true;
+      cardLoadRetryCount = 0;
+    });
+    
+    _attemptCardLoad();
+  }
+
+  /// 카드 로딩 시도
+  Future<void> _attemptCardLoad() async {
+    if (!mounted || currentRoom.isHost(currentPlayerId)) return;
+    
+    try {
+      print('카드 로딩 시도 ${cardLoadRetryCount + 1}/$maxCardLoadRetries');
+      
+      final loadedCardsData = await firebaseService.loadGameCards(currentRoom.id);
+      
+      if (loadedCardsData.isNotEmpty) {
+        setState(() {
+          cards = loadedCardsData;
+          isCardsLoading = false;
+        });
+        cardLoadRetryTimer?.cancel();
+        print('카드 로딩 완료: ${cards!.length}개 카드');
+        
+        // 카드 로딩 완료 후 게임이 대기 상태라면 자동 시작
+        if (currentRoom.status == RoomStatus.playing && !isGameRunning) {
+          print('카드 로딩 완료 후 게임 자동 시작');
+          _startGame();
+        }
+        return;
+      }
+      
+      // 카드가 아직 저장되지 않았거나 로드 실패
+      cardLoadRetryCount++;
+      
+      if (cardLoadRetryCount >= maxCardLoadRetries) {
+        setState(() {
+          isCardsLoading = false;
+        });
+        print('카드 로딩 최대 재시도 횟수 초과');
+        _showErrorDialog('카드를 로드할 수 없습니다. 방을 다시 입장해주세요.');
+        return;
+      }
+      
+      // 1초 후 재시도
+      cardLoadRetryTimer?.cancel();
+      cardLoadRetryTimer = Timer(const Duration(seconds: 1), _attemptCardLoad);
+      
+    } catch (e) {
+      print('카드 로딩 오류: $e');
+      cardLoadRetryCount++;
+      
+      if (cardLoadRetryCount >= maxCardLoadRetries) {
+        setState(() {
+          isCardsLoading = false;
+        });
+        _showErrorDialog('카드 로딩 중 오류가 발생했습니다: $e');
+        return;
+      }
+      
+      // 2초 후 재시도
+      cardLoadRetryTimer?.cancel();
+      cardLoadRetryTimer = Timer(const Duration(seconds: 2), _attemptCardLoad);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -1213,10 +1296,24 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: Colors.grey.shade300),
                                   ),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        isCardsLoading 
+                                          ? '카드 로딩 중...\n(${cardLoadRetryCount + 1}/$maxCardLoadRetries)'
+                                          : '카드 준비 중...',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 10,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
                                 );
                               }
@@ -1363,7 +1460,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 ),
                 // 디버그 정보 추가
                 Text(
-                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: $matchedCardCount/${cards?.length ?? 0}',
+                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: $matchedCardCount/${cards?.length ?? 0} | 카드로딩: ${isCardsLoading ? "진행중(${cardLoadRetryCount + 1}/$maxCardLoadRetries)" : "완료"}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
                     fontSize: 10,
