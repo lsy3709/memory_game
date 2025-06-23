@@ -57,6 +57,7 @@ void main() async {
   
   // 사운드 서비스 초기화 및 배경음악 시작
   try {
+    await SoundService.instance.initialize();
     await SoundService.instance.playBackgroundMusic();
     print('사운드 서비스 초기화 완료');
   } catch (e) {
@@ -66,8 +67,20 @@ void main() async {
   runApp(const MemoryGameApp());
 }
 
-class MemoryGameApp extends StatelessWidget {
+class MemoryGameApp extends StatefulWidget {
   const MemoryGameApp({super.key});
+
+  @override
+  State<MemoryGameApp> createState() => _MemoryGameAppState();
+}
+
+class _MemoryGameAppState extends State<MemoryGameApp> {
+  @override
+  void dispose() {
+    // 앱 종료 시 사운드 리소스 정리
+    SoundService.instance.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

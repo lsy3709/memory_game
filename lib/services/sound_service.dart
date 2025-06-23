@@ -18,6 +18,21 @@ class SoundService {
   double _soundVolume = 1.0;
   double _musicVolume = 0.5;
   final Random _random = Random();
+  bool _isInitialized = false;
+
+  /// 사운드 서비스 초기화
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+    
+    try {
+      _backgroundPlayer = AudioPlayer();
+      _effectPlayer = AudioPlayer();
+      _isInitialized = true;
+      print('🔊 사운드 서비스 초기화 완료');
+    } catch (e) {
+      print('❌ 사운드 서비스 초기화 오류: $e');
+    }
+  }
 
   /// 사운드 활성화/비활성화
   bool get isSoundEnabled => _isSoundEnabled;
@@ -64,24 +79,25 @@ class SoundService {
   Future<void> playBackgroundMusic() async {
     if (!_isMusicEnabled) return;
 
+    // 초기화되지 않은 경우 초기화
+    if (!_isInitialized) {
+      await initialize();
+    }
+
     try {
       _backgroundPlayer ??= AudioPlayer();
       final bgmPath = _getRandomBGM();
       
-      // 사운드 파일이 없으면 재생하지 않음
-      if (!_isSoundFileAvailable(bgmPath)) {
-        return;
-      }
+      // 이전 배경 음악이 재생 중이면 정지
+      await _backgroundPlayer!.stop();
       
       await _backgroundPlayer!.play(AssetSource(bgmPath));
       await _backgroundPlayer!.setVolume(_musicVolume);
       await _backgroundPlayer!.setReleaseMode(ReleaseMode.loop);
       print('🎵 배경음악 재생 성공: $bgmPath');
     } catch (e) {
-      // 사운드 파일이 없을 때는 조용히 무시
-      // print('❌ 배경 음악 재생 오류: $e');
-      // print('💡 사운드 파일이 없습니다. assets/sounds/bgm/ 폴더에 bgm1.wav ~ bgm10.wav 파일을 추가해주세요.');
-      // 사운드 파일이 없을 때는 오류를 무시하고 계속 진행
+      // 사운드 파일이 없거나 재생 오류가 발생하면 조용히 무시
+      print('🔇 배경음악 재생 건너뜀: $bgmPath (파일이 없거나 오류 발생)');
     }
   }
 
@@ -205,29 +221,32 @@ class SoundService {
 
   /// 사운드 파일 존재 여부 확인
   bool _isSoundFileAvailable(String assetPath) {
-    // 사운드 파일이 없을 때를 대비해 항상 false 반환 (안전 모드)
-    // 실제로는 AssetBundle을 통해 파일 존재 여부를 확인할 수 있지만,
-    // 여기서는 간단히 false로 처리하여 사운드 재생을 건너뜀
-    return false;
+    // 실제 사운드 파일이 있는지 확인하는 대신, 
+    // 사운드 재생을 시도하고 오류가 발생하면 무시하는 방식으로 처리
+    return true;
   }
 
   /// 효과음 재생 (내부 메서드)
   Future<void> _playSound(String assetPath) async {
     if (!_isSoundEnabled) return;
     
-    // 사운드 파일이 없으면 재생하지 않음
-    if (!_isSoundFileAvailable(assetPath)) {
-      return;
+    // 초기화되지 않은 경우 초기화
+    if (!_isInitialized) {
+      await initialize();
     }
     
     try {
       _effectPlayer ??= AudioPlayer();
+      
+      // 이전 사운드가 재생 중이면 정지
+      await _effectPlayer!.stop();
+      
       await _effectPlayer!.play(AssetSource(assetPath));
       await _effectPlayer!.setVolume(_soundVolume);
       print('🔊 효과음 재생 성공: $assetPath');
     } catch (e) {
-      // 사운드 파일이 없을 때는 조용히 무시 (오류 로그 제거)
-      // 사운드 파일이 없을 때는 오류를 무시하고 계속 진행
+      // 사운드 파일이 없거나 재생 오류가 발생하면 조용히 무시
+      print('🔇 사운드 재생 건너뜀: $assetPath (파일이 없거나 오류 발생)');
     }
   }
 
