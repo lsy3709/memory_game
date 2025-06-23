@@ -184,16 +184,22 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     if (firstSelectedIndex == index) return;
     if (firstSelectedIndex != null && secondSelectedIndex != null) return;
 
-    soundService.playCardFlipSound(); // 카드 뒤집기 사운드
+    // 즉시 카드 뒤집기 (반응성 향상)
     setState(() {
-      cards[index] = cards[index].copyWith(isFlipped: true); // 카드 뒤집기
-      if (firstSelectedIndex == null) {
-        firstSelectedIndex = index; // 첫 번째 카드 선택
-      } else {
-        secondSelectedIndex = index; // 두 번째 카드 선택
-        Future.microtask(_checkMatch); // 매칭 검사 예약
-      }
+      cards[index] = cards[index].copyWith(isFlipped: true);
     });
+
+    // 사운드는 비동기로 처리 (UI 블로킹 방지)
+    Future.microtask(() {
+      soundService.playCardFlipSound();
+    });
+
+    if (firstSelectedIndex == null) {
+      firstSelectedIndex = index; // 첫 번째 카드 선택
+    } else {
+      secondSelectedIndex = index; // 두 번째 카드 선택
+      Future.delayed(const Duration(milliseconds: 300), _checkMatch); // 매칭 검사 예약 (지연 시간 단축)
+    }
   }
 
   /// 두 카드가 매칭되는지 검사
@@ -207,7 +213,10 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       if (mounted) {
         setState(() {
           if (cards[a].id == cards[b].id) {
-            soundService.playCardMatch();
+            // 사운드는 비동기로 처리
+            Future.microtask(() {
+              soundService.playCardMatch();
+            });
             cards[a] = cards[a].copyWith(isMatched: true);
             cards[b] = cards[b].copyWith(isMatched: true);
             players[currentPlayerIndex].scoreModel.addMatchScore();
@@ -226,7 +235,10 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
             
             _checkGameEnd();
           } else {
-            soundService.playCardMismatch();
+            // 사운드는 비동기로 처리
+            Future.microtask(() {
+              soundService.playCardMismatch();
+            });
             cards[a] = cards[a].copyWith(isFlipped: false);
             cards[b] = cards[b].copyWith(isFlipped: false);
             players[currentPlayerIndex].scoreModel.addFailPenalty();

@@ -460,17 +460,32 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       return;
     }
 
+    // 같은 카드를 두 번 클릭하는 것 방지
+    if (firstSelectedIndex == index || secondSelectedIndex == index) {
+      print('카드 클릭 무시: 같은 카드 중복 클릭 index=$index');
+      return;
+    }
+
+    // 이미 두 장이 선택된 상태에서 추가 카드 클릭 시 무시
+    if (firstSelectedIndex != null && secondSelectedIndex != null) {
+      print('카드 클릭 무시: 이미 두 장 선택됨');
+      return;
+    }
+
     print('카드 클릭: 인덱스=$index, 이모지=${card.emoji}');
     
-    // 카드 뒤집기 사운드 재생
-    soundService.playCardFlipSound();
-    
-    // 카드 뒤집기
+    // 즉시 카드 뒤집기 (반응성 향상)
     setState(() {
       card.isFlipped = true;
+      isProcessingCardSelection = true;
     });
 
-    // Firebase에 카드 액션 기록
+    // 사운드는 비동기로 처리 (UI 블로킹 방지)
+    Future.microtask(() {
+      soundService.playCardFlipSound();
+    });
+
+    // Firebase에 카드 액션 기록 (비동기로 처리)
     firebaseService.recordCardAction(
       currentRoom.id,
       currentPlayerId,
@@ -484,13 +499,25 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if (firstSelectedIndex == null) {
       firstSelectedIndex = index;
       print('첫 번째 카드 선택: $index');
+      setState(() {
+        isProcessingCardSelection = false;
+      });
     } else {
       // 두 번째 카드 선택
       secondSelectedIndex = index;
       print('두 번째 카드 선택: $index');
       
-      // 카드 매칭 처리
-      _processCardMatch();
+      // 카드 매칭 처리 (지연 시간 단축)
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && firstSelectedIndex != null && secondSelectedIndex != null) {
+          _processCardMatch();
+        } else {
+          print('매칭 확인 실패: firstSelectedIndex=$firstSelectedIndex, secondSelectedIndex=$secondSelectedIndex');
+          setState(() {
+            isProcessingCardSelection = false;
+          });
+        }
+      });
     }
   }
 
@@ -530,7 +557,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
   
   void _handleMatchSuccess(int index1, int index2) {
-    soundService.playMatchSound();
+    // 사운드는 비동기로 처리
+    Future.microtask(() {
+      soundService.playMatchSound();
+    });
     
     final player = playersData[currentPlayerId];
     if(player != null) {
@@ -594,13 +624,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     firebaseService.syncCardFlip(currentRoom.id, index1, true, currentPlayerId);
     firebaseService.syncCardFlip(currentRoom.id, index2, true, currentPlayerId);
 
-    // 카드 상태 업데이트
-    if (cards != null) {
+    // 카드 상태 업데이트 (안전장치 추가)
+    if (cards != null && index1 < cards!.length && index2 < cards!.length) {
       setState(() {
         cards![index1].isMatched = true;
         cards![index2].isMatched = true;
         matchedCardCount += 2;
       });
+      print('매칭 성공: 카드 $index1, $index2 매칭됨');
+    } else {
+      print('매칭 성공 처리 실패: 카드 데이터 없음 또는 인덱스 오류');
     }
 
     // 게임 종료 조건은 플레이어 상태 스트림에서 처리하므로 여기서는 제거
@@ -617,7 +650,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void _handleMatchFailure(int index1, int index2) {
-    soundService.playMismatchSound();
+    // 사운드는 비동기로 처리
+    Future.microtask(() {
+      soundService.playMismatchSound();
+    });
     
     final player = playersData[currentPlayerId];
     if(player != null) {
@@ -661,20 +697,28 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
     firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
 
-    // 카드 뒤집기와 턴 변경을 더 빠르게 처리
-    Future.delayed(const Duration(milliseconds: 400), () {
+    // 카드 뒤집기와 턴 변경을 더 빠르고 안전하게 처리
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
       
-      if (cards != null) {
+      // 카드 상태 확인 후 안전하게 뒤집기
+      if (cards != null && index1 < cards!.length && index2 < cards!.length) {
         setState(() {
-          cards![index1].isFlipped = false;
-          cards![index2].isFlipped = false;
+          // 카드가 아직 뒤집혀있는지 확인 후 뒤집기
+          if (cards![index1].isFlipped && !cards![index1].isMatched) {
+            cards![index1].isFlipped = false;
+          }
+          if (cards![index2].isFlipped && !cards![index2].isMatched) {
+            cards![index2].isFlipped = false;
+          }
           isProcessingCardSelection = false;
         });
+        print('카드 뒤집기 완료: $index1, $index2');
       } else {
         setState(() {
           isProcessingCardSelection = false;
         });
+        print('카드 뒤집기 실패: 카드 데이터 없음 또는 인덱스 오류');
       }
       
       // 턴 변경
@@ -1636,7 +1680,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: isTurn ? Colors.green.shade800 : Colors.black87,
-                    fontSize: 12, // 폰트 크기 축소
                   ),
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
@@ -1656,10 +1699,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.blue.shade800,
                       fontWeight: FontWeight.bold,
-                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                 ),
+              ],
+              if (p.id == winner?.id) ...[
+                const SizedBox(width: 8),
+                const Text('👑', style: TextStyle(fontSize: 16)),
               ],
             ],
           ),
@@ -1675,7 +1721,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     '점수',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
-                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1683,7 +1728,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.blue.shade700,
-                      fontSize: 12, // 폰트 크기 축소
                     ),
                   ),
                 ],
@@ -1695,7 +1739,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     '콤보',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
-                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1703,7 +1746,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.orange.shade700,
-                      fontSize: 12, // 폰트 크기 축소
                     ),
                   ),
                 ],
@@ -1722,7 +1764,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     '성공',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
-                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1730,7 +1771,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.green.shade700,
-                      fontSize: 10, // 폰트 크기 축소
                     ),
                   ),
                 ],
@@ -1742,7 +1782,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     '실패',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
-                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1750,7 +1789,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.red.shade700,
-                      fontSize: 10, // 폰트 크기 축소
                     ),
                   ),
                 ],
@@ -1762,7 +1800,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     '최대콤보',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
-                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1770,7 +1807,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.purple.shade700,
-                      fontSize: 10, // 폰트 크기 축소
                     ),
                   ),
                 ],
