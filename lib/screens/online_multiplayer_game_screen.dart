@@ -197,6 +197,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       
       // 호스트가 카드를 Firebase에 저장 (게스트가 로딩할 수 있도록)
       print('호스트가 카드를 Firebase에 저장: ${cards!.length}개');
+      
+      // 카드 데이터 확인 (디버깅용)
+      if (cards!.isNotEmpty) {
+        print('호스트 카드 저장 데이터 확인:');
+        print('  첫 번째 카드 - ID: ${cards![0].id}, 이모지: ${cards![0].emoji}, 이름: ${cards![0].name ?? "null"}');
+        print('  두 번째 카드 - ID: ${cards![1].id}, 이모지: ${cards![1].emoji}, 이름: ${cards![1].name ?? "null"}');
+      }
+      
       await firebaseService.saveGameCards(currentRoom.id, cards!.map((card) => card.toJson()).toList());
       
       // 카드 저장 완료 후 방 상태를 ready로 변경
@@ -1241,6 +1249,16 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       });
       cardLoadRetryTimer?.cancel();
       print('카드 로딩 완료: ${cards!.length}개 카드');
+      
+      // 카드 데이터 확인 (디버깅용)
+      if (cards!.isNotEmpty) {
+        print('첫 번째 카드 데이터 확인:');
+        print('  ID: ${cards![0].id}');
+        print('  이모지: ${cards![0].emoji}');
+        print('  이름: ${cards![0].name ?? "null"}');
+        print('  뒤집힘: ${cards![0].isFlipped}');
+        print('  매칭됨: ${cards![0].isMatched}');
+      }
       
       // 카드 로딩 완료 후 게임이 대기 상태라면 자동 시작
       if (currentRoom.status == RoomStatus.playing && !isGameRunning) {

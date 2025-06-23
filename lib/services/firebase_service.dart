@@ -1605,6 +1605,7 @@ class FirebaseService {
             return CardModel(
               id: cardData['id'] ?? 0,
               emoji: cardData['emoji'] ?? '❓',
+              name: cardData['name'], // name 필드 추가
               isFlipped: cardData['isFlipped'] ?? false,
               isMatched: cardData['isMatched'] ?? false,
             );
