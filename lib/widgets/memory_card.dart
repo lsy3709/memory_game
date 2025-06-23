@@ -64,15 +64,25 @@ class MemoryCard extends StatelessWidget {
         Expanded(
           flex: 3,
           child: Center(
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Text(
-                  card.emoji,
-                  style: const TextStyle(fontSize: 32.0),
-                ),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // 카드 크기에 따라 이모지 크기 동적 조정
+                final cardSize = constraints.maxWidth < constraints.maxHeight 
+                    ? constraints.maxWidth 
+                    : constraints.maxHeight;
+                final emojiSize = (cardSize * 0.6).clamp(24.0, 48.0); // 최소 24, 최대 48
+                
+                return FittedBox(
+                  fit: BoxFit.contain,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6.0),
+                    child: Text(
+                      card.emoji,
+                      style: TextStyle(fontSize: emojiSize),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -83,14 +93,16 @@ class MemoryCard extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.contain,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
                   child: Text(
                     card.name!,
                     style: const TextStyle(
-                      fontSize: 12.0, 
+                      fontSize: 11.0, 
                       fontWeight: FontWeight.bold
                     ),
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -103,15 +115,25 @@ class MemoryCard extends StatelessWidget {
 
   Widget _buildCardBack() {
     return Center(
-      child: FittedBox(
-        fit: BoxFit.contain,
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            '❓',
-            style: const TextStyle(fontSize: 32.0, color: Colors.white),
-          ),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 카드 크기에 따라 물음표 크기 동적 조정
+          final cardSize = constraints.maxWidth < constraints.maxHeight 
+              ? constraints.maxWidth 
+              : constraints.maxHeight;
+          final questionSize = (cardSize * 0.6).clamp(24.0, 48.0); // 최소 24, 최대 48
+          
+          return FittedBox(
+            fit: BoxFit.contain,
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                '❓',
+                style: TextStyle(fontSize: questionSize, color: Colors.white),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

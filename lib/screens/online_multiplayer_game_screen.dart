@@ -736,9 +736,30 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       secondSelectedIndex = null;
     }
 
-    final validPlayerIds = playersData.keys.where((id) => id.isNotEmpty && id != 'waiting').toList();
+    // 유효한 플레이어 ID 목록 생성 (대기 중이거나 빈 ID 제외)
+    final validPlayerIds = playersData.keys
+        .where((id) => id.isNotEmpty && id != 'waiting' && playersData[id] != null)
+        .toList();
+    
+    print('턴 변경 전 유효성 검사:');
+    print('  유효한 플레이어 수: ${validPlayerIds.length}');
+    print('  현재 턴 플레이어: $currentTurnPlayerId');
+    print('  유효한 플레이어 목록: $validPlayerIds');
+    
     if (validPlayerIds.length < 2) {
+      print('턴 변경 실패: 유효한 플레이어가 2명 미만');
       setState(() { isProcessingCardSelection = false; });
+      return;
+    }
+
+    // 현재 턴 플레이어가 유효한 목록에 있는지 확인
+    if (!validPlayerIds.contains(currentTurnPlayerId)) {
+      print('턴 변경 실패: 현재 턴 플레이어가 유효하지 않음');
+      // 첫 번째 유효한 플레이어로 설정
+      setState(() {
+        currentTurnPlayerId = validPlayerIds.first;
+        isProcessingCardSelection = false;
+      });
       return;
     }
 
@@ -746,8 +767,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final currentIndex = validPlayerIds.indexOf(previousPlayerId);
     
     if (currentIndex == -1) {
-        setState(() { isProcessingCardSelection = false; });
-        return;
+      print('턴 변경 실패: 현재 플레이어 인덱스를 찾을 수 없음');
+      setState(() { isProcessingCardSelection = false; });
+      return;
     }
 
     final nextIndex = (currentIndex + 1) % validPlayerIds.length;
@@ -755,17 +777,32 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     // 턴 변경 전에 현재 상태 확인
     if (nextPlayerId == previousPlayerId) {
-        setState(() { isProcessingCardSelection = false; });
-        return;
+      print('턴 변경 실패: 다음 플레이어가 현재 플레이어와 동일');
+      setState(() { isProcessingCardSelection = false; });
+      return;
     }
 
+    // 게임 상태 확인
+    if (gameCompleted) {
+      print('턴 변경 무시: 게임이 이미 종료됨');
+      setState(() { isProcessingCardSelection = false; });
+      return;
+    }
+
+    print('턴 변경 실행: $previousPlayerId -> $nextPlayerId');
     setState(() {
       currentTurnPlayerId = nextPlayerId;
       isProcessingCardSelection = false;
     });
 
-    print('턴 변경: $previousPlayerId -> $nextPlayerId');
-    firebaseService.syncTurnChange(currentRoom.id, previousPlayerId, nextPlayerId);
+    // Firebase에 턴 변경 동기화
+    firebaseService.syncTurnChange(currentRoom.id, previousPlayerId, nextPlayerId)
+        .then((_) {
+      print('턴 변경 동기화 성공');
+    }).catchError((e) {
+      print('턴 변경 동기화 실패: $e');
+      // 동기화 실패 시에도 로컬 상태는 유지
+    });
   }
 
   void _gameOver({String? message}) {
@@ -1098,12 +1135,41 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void _handleTurnChange(Map<String, dynamic>? turnData) {
-    if (!mounted || turnData == null) return;
+    if (!mounted || turnData == null) {
+      print('턴 변경 수신 무시: mounted=$mounted, turnData=${turnData != null}');
+      return;
+    }
     
-    final String nextPlayerId = turnData['nextPlayerId'] as String;
+    final String nextPlayerId = turnData['nextPlayerId'] as String? ?? '';
+    final String previousPlayerId = turnData['previousPlayerId'] as String? ?? '';
     
-    if (currentTurnPlayerId == nextPlayerId) return;
-
+    print('턴 변경 수신: $previousPlayerId -> $nextPlayerId');
+    print('현재 턴: $currentTurnPlayerId');
+    
+    // 유효성 검사
+    if (nextPlayerId.isEmpty) {
+      print('턴 변경 수신 무시: nextPlayerId가 비어있음');
+      return;
+    }
+    
+    if (currentTurnPlayerId == nextPlayerId) {
+      print('턴 변경 수신 무시: 이미 해당 플레이어의 턴임');
+      return;
+    }
+    
+    // 플레이어가 유효한지 확인
+    if (!playersData.containsKey(nextPlayerId)) {
+      print('턴 변경 수신 무시: 유효하지 않은 플레이어 ID: $nextPlayerId');
+      return;
+    }
+    
+    // 게임이 종료되었는지 확인
+    if (gameCompleted) {
+      print('턴 변경 수신 무시: 게임이 이미 종료됨');
+      return;
+    }
+    
+    print('턴 변경 적용: $currentTurnPlayerId -> $nextPlayerId');
     setState(() {
       currentTurnPlayerId = nextPlayerId;
       isProcessingCardSelection = false;
@@ -1355,15 +1421,32 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         appBar: AppBar(
           title: Text(widget.room.roomName),
           actions: [
-            // 디버그용 턴 변경 버튼
+            // 디버그용 턴 변경 버튼 (개발 중에만 표시)
+            if (kDebugMode) ...[
+              IconButton(
+                icon: const Icon(Icons.swap_horiz),
+                onPressed: () {
+                  soundService.playButtonClickSound();
+                  print('수동 턴 변경 버튼 클릭');
+                  print('현재 턴: $currentTurnPlayerId');
+                  print('내 ID: $currentPlayerId');
+                  print('유효한 플레이어: ${playersData.keys.where((id) => id.isNotEmpty && id != 'waiting').toList()}');
+                  _changeTurn();
+                },
+                tooltip: '턴 변경 (디버그)',
+              ),
+            ],
+            // 턴 상태 표시 버튼
             IconButton(
-              icon: const Icon(Icons.swap_horiz),
+              icon: Icon(
+                isMyTurn ? Icons.play_circle_filled : Icons.pause_circle_filled,
+                color: isMyTurn ? Colors.green : Colors.grey,
+              ),
               onPressed: () {
                 soundService.playButtonClickSound();
-                print('수동 턴 변경 버튼 클릭');
-                _changeTurn();
+                _showTurnStatusDialog();
               },
-              tooltip: '턴 변경 (디버그)',
+              tooltip: '턴 상태 확인',
             ),
             IconButton(
               icon: Icon(isTimerPaused ? Icons.play_arrow : Icons.pause),
@@ -1388,11 +1471,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                         final availableWidth = constraints.maxWidth;
                         final availableHeight = constraints.maxHeight;
 
-                        // Tighten padding and spacing for a better fit
-                        const double horizontalPadding = 4.0;
-                        const double verticalPadding = 4.0;
-                        const double horizontalSpacing = 2.0;
-                        const double verticalSpacing = 2.0;
+                        // 카드 그리드 레이아웃 계산
+                        const double horizontalPadding = 8.0;
+                        const double verticalPadding = 8.0;
+                        const double horizontalSpacing = 1.0; // 간격 줄임
+                        const double verticalSpacing = 1.0; // 간격 줄임
 
                         final double totalHorizontalGaps = (horizontalPadding * 2) + (horizontalSpacing * (cols - 1));
                         final double totalVerticalGaps = (verticalPadding * 2) + (verticalSpacing * (rows - 1));
@@ -1821,6 +1904,42 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     if(mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  void _showTurnStatusDialog() {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('턴 상태'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('현재 턴: ${playersData[currentTurnPlayerId]?.name ?? '알 수 없음'}'),
+            Text('내 턴: ${isMyTurn ? "✅" : "❌"}'),
+            const SizedBox(height: 8),
+            const Text('플레이어 목록:', style: TextStyle(fontWeight: FontWeight.bold)),
+            ...playersData.values.map((player) => Text(
+              '• ${player.name} (${player.id == currentPlayerId ? "나" : "상대"}) ${player.id == currentTurnPlayerId ? "🔄" : ""}',
+            )),
+            const SizedBox(height: 8),
+            Text('게임 상태: ${gameCompleted ? "종료" : "진행 중"}'),
+            Text('카드 처리 중: ${isProcessingCardSelection ? "예" : "아니오"}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              soundService.playButtonClickSound();
+              Navigator.of(context).pop();
+            },
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
