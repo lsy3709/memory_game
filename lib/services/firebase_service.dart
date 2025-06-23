@@ -1417,6 +1417,31 @@ class FirebaseService {
     }
   }
 
+  /// 카드 액션 기록 (카드 뒤집기 시 사용)
+  Future<void> recordCardAction(String roomId, String playerId, int cardIndex, String cardEmoji) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      print('Firebase가 초기화되지 않음 - 카드 액션 기록 건너뜀');
+      return;
+    }
+
+    try {
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('card_actions')
+          .add({
+        'cardIndex': cardIndex,
+        'isFlipped': true, // 카드 뒤집기 액션
+        'playerId': playerId,
+        'cardEmoji': cardEmoji, // 카드 이모지 정보 추가
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      print('카드 액션 기록 완료: 플레이어=$playerId, 카드=$cardIndex, 이모지=$cardEmoji');
+    } catch (e) {
+      print('카드 액션 기록 오류: $e');
+      // 오류가 발생해도 게임 진행에 영향을 주지 않도록 예외를 던지지 않음
+    }
+  }
+
   /// 카드 플립 동기화 (별칭)
   Future<void> syncCardFlip(String roomId, int cardIndex, bool isFlipped, String playerId) async {
     return syncCardAction(roomId, cardIndex, isFlipped, playerId);
