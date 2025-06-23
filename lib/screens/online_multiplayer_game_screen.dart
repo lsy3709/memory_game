@@ -187,17 +187,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void _initGameCards() {
-    // 호스트인 경우에만 카드를 생성하고 저장
     if (currentRoom.isHost(currentPlayerId)) {
-      final cardModels = _generateCards();
-      // 생성된 카드 정보를 Firestore에 저장
-      firebaseService.saveGameCards(currentRoom.id, cardModels.map((c) => c.toJson()).toList());
-      
-      // CardModel 리스트를 GameCard 리스트로 변환
+      // 호스트인 경우 카드 생성
+      final generatedCards = _generateCards();
       setState(() {
-        cards = cardModels;
+        cards = generatedCards;
       });
       print('호스트가 카드 생성: ${cards!.length}개 카드');
+      
+      // 호스트가 카드를 Firebase에 저장 (게스트가 로딩할 수 있도록)
+      print('호스트가 카드를 Firebase에 저장: ${cards!.length}개');
+      firebaseService.saveGameCards(currentRoom.id, cards!.map((card) => card.toJson()).toList());
 
     } else {
       // 게스트인 경우 카드 정보를 로드할 때까지 임시로 빈 리스트 사용
@@ -1166,9 +1166,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           return;
         }
         
-        // 1초 후 재시도
+        // 0.5초 후 재시도 (더 빠르게)
         cardLoadRetryTimer?.cancel();
-        cardLoadRetryTimer = Timer(const Duration(seconds: 1), _attemptCardLoad);
+        cardLoadRetryTimer = Timer(const Duration(milliseconds: 500), _attemptCardLoad);
         return;
       }
       
@@ -1203,9 +1203,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         return;
       }
       
-      // 1초 후 재시도
+      // 0.5초 후 재시도 (더 빠르게)
       cardLoadRetryTimer?.cancel();
-      cardLoadRetryTimer = Timer(const Duration(seconds: 1), _attemptCardLoad);
+      cardLoadRetryTimer = Timer(const Duration(milliseconds: 500), _attemptCardLoad);
       
     } catch (e) {
       print('카드 로딩 오류: $e');
@@ -1219,9 +1219,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         return;
       }
       
-      // 2초 후 재시도
+      // 1초 후 재시도
       cardLoadRetryTimer?.cancel();
-      cardLoadRetryTimer = Timer(const Duration(seconds: 2), _attemptCardLoad);
+      cardLoadRetryTimer = Timer(const Duration(seconds: 1), _attemptCardLoad);
     }
   }
 
