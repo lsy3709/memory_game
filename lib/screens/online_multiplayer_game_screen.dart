@@ -872,10 +872,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                               ),
                             ),
                           ],
-                          if (p.id == winner?.id) ...[
-                            const SizedBox(width: 8),
-                            const Text('👑', style: TextStyle(fontSize: 16)),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -1702,10 +1698,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     ),
                   ),
                 ),
-              ],
-              if (p.id == winner?.id) ...[
-                const SizedBox(width: 8),
-                const Text('👑', style: TextStyle(fontSize: 16)),
               ],
             ],
           ),
