@@ -84,7 +84,7 @@ class _GameScreenState extends State<GameScreen> {
     
     // 사운드 리소스 해제
     try {
-      soundService.dispose();
+      soundService.stopBackgroundMusic();
       print('로컬 사운드 서비스 정리 완료');
     } catch (e) {
       print('로컬 사운드 서비스 정리 오류: $e');

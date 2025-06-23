@@ -64,7 +64,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   @override
   void dispose() {
     if (gameTimer?.isActive == true) gameTimer?.cancel(); // 타이머 해제
-    soundService.dispose(); // 사운드 리소스 해제
+    soundService.stopBackgroundMusic(); // 배경 음악만 정지
     super.dispose();
   }
 

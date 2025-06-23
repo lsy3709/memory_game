@@ -92,10 +92,14 @@ class SoundService {
       // 이전 배경 음악이 재생 중이면 정지
       await _backgroundPlayer!.stop();
       
-      await _backgroundPlayer!.play(AssetSource(bgmPath));
-      await _backgroundPlayer!.setVolume(_musicVolume);
-      await _backgroundPlayer!.setReleaseMode(ReleaseMode.loop);
-      print('🎵 배경음악 재생 성공: $bgmPath');
+      // AudioPlayer 상태 확인 후 재생
+      if (_backgroundPlayer!.state == PlayerState.stopped || 
+          _backgroundPlayer!.state == PlayerState.completed) {
+        await _backgroundPlayer!.play(AssetSource(bgmPath));
+        await _backgroundPlayer!.setVolume(_musicVolume);
+        await _backgroundPlayer!.setReleaseMode(ReleaseMode.loop);
+        print('🎵 배경음악 재생 성공: $bgmPath');
+      }
     } catch (e) {
       // 사운드 파일이 없거나 재생 오류가 발생하면 조용히 무시
       print('🔇 배경음악 재생 건너뜀: $bgmPath (파일이 없거나 오류 발생)');
@@ -242,9 +246,13 @@ class SoundService {
       // 이전 사운드가 재생 중이면 정지
       await _effectPlayer!.stop();
       
-      await _effectPlayer!.play(AssetSource(assetPath));
-      await _effectPlayer!.setVolume(_soundVolume);
-      print('🔊 효과음 재생 성공: $assetPath');
+      // AudioPlayer 상태 확인 후 재생
+      if (_effectPlayer!.state == PlayerState.stopped || 
+          _effectPlayer!.state == PlayerState.completed) {
+        await _effectPlayer!.play(AssetSource(assetPath));
+        await _effectPlayer!.setVolume(_soundVolume);
+        print('🔊 효과음 재생 성공: $assetPath');
+      }
     } catch (e) {
       // 사운드 파일이 없거나 재생 오류가 발생하면 조용히 무시
       print('🔇 사운드 재생 건너뜀: $assetPath (파일이 없거나 오류 발생)');
