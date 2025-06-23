@@ -10,6 +10,26 @@ import '../models/online_room.dart';
 import '../services/sound_service.dart';
 import '../services/firebase_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flip_card/flip_card.dart';
+import 'package:flip_card/flip_card_controller.dart';
+
+/// 게임 화면에서 카드의 UI 상태와 데이터 모델을 함께 관리하기 위한 래퍼 클래스
+class GameCard {
+  final CardModel model;
+  final FlipCardController controller = FlipCardController();
+  final GlobalKey<FlipCardState> key = GlobalKey<FlipCardState>();
+
+  GameCard({required this.model});
+
+  // CardModel의 속성에 쉽게 접근하기 위한 getter
+  int get id => model.id;
+  String get emoji => model.emoji;
+  String? get name => model.name;
+  bool get isFlipped => model.isFlipped;
+  set isFlipped(bool value) => model.isFlipped = value;
+  bool get isMatched => model.isMatched;
+  set isMatched(bool value) => model.isMatched = value;
+}
 
 /// 온라인 멀티플레이어 메모리 카드 게임 화면
 class OnlineMultiplayerGameScreen extends StatefulWidget {
@@ -33,7 +53,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   static const int gameTimeSec = 15 * 60;
 
   // 게임 상태 변수
-  late List<CardModel> cards;
+  late List<GameCard> cards; // CardModel 대신 GameCard 사용
   int? firstSelectedIndex;
   int? secondSelectedIndex;
   bool isProcessingCardSelection = false;
@@ -44,7 +64,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   final SoundService soundService = SoundService.instance;
   final FirebaseService firebaseService = FirebaseService.instance;
   DateTime gameStartTime = DateTime.now();
-
+  
   // 온라인 멀티플레이어 관련 변수
   late OnlineRoom currentRoom;
   String currentPlayerId = '';
@@ -77,14 +97,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   bool gameCompleted = false;
   int matchedCardCount = 0; // 매칭된 카드 수 추적
-
+  
   @override
   void initState() {
     super.initState();
     currentRoom = widget.room;
     _initializeGameAndPlayers();
   }
-
+  
   Future<void> _initializeGameAndPlayers() async {
     await _loadPlayerInfo();
     _initGameCards();
@@ -183,19 +203,27 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _initGameCards() {
     // 호스트인 경우에만 카드를 생성하고 저장
     if (currentRoom.isHost(currentPlayerId)) {
-      cards = _generateCards();
-      print('호스트가 카드 생성: ${cards.length}개 카드');
+      final cardModels = _generateCards();
       // 생성된 카드 정보를 Firestore에 저장
-      firebaseService.saveGameCards(currentRoom.id, cards.map((c) => c.toJson()).toList());
+      firebaseService.saveGameCards(currentRoom.id, cardModels.map((c) => c.toJson()).toList());
+      
+      // CardModel 리스트를 GameCard 리스트로 변환
+      setState(() {
+        cards = cardModels.map((model) => GameCard(model: model)).toList();
+      });
+      print('호스트가 카드 생성: ${cards.length}개 카드');
+
     } else {
       // 게스트인 경우 카드 정보를 로드할 때까지 임시로 빈 리스트 사용
-      cards = List.generate(totalCards, (index) => CardModel(
-        id: index,
-        emoji: '❓',
-        name: '로딩 중...',
-        isMatched: false,
-        isFlipped: false,
-      ));
+      setState(() {
+        cards = List.generate(totalCards, (index) => GameCard(
+          model: CardModel(
+            id: index,
+            emoji: '❓',
+            name: '로딩 중...',
+          ),
+        ));
+      });
       print('게스트가 임시 카드 생성: ${cards.length}개 카드');
     }
   }
@@ -223,20 +251,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     for (int i = 0; i < numPairs; i++) {
       final emoji = cardPairs[i].key;
       final name = cardPairs[i].value;
-      generatedCards.add(CardModel(
-        id: i,
-        emoji: emoji,
-        name: name,
-        isMatched: false,
-        isFlipped: false,
-      ));
-      generatedCards.add(CardModel(
-        id: i,
-        emoji: emoji,
-        name: name,
-        isMatched: false,
-        isFlipped: false,
-      ));
+      generatedCards.add(CardModel(id: i, emoji: emoji, name: name));
+      generatedCards.add(CardModel(id: i, emoji: emoji, name: name));
     }
     
     generatedCards.shuffle();
@@ -342,20 +358,20 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         if (loadedCardsData.isNotEmpty) {
           setState(() {
             cards = loadedCardsData.map((data) {
-              final card = CardModel.fromJson(data);
+              final cardModel = CardModel.fromJson(data);
               // name이 없거나 비어있는 경우 emoji에 따라 설정
-              if (card.name == null || card.name!.isEmpty) {
-                final emojiIndex = _getEmojiIndex(card.emoji);
+              if (cardModel.name == null || cardModel.name!.isEmpty) {
+                final emojiIndex = _getEmojiIndex(cardModel.emoji);
                 if (emojiIndex != -1) {
                   final flagNames = [
                     '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
                     '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
                     '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
                   ];
-                  return card.copyWith(name: flagNames[emojiIndex]);
+                  return GameCard(model: cardModel.copyWith(name: flagNames[emojiIndex]));
                 }
               }
-              return card;
+              return GameCard(model: cardModel);
             }).toList();
           });
           print('카드 로드 완료: ${cards.length}개 카드');
@@ -364,8 +380,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
 
     _cardActionsSubscription = firebaseService.getCardActionsStream(currentRoom.id).listen(_handleCardAction);
-    _turnChangeSubscription = firebaseService.getTurnChangeStream(currentRoom.id).listen(_handleTurnChange);
     _cardMatchesSubscription = firebaseService.getCardMatchesStream(currentRoom.id).listen(_handleCardMatch);
+    _turnChangeSubscription = firebaseService.getTurnChangeStream(currentRoom.id).listen(_handleTurnChange);
     _gameEndEventSubscription = firebaseService.getGameEndEventStream(currentRoom.id).listen(_handleGameEndEvent);
     _playerStatesSubscription = firebaseService.getPlayerStatesStream(currentRoom.id).listen(_handlePlayerStates);
   }
@@ -484,7 +500,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       // 이미 두 장이 선택된 상태에서 추가 카드 클릭 시 무시
       print('이미 두 장이 선택됨 - 추가 카드 클릭 무시');
       setState(() {
-        cards[index].isFlipped = false;
+        cards[index].isFlipped = false; // 동기화 없이 로컬에서만 되돌림
         isProcessingCardSelection = false;
       });
     }
@@ -849,23 +865,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     textAlign: TextAlign.center,
                   ),
                 ),
-                // 디버그 정보 추가
-                Text(
-                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: $matchedCardCount/${cards.length}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade500,
-                    fontSize: 10,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                Text(
-                  '플레이어 정보: ${playersData.length}명 | 호스트: ${playersData[currentRoom.hostId]?.name ?? "없음"} | 게스트: ${playersData[currentRoom.guestId]?.name ?? "없음"}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade500,
-                    fontSize: 10,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
               ],
             ),
           ),
@@ -946,7 +945,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   PlayerGameData? _getWinner() {
     if (playersData.length < 2) return playersData.values.firstOrNull;
     final p1 = playersData.values.first;
-    final p2 = playersData.values.last;
+    final p2 = currentRoom.guestId != null ? playersData.values.firstWhere((p) => p.id == currentRoom.guestId) : null;
+
+    if (p2 == null) return p1;
 
     if (p1.score > p2.score) return p1;
     if (p2.score > p1.score) return p2;
@@ -1309,7 +1310,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                               }
                               
                               return MemoryCard(
-                                card: cards[index],
+                                key: cards[index].key, // GlobalKey 전달
+                                card: cards[index].model,
+                                controller: cards[index].controller, // 컨트롤러 전달
                                 onTap: () => onCardPressed(index),
                               );
                             },
@@ -1360,10 +1363,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   Widget _buildInfoPanel() {
-    final p1 = playersData.values.firstOrNull;
-    final p2 = playersData.values.length > 1 ? playersData.values.last : null;
+    final p1 = playersData.values.firstWhere((p) => p.id == currentRoom.hostId, orElse: () => PlayerGameData(id: '', name: ''));
+    final p2 = currentRoom.guestId != null ? playersData.values.firstWhere((p) => p.id == currentRoom.guestId) : null;
 
-    if (p1 == null) return const SizedBox.shrink();
+    if (p1.id.isEmpty) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -1409,7 +1412,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   ],
                 ),
               ),
-              if (p2 != null) ...[
+              if (p2 != null && p2.id.isNotEmpty) ...[
                 const SizedBox(width: 8),
                 Expanded(
                   child: _buildPlayerInfo(p2),
@@ -1494,6 +1497,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     bool isTurn = player.id == currentTurnPlayerId;
     bool isMe = player.id == currentPlayerId;
     
+    // 플레이어 데이터가 없는 경우를 위한 방어 코드
+    if (player.id.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(child: Text('대기 중...')),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
