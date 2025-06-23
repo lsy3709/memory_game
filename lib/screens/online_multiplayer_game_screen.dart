@@ -437,82 +437,64 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void onCardPressed(int index) {
-    if (isProcessingCardSelection) {
-      print('카드 선택 처리 중 - 무시됨');
-      return;
-    }
+    // 버튼 클릭 사운드 재생
+    soundService.playButtonClickSound();
     
-    if (!isMyTurn) {
-      print('내 턴이 아님 - 무시됨');
+    // 게임이 진행 중이 아니거나 내 턴이 아닌 경우 무시
+    if (!isGameRunning || !isMyTurn) {
+      print('카드 클릭 무시: 게임진행=${isGameRunning}, 내턴=${isMyTurn}');
       return;
     }
+
+    // 카드가 로드되지 않았거나 이미 처리 중인 경우 무시
+    if (cards == null || index >= cards!.length || isProcessingCardSelection) {
+      print('카드 클릭 무시: 카드로드=${cards != null}, 인덱스=$index, 처리중=${isProcessingCardSelection}');
+      return;
+    }
+
+    final card = cards![index];
     
-    if (!isGameRunning) {
-      print('게임이 진행 중이 아님 - 무시됨');
+    // 이미 뒤집혀있거나 매칭된 카드는 무시
+    if (card.isFlipped || card.isMatched) {
+      print('카드 클릭 무시: 뒤집힘=${card.isFlipped}, 매칭됨=${card.isMatched}');
       return;
     }
 
-    // cards가 null이거나 인덱스가 유효하지 않은 경우 처리
-    if (cards == null || index < 0 || index >= cards!.length) {
-      print('카드 데이터가 없거나 유효하지 않은 인덱스: $index');
-      return;
-    }
-
-    // 이미 뒤집힌 카드나 매칭된 카드 클릭 방지
-    if (cards![index].isFlipped || cards![index].isMatched) {
-      print('이미 뒤집힌 카드 또는 매칭된 카드 클릭 - 무시됨');
-      return;
-    }
-
-    // 같은 카드를 두 번 클릭하는 것 방지
-    if (firstSelectedIndex == index || secondSelectedIndex == index) {
-      print('같은 카드를 두 번 클릭 - 무시됨');
-      return;
-    }
-
-    // 즉시 카드 뒤집기 (반응성 향상)
+    print('카드 클릭: 인덱스=$index, 이모지=${card.emoji}');
+    
+    // 카드 뒤집기 사운드 재생
+    soundService.playCardFlipSound();
+    
+    // 카드 뒤집기
     setState(() {
-      cards![index].isFlipped = true;
-      isProcessingCardSelection = true;
+      card.isFlipped = true;
     });
-    
-    // Firebase에 동기화 (비동기로 처리하여 UI 블로킹 방지)
-    firebaseService.syncCardFlip(currentRoom.id, index, true, currentPlayerId);
+
+    // Firebase에 카드 액션 기록
+    firebaseService.recordCardAction(
+      currentRoom.id,
+      currentPlayerId,
+      index,
+      card.emoji,
+    ).catchError((e) {
+      print('카드 액션 기록 오류: $e');
+    });
 
     // 첫 번째 카드 선택
     if (firstSelectedIndex == null) {
       firstSelectedIndex = index;
       print('첫 번째 카드 선택: $index');
-      setState(() {
-        isProcessingCardSelection = false;
-      });
-    } else if (secondSelectedIndex == null) {
+    } else {
       // 두 번째 카드 선택
       secondSelectedIndex = index;
-      print('두 번째 카드 선택: $index, 매칭 확인 시작');
+      print('두 번째 카드 선택: $index');
       
-      // 매칭 확인 (지연 시간 단축)
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && firstSelectedIndex != null && secondSelectedIndex != null) {
-          _checkForMatch();
-        } else {
-          print('매칭 확인 실패: firstSelectedIndex=$firstSelectedIndex, secondSelectedIndex=$secondSelectedIndex');
-          setState(() {
-            isProcessingCardSelection = false;
-          });
-        }
-      });
-    } else {
-      // 이미 두 장이 선택된 상태에서 추가 카드 클릭 시 무시
-      print('이미 두 장이 선택됨 - 추가 카드 클릭 무시');
-      setState(() {
-        cards![index].isFlipped = false; // 동기화 없이 로컬에서만 되돌림
-        isProcessingCardSelection = false;
-      });
+      // 카드 매칭 처리
+      _processCardMatch();
     }
   }
 
-  void _checkForMatch() {
+  void _processCardMatch() {
     if (firstSelectedIndex == null || secondSelectedIndex == null) {
       print('매칭 확인 실패: 선택된 카드가 부족함');
       setState(() {
@@ -899,6 +881,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           actions: [
             TextButton(
               onPressed: () {
+                soundService.playButtonClickSound();
                 Navigator.of(context).pop();
                 Navigator.of(context).pop(); // 게임 화면에서 퇴장
               },
@@ -1147,7 +1130,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              soundService.playButtonClickSound();
+              Navigator.of(context).pop();
+            },
             child: const Text('확인'),
           ),
         ],
@@ -1299,8 +1285,20 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
               title: const Text('게임 나가기'),
               content: const Text('게임이 진행 중입니다. 정말로 나가시겠습니까? 다른 플레이어에게 영향을 줄 수 있습니다.'),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('나가기')),
+                TextButton(
+                  onPressed: () {
+                    soundService.playButtonClickSound();
+                    Navigator.pop(context, false);
+                  }, 
+                  child: const Text('취소')
+                ),
+                TextButton(
+                  onPressed: () {
+                    soundService.playButtonClickSound();
+                    Navigator.pop(context, true);
+                  }, 
+                  child: const Text('나가기')
+                ),
               ],
             ),
           ) ?? false;
@@ -1321,6 +1319,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             IconButton(
               icon: const Icon(Icons.swap_horiz),
               onPressed: () {
+                soundService.playButtonClickSound();
                 print('수동 턴 변경 버튼 클릭');
                 _changeTurn();
               },
@@ -1329,6 +1328,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             IconButton(
               icon: Icon(isTimerPaused ? Icons.play_arrow : Icons.pause),
               onPressed: () {
+                soundService.playButtonClickSound();
                 setState(() {
                   isTimerPaused = !isTimerPaused;
                 });
@@ -1503,7 +1503,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                       _formatTime(),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: timeLeft < 60 ? Colors.red : Colors.black,
+                        color: isCardsLoading 
+                          ? Colors.grey.shade600  // 로딩 중일 때는 회색
+                          : (timeLeft < 60 ? Colors.red : Colors.black),  // 로딩 완료 후에만 빨간색 조건 적용
                       ),
                     ),
                   ],
