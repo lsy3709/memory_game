@@ -1024,7 +1024,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         
         final index1 = match['cardIndex1'] as int;
         final index2 = match['cardIndex2'] as int;
-        final isMatch = match['isMatch'] as bool;
+        final isMatch = match['isMatch'] as bool? ?? false;
 
         if (index1 >= 0 && index1 < cards.length && index2 >= 0 && index2 < cards.length) {
             if (isMatch) {
