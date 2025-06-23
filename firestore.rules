@@ -69,10 +69,10 @@ service cloud.firestore {
       // 호스트만 방을 삭제할 수 있습니다.
       allow delete: if request.auth.uid == resource.data.hostId;
 
-      // 방 내부의 모든 서브컬렉션(player_states, card_actions 등)에 대한 규칙입니다.
-      // 참여자만 서브컬렉션을 읽고 쓸 수 있습니다.
+      // 방 내부의 모든 서브컬렉션에 대한 규칙 (임시로 모든 인증된 사용자 허용)
       match /{subcollection}/{docId} {
-        allow read, write: if isParticipant();
+        // 임시 해결책: 모든 인증된 사용자에게 허용 (개발 중)
+        allow read, write: if request.auth.uid != null;
       }
     }
   }

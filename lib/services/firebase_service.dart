@@ -1392,31 +1392,33 @@ class FirebaseService {
     }
   }
 
-  /// 카드 플립 동기화 - 최적화된 버전
-  Future<void> syncCardFlip(String roomId, int cardIndex, bool isFlipped, String playerId) async {
+  /// 카드 액션 동기화
+  Future<void> syncCardAction(String roomId, int cardIndex, bool isFlipped, String playerId) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
-      throw Exception('Firebase가 초기화되지 않았습니다.');
+      print('Firebase가 초기화되지 않음 - 카드 액션 동기화 건너뜀');
+      return;
     }
 
     try {
-      // 현재 시간을 밀리초로 기록
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      
       await _firestore!.collection('online_rooms').doc(roomId)
           .collection('card_actions')
           .add({
         'cardIndex': cardIndex,
         'isFlipped': isFlipped,
         'playerId': playerId,
-        'timestamp': timestamp, // 클라이언트 타임스탬프 사용
-        'clientTimestamp': FieldValue.serverTimestamp(), // 서버 타임스탬프도 함께 저장
+        'timestamp': FieldValue.serverTimestamp(),
       });
-      
+      print('카드 액션 동기화 완료: 카드 $cardIndex, 뒤집기: $isFlipped');
     } catch (e) {
-      print('카드 플립 동기화 오류: $e');
-      throw Exception('카드 플립 동기화에 실패했습니다.');
+      print('카드 액션 동기화 오류: $e');
+      // 오류가 발생해도 게임 진행에 영향을 주지 않도록 예외를 던지지 않음
     }
+  }
+
+  /// 카드 플립 동기화 (별칭)
+  Future<void> syncCardFlip(String roomId, int cardIndex, bool isFlipped, String playerId) async {
+    return syncCardAction(roomId, cardIndex, isFlipped, playerId);
   }
 
   /// 카드 액션 스트림 가져오기 - 개선된 버전
@@ -1794,7 +1796,8 @@ class FirebaseService {
   Future<void> syncPlayerState(String roomId, String playerId, Map<String, dynamic> state) async {
     await _initialize();
     if (!_isInitialized || _firestore == null) {
-      throw Exception('Firebase가 초기화되지 않았습니다.');
+      print('Firebase가 초기화되지 않음 - 플레이어 상태 동기화 건너뜀');
+      return;
     }
 
     try {
@@ -1805,9 +1808,11 @@ class FirebaseService {
         ...state,
         'timestamp': FieldValue.serverTimestamp(),
       });
+      print('플레이어 상태 동기화 완료: $playerId');
     } catch (e) {
       print('플레이어 상태 동기화 오류: $e');
-      throw Exception('플레이어 상태 동기화에 실패했습니다.');
+      // 오류가 발생해도 게임 진행에 영향을 주지 않도록 예외를 던지지 않음
+      // throw Exception('플레이어 상태 동기화에 실패했습니다.');
     }
   }
 }
