@@ -1592,19 +1592,56 @@ class FirebaseService {
         final data = doc.data()!;
         final cardsData = data['cards'] as List<dynamic>? ?? [];
         
-        return cardsData.map((cardData) {
-          return CardModel(
-            id: cardData['id'] ?? 0,
-            emoji: cardData['emoji'] ?? '❓',
-            isFlipped: cardData['isFlipped'] ?? false,
-            isMatched: cardData['isMatched'] ?? false,
-          );
-        }).toList();
+        if (cardsData.isNotEmpty) {
+          print('카드 데이터 로드 성공: ${cardsData.length}개 카드');
+          return cardsData.map((cardData) {
+            return CardModel(
+              id: cardData['id'] ?? 0,
+              emoji: cardData['emoji'] ?? '❓',
+              isFlipped: cardData['isFlipped'] ?? false,
+              isMatched: cardData['isMatched'] ?? false,
+            );
+          }).toList();
+        } else {
+          print('카드 데이터가 비어있음');
+          return [];
+        }
+      } else {
+        print('카드 문서가 존재하지 않음');
+        return [];
       }
-      return [];
     } catch (e) {
       print('게임 카드 데이터 로드 오류: $e');
       return [];
+    }
+  }
+
+  /// 호스트가 카드를 저장했는지 확인
+  Future<bool> hasHostSavedCards(String roomId) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      return false;
+    }
+
+    try {
+      final doc = await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('game_state')
+          .doc('cards')
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        final cardsData = data['cards'] as List<dynamic>? ?? [];
+        final hasCards = cardsData.isNotEmpty;
+        print('호스트 카드 저장 상태 확인: ${hasCards ? "저장됨" : "저장되지 않음"} (${cardsData.length}개)');
+        return hasCards;
+      }
+      
+      print('호스트 카드 저장 상태 확인: 문서 없음');
+      return false;
+    } catch (e) {
+      print('호스트 카드 저장 상태 확인 오류: $e');
+      return false;
     }
   }
 

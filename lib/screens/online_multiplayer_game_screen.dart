@@ -1142,6 +1142,28 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     try {
       print('카드 로딩 시도 ${cardLoadRetryCount + 1}/$maxCardLoadRetries');
       
+      // 먼저 호스트가 카드를 저장했는지 확인
+      final hasCards = await firebaseService.hasHostSavedCards(currentRoom.id);
+      if (!hasCards) {
+        print('호스트가 아직 카드를 저장하지 않음 - 재시도 대기');
+        cardLoadRetryCount++;
+        
+        if (cardLoadRetryCount >= maxCardLoadRetries) {
+          setState(() {
+            isCardsLoading = false;
+          });
+          print('카드 로딩 최대 재시도 횟수 초과');
+          _showErrorDialog('호스트가 카드를 준비하지 않았습니다. 방을 다시 입장해주세요.');
+          return;
+        }
+        
+        // 1초 후 재시도
+        cardLoadRetryTimer?.cancel();
+        cardLoadRetryTimer = Timer(const Duration(seconds: 1), _attemptCardLoad);
+        return;
+      }
+      
+      // 호스트가 카드를 저장했으므로 로딩 시도
       final loadedCardsData = await firebaseService.loadGameCards(currentRoom.id);
       
       if (loadedCardsData.isNotEmpty) {
@@ -1160,7 +1182,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         return;
       }
       
-      // 카드가 아직 저장되지 않았거나 로드 실패
+      // 카드 로드 실패
       cardLoadRetryCount++;
       
       if (cardLoadRetryCount >= maxCardLoadRetries) {
@@ -1458,20 +1480,20 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                   ),
                   textAlign: TextAlign.center,
                 ),
-                // 디버그 정보 추가
+                // 디버그 정보 추가 (축약된 버전)
                 Text(
-                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: $matchedCardCount/${cards?.length ?? 0} | 카드로딩: ${isCardsLoading ? "진행중(${cardLoadRetryCount + 1}/$maxCardLoadRetries)" : "완료"}',
+                  '${isGameRunning ? "진행중" : "대기중"} | ${matchedCardCount}/${cards?.length ?? 0}매칭 | ${isCardsLoading ? "로딩(${cardLoadRetryCount + 1}/$maxCardLoadRetries)" : "완료"}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
-                    fontSize: 10,
+                    fontSize: 9,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 Text(
-                  '플레이어 정보: ${playersData.length}명 | 호스트: ${playersData[currentRoom.hostId]?.name ?? "없음"} | 게스트: ${playersData[currentRoom.guestId]?.name ?? "없음"}',
+                  '${playersData.length}명 | ${isMyTurn ? "내턴" : "상대턴"}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
-                    fontSize: 10,
+                    fontSize: 9,
                   ),
                   textAlign: TextAlign.center,
                 ),
