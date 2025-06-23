@@ -375,6 +375,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _startGame() {
     if (isGameRunning || !mounted) return;
     
+    // 게임 시작 사운드 재생
+    soundService.playButtonClickSound();
+    
     // 게스트이고 카드가 아직 로딩 중인 경우 게임 시작을 지연
     if (!currentRoom.isHost(currentPlayerId) && isCardsLoading) {
       print('카드 로딩 중 - 게임 시작 지연');
@@ -437,9 +440,6 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void onCardPressed(int index) {
-    // 버튼 클릭 사운드 재생
-    soundService.playButtonClickSound();
-    
     // 게임이 진행 중이 아니거나 내 턴이 아닌 경우 무시
     if (!isGameRunning || !isMyTurn) {
       print('카드 클릭 무시: 게임진행=${isGameRunning}, 내턴=${isMyTurn}');
@@ -1388,20 +1388,25 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                                   ),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const CircularProgressIndicator(
                                         strokeWidth: 2,
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        isCardsLoading 
-                                          ? '카드 로딩 중...\n(${cardLoadRetryCount + 1}/$maxCardLoadRetries)'
-                                          : '카드 준비 중...',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Colors.grey.shade600,
-                                          fontSize: 10,
+                                      const SizedBox(height: 4),
+                                      Flexible(
+                                        child: Text(
+                                          isCardsLoading 
+                                            ? '로딩중...\n(${cardLoadRetryCount + 1}/$maxCardLoadRetries)'
+                                            : '준비중...',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 8,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        textAlign: TextAlign.center,
                                       ),
                                     ],
                                   ),
@@ -1625,15 +1630,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                player.name,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isTurn ? Colors.green.shade800 : Colors.black87,
+              Flexible(
+                child: Text(
+                  player.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isTurn ? Colors.green.shade800 : Colors.black87,
+                    fontSize: 12, // 폰트 크기 축소
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
               ),
               if (isMe) ...[
                 const SizedBox(width: 4),
@@ -1648,23 +1656,26 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.blue.shade800,
                       fontWeight: FontWeight.bold,
+                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                 ),
               ],
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6), // 간격 축소
           // 점수 정보
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     '점수',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
+                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1672,16 +1683,19 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.blue.shade700,
+                      fontSize: 12, // 폰트 크기 축소
                     ),
                   ),
                 ],
               ),
               Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     '콤보',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
+                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1689,23 +1703,26 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.orange.shade700,
+                      fontSize: 12, // 폰트 크기 축소
                     ),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4), // 간격 축소
           // 매칭/실패 정보
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     '성공',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
+                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1713,16 +1730,19 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.green.shade700,
+                      fontSize: 10, // 폰트 크기 축소
                     ),
                   ),
                 ],
               ),
               Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     '실패',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
+                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1730,16 +1750,19 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.red.shade700,
+                      fontSize: 10, // 폰트 크기 축소
                     ),
                   ),
                 ],
               ),
               Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     '최대콤보',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.grey.shade600,
+                      fontSize: 8, // 폰트 크기 축소
                     ),
                   ),
                   Text(
@@ -1747,6 +1770,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.purple.shade700,
+                      fontSize: 10, // 폰트 크기 축소
                     ),
                   ),
                 ],
