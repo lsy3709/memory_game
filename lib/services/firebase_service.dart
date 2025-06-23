@@ -1576,23 +1576,35 @@ class FirebaseService {
   }
 
   /// 게임 방의 카드 데이터를 Firestore에서 로드
-  Future<List<Map<String, dynamic>>> loadGameCards(String roomId) async {
+  Future<List<CardModel>> loadGameCards(String roomId) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      return [];
+    }
+
     try {
-      if (_firestore == null) {
-        throw Exception('Firestore가 초기화되지 않았습니다.');
-      }
-      
-      final doc = await _firestore!.collection('online_rooms').doc(roomId).get();
-      if (doc.exists && doc.data()!.containsKey('cards')) {
-        final cardsData = doc.data()!['cards'] as List;
-        final cards = cardsData.map((data) => Map<String, dynamic>.from(data)).toList();
-        print('게임 카드 데이터 로드 완료: ${cards.length}개 카드');
-        return cards;
+      final doc = await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('game_state')
+          .doc('cards')
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        final cardsData = data['cards'] as List<dynamic>? ?? [];
+        
+        return cardsData.map((cardData) {
+          return CardModel(
+            id: cardData['id'] ?? 0,
+            emoji: cardData['emoji'] ?? '❓',
+            isFlipped: cardData['isFlipped'] ?? false,
+            isMatched: cardData['isMatched'] ?? false,
+          );
+        }).toList();
       }
       return [];
     } catch (e) {
       print('게임 카드 데이터 로드 오류: $e');
-      throw Exception('게임 카드 데이터 로드에 실패했습니다: $e');
+      return [];
     }
   }
 
@@ -1721,5 +1733,44 @@ class FirebaseService {
           }
           return null;
         });
+  }
+
+  /// 플레이어 상태 스트림 가져오기
+  Stream<Map<String, dynamic>> getPlayerStatesStream(String roomId) {
+    if (!_isInitialized || _firestore == null) {
+      return Stream.value({});
+    }
+
+    return _firestore!.collection('online_rooms').doc(roomId)
+        .collection('player_states')
+        .snapshots()
+        .map((snapshot) {
+          final states = <String, dynamic>{};
+          for (final doc in snapshot.docs) {
+            states[doc.id] = doc.data();
+          }
+          return states;
+        });
+  }
+
+  /// 플레이어 상태 동기화
+  Future<void> syncPlayerState(String roomId, String playerId, Map<String, dynamic> state) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('player_states')
+          .doc(playerId)
+          .set({
+        ...state,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('플레이어 상태 동기화 오류: $e');
+      throw Exception('플레이어 상태 동기화에 실패했습니다.');
+    }
   }
 }

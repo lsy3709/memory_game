@@ -1018,93 +1018,36 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
   }
 
-  void _handleGameEndEvent(Map<String, dynamic>? gameEndData) {
-    if (!mounted || gameEndData == null || gameCompleted) return;
-    
-    print('게임 종료 이벤트 수신: $gameEndData');
-    
-    final data = gameEndData['data'] as Map<String, dynamic>?;
-    if (data == null) return;
-    
-    final String? winnerId = data['winnerId'] as String?;
-    final finalScores = data['finalScores'] as Map<String, dynamic>?;
-    
-    // 최종 점수로 플레이어 데이터 업데이트
-    if (finalScores != null) {
-      setState(() {
-        for (final entry in finalScores.entries) {
-          final playerId = entry.key;
-          final scoreData = entry.value as Map<String, dynamic>;
-          final player = playersData[playerId];
-          if (player != null) {
-            player.score = scoreData['score'] as int? ?? player.score;
-            player.matchCount = scoreData['matchCount'] as int? ?? player.matchCount;
-            player.failCount = scoreData['failCount'] as int? ?? player.failCount;
-            player.maxCombo = scoreData['maxCombo'] as int? ?? player.maxCombo;
-          }
-        }
-      });
-    }
-    
-    // 게임 종료 다이얼로그 표시
-    String message = "🎉 게임이 종료되었습니다! 🎉";
-    if (winnerId != null) {
-      final winner = playersData[winnerId];
-      if (winner != null) {
-        message = "🏆 승자: ${winner.name} 🏆";
+  void _handleGameEndEvent(Map<String, dynamic>? event) {
+    if (event != null && mounted) {
+      print('게임 종료 이벤트 수신: $event');
+      // 게임 종료 이벤트 처리
+      final eventData = event['data'] as Map<String, dynamic>?;
+      if (eventData != null) {
+        // 게임 종료 데이터 처리
+        print('게임 종료 데이터: $eventData');
       }
     }
-    
-    _gameOver(message: message);
   }
 
-  void _handlePlayerStates(List<Map<String, dynamic>> states) {
+  void _handlePlayerStates(Map<String, dynamic> states) {
     if (!mounted) return;
     
-    print('[SYNC] Received ${states.length} player states.');
-    
-    for (final state in states) {
-      final stateId = state['id'] as String;
-      if (_processedStateIds.contains(stateId)) {
-        continue;
-      }
-      
-      final playerId = state['playerId'] as String;
-      print('[SYNC] Processing state $stateId for player: $playerId.');
-      
-      if (playerId == currentPlayerId) {
-        _processedStateIds.add(stateId);
-        continue;
-      }
-      
-      final score = state['score'] as int?;
-      final combo = state['combo'] as int?;
-      final matchCount = state['matchCount'] as int?;
-      final failCount = state['failCount'] as int?;
-      final maxCombo = state['maxCombo'] as int?;
-
-      if (playersData.containsKey(playerId)) {
-        final player = playersData[playerId];
-        if (player != null) {
-          print('[SYNC] Updating UI for opponent: ${player.name}');
-          setState(() {
-            if (score != null) player.score = score;
-            if (combo != null) player.combo = combo;
-            if (matchCount != null) player.matchCount = matchCount;
-            if (failCount != null) player.failCount = failCount;
-            if (maxCombo != null) player.maxCombo = maxCombo;
-          });
-          
-          print('[SYNC] Opponent state updated in UI: ${player.name} - Score: ${player.score}, Combo: ${player.combo}');
-        } else {
-           print('[SYNC ERROR] Player object is null for id: $playerId');
+    setState(() {
+      for (final entry in states.entries) {
+        final playerId = entry.key;
+        final stateData = entry.value as Map<String, dynamic>;
+        
+        if (playersData.containsKey(playerId)) {
+          final player = playersData[playerId]!;
+          player.score = stateData['score'] ?? player.score;
+          player.combo = stateData['combo'] ?? player.combo;
+          player.matchCount = stateData['matchCount'] ?? player.matchCount;
+          player.failCount = stateData['failCount'] ?? player.failCount;
+          player.maxCombo = stateData['maxCombo'] ?? player.maxCombo;
         }
-      } else {
-        print('[SYNC ERROR] playersData does not contain key for playerId: $playerId. Available keys: ${playersData.keys}');
       }
-      
-      _processedStateIds.add(stateId);
-    }
+    });
   }
 
   void _showErrorDialog(String message) {
