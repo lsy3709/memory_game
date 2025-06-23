@@ -1249,23 +1249,24 @@ class FirebaseService {
     }
   }
 
-  /// 받은 게임 초대 목록 가져오기
-  Stream<List<Map<String, dynamic>>> getReceivedGameInvites() {
-    if (!_isInitialized || _firestore == null || currentUser == null) {
-      return Stream.value([]);
+  /// 게임 초대 스트림 가져오기
+  Stream<QuerySnapshot> getGameInvitesStream(String userId) {
+    if (!_isInitialized || _firestore == null) {
+      return Stream.empty();
     }
 
-    return _firestore!.collection('game_invites')
-        .where('toUserId', isEqualTo: currentUser!.uid)
-        .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => {
-              'id': doc.id,
-              ...doc.data(),
-            })
-            .toList());
+    try {
+      return _firestore!.collection('game_invites')
+          .where('toUserId', isEqualTo: userId)
+          .where('status', isEqualTo: 'pending')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .snapshots();
+    } catch (e) {
+      print('게임 초대 스트림 오류: $e');
+      // 인덱스 오류인 경우 빈 스트림 반환
+      return Stream.empty();
+    }
   }
 
   /// 게임 초대 수락
@@ -1753,25 +1754,23 @@ class FirebaseService {
   }
 
   /// 게임 종료 이벤트 스트림 가져오기
-  Stream<Map<String, dynamic>?> getGameEndEventStream(String roomId) {
+  Stream<QuerySnapshot> getGameEventsStream(String roomId) {
     if (!_isInitialized || _firestore == null) {
-      return Stream.value(null);
+      return Stream.empty();
     }
 
-    return _firestore!.collection('online_rooms').doc(roomId)
-        .collection('game_events')
-        .where('type', isEqualTo: 'game_end')
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .snapshots()
-        .map((snapshot) {
-          if (snapshot.docs.isNotEmpty) {
-            final data = snapshot.docs.first.data();
-            data['id'] = snapshot.docs.first.id;
-            return data;
-          }
-          return null;
-        });
+    try {
+      return _firestore!.collection('online_rooms').doc(roomId)
+          .collection('game_events')
+          .where('type', isEqualTo: 'game_end')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .snapshots();
+    } catch (e) {
+      print('게임 이벤트 스트림 오류: $e');
+      // 인덱스 오류인 경우 빈 스트림 반환
+      return Stream.empty();
+    }
   }
 
   /// 플레이어 상태 스트림 가져오기
@@ -1813,6 +1812,31 @@ class FirebaseService {
       print('플레이어 상태 동기화 오류: $e');
       // 오류가 발생해도 게임 진행에 영향을 주지 않도록 예외를 던지지 않음
       // throw Exception('플레이어 상태 동기화에 실패했습니다.');
+    }
+  }
+
+  /// 받은 게임 초대 목록 가져오기
+  Stream<List<Map<String, dynamic>>> getReceivedGameInvites() {
+    if (!_isInitialized || _firestore == null || currentUser == null) {
+      return Stream.value([]);
+    }
+
+    try {
+      return _firestore!.collection('game_invites')
+          .where('toUserId', isEqualTo: currentUser!.uid)
+          .where('status', isEqualTo: 'pending')
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => {
+                'id': doc.id,
+                ...doc.data(),
+              })
+              .toList());
+    } catch (e) {
+      print('받은 게임 초대 목록 오류: $e');
+      // 인덱스 오류인 경우 빈 리스트 반환
+      return Stream.value([]);
     }
   }
 }

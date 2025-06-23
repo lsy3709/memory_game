@@ -1482,18 +1482,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 ),
                 // 디버그 정보 추가 (축약된 버전)
                 Text(
-                  '${isGameRunning ? "진행중" : "대기중"} | ${matchedCardCount}/${cards?.length ?? 0}매칭 | ${isCardsLoading ? "로딩(${cardLoadRetryCount + 1}/$maxCardLoadRetries)" : "완료"}',
+                  '${isGameRunning ? "진행중" : "대기중"} | ${matchedCardCount}/${cards?.length ?? 0}매칭',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
-                    fontSize: 9,
+                    fontSize: 8,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 Text(
-                  '${playersData.length}명 | ${isMyTurn ? "내턴" : "상대턴"}',
+                  '${isCardsLoading ? "로딩(${cardLoadRetryCount + 1}/$maxCardLoadRetries)" : "완료"}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
-                    fontSize: 9,
+                    fontSize: 8,
                   ),
                   textAlign: TextAlign.center,
                 ),
