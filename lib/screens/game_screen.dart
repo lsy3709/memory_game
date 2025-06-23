@@ -142,21 +142,34 @@ class _GameScreenState extends State<GameScreen> {
       '🇪🇸', '🇨🇦', '🇦🇺', '🇧🇷', '🇦🇷', '🇲🇽', '🇮🇳', '🇷🇺',
       '🇰🇵', '🇹🇭', '🇻🇳', '🇵🇭', '🇲🇾', '🇸🇬', '🇮🇩', '🇹🇼'
     ];
-    cardValues.shuffle();
+    final List<String> flagNames = [
+      '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
+      '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
+      '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
+    ];
+    
+    // 이모지와 이름을 함께 섞기
+    final List<MapEntry<String, String>> cardPairs = [];
+    for (int i = 0; i < cardValues.length; i++) {
+      cardPairs.add(MapEntry(cardValues[i], flagNames[i]));
+    }
+    cardPairs.shuffle();
     
     List<CardModel> tempCards = [];
     for (int i = 0; i < numPairs; i++) {
+      final emoji = cardPairs[i].key;
+      final name = cardPairs[i].value;
       tempCards.add(CardModel(
         id: i,
-        emoji: cardValues[i],
-        name: _getFlagName(i),
+        emoji: emoji,
+        name: name,
         isMatched: false,
         isFlipped: false,
       ));
       tempCards.add(CardModel(
         id: i,
-        emoji: cardValues[i],
-        name: _getFlagName(i),
+        emoji: emoji,
+        name: name,
         isMatched: false,
         isFlipped: false,
       ));
