@@ -978,93 +978,80 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   void _handleCardAction(List<Map<String, dynamic>> actions) {
     if (!mounted) return;
     
-    bool needsUpdate = false;
-    List<int> cardsToUpdate = [];
-    
     for (final action in actions) {
-        final actionId = action['id'] as String;
-        if (_processedActionIds.contains(actionId)) continue;
+      final actionId = action['id'] as String;
+      if (_processedActionIds.contains(actionId)) continue;
 
-        final playerId = action['playerId'] as String;
-        if (playerId == currentPlayerId) continue;
+      final playerId = action['playerId'] as String;
+      if (playerId == currentPlayerId) continue;
+      
+      final cardIndex = action['cardIndex'] as int;
+      final isFlipped = action['isFlipped'] as bool;
+      
+      if (cardIndex >= 0 && cardIndex < cards.length) {
+        final card = cards[cardIndex];
         
-        final cardIndex = action['cardIndex'] as int;
-        final isFlipped = action['isFlipped'] as bool;
-        
-        if (cardIndex >= 0 && cardIndex < cards.length) {
-            // 매칭된 카드는 뒤집지 않도록 보호
-            if (!cards[cardIndex].isMatched && cards[cardIndex].isFlipped != isFlipped) {
-                cardsToUpdate.add(cardIndex);
-                needsUpdate = true;
+        // 로컬 상태와 이벤트 상태가 다를 경우에만 처리
+        if (card.isFlipped != isFlipped) {
+          if (mounted) {
+            // 1. 로컬 데이터 상태를 업데이트합니다.
+            setState(() {
+              card.isFlipped = isFlipped;
+            });
+            
+            // 2. 컨트롤러를 사용하여 카드를 시각적으로 뒤집습니다.
+            // isFront는 카드의 앞면이 보이는지 여부를 나타냅니다.
+            // isFlipped (우리의 상태) 와 isFront (위젯의 상태)가 반대일 때 토글합니다.
+            if ((isFlipped && card.key.currentState!.isFront) || 
+                (!isFlipped && !card.key.currentState!.isFront)) {
+              card.controller.toggleCard();
             }
+          }
         }
-        _processedActionIds.add(actionId);
-    }
-    
-    // 배치 업데이트로 성능 향상
-    if (needsUpdate) {
-        setState(() {
-            for (final index in cardsToUpdate) {
-                final action = actions.firstWhere((a) => a['cardIndex'] == index);
-                final isFlipped = action['isFlipped'] as bool;
-                cards[index].isFlipped = isFlipped;
-            }
-        });
+      }
+      _processedActionIds.add(actionId);
     }
   }
 
   void _handleCardMatch(List<Map<String, dynamic>> matches) {
     if (!mounted) return;
     for (final match in matches) {
-        final actionId = match['id'] as String;
-        if (_processedActionIds.contains(actionId)) continue;
-        
-        final playerId = match['playerId'] as String;
-        if (playerId == currentPlayerId) continue;
-        
-        final index1 = match['cardIndex1'] as int;
-        final index2 = match['cardIndex2'] as int;
-        final isMatch = match['isMatch'] as bool? ?? false;
+      final actionId = match['id'] as String;
+      if (_processedActionIds.contains(actionId)) continue;
+      
+      final playerId = match['playerId'] as String;
+      if (playerId == currentPlayerId) continue;
+      
+      final index1 = match['cardIndex1'] as int;
+      final index2 = match['cardIndex2'] as int;
+      final isMatch = match['isMatch'] as bool? ?? false;
 
+      // 매칭 성공 이벤트만 처리합니다.
+      if (isMatch) {
         if (index1 >= 0 && index1 < cards.length && index2 >= 0 && index2 < cards.length) {
-            if (isMatch) {
-                // 매칭 성공 - 즉시 처리
-                setState(() {
-                    cards[index1].isMatched = true;
-                    cards[index2].isMatched = true;
-                    cards[index1].isFlipped = true;
-                    cards[index2].isFlipped = true;
-                    matchedCardCount += 2; // 매칭된 카드 수 증가
-                });
-
-                // 콤보 메시지만 표시, 점수 업데이트는 _handlePlayerStates에서 처리
-                final player = playersData[playerId];
-                if (player != null) {
-                    _showComboScore('${player.name}님이 카드를 맞췄습니다!', isSuccess: true);
-                }
-                
-                // 게임 종료 조건 확인 (상대방 매칭 성공 시에도)
-                print('상대방 매칭 후 카드 상태: $matchedCardCount / ${cards.length}');
-                
-                if (matchedCardCount >= cards.length && !gameCompleted) {
-                    print('상대방이 모든 카드를 매칭함 - 게임 종료!');
-                    _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
-                    return;
-                }
-            } else {
-                // 매칭 실패 - 카드를 다시 뒤집기만 함
-                Future.delayed(const Duration(milliseconds: 600), () {
-                    if (mounted && index1 < cards.length && index2 < cards.length) {
-                        setState(() {
-                            // 이미 매칭된 카드는 뒤집지 않도록 방어 코드 추가
-                            if (!cards[index1].isMatched) cards[index1].isFlipped = false;
-                            if (!cards[index2].isMatched) cards[index2].isFlipped = false;
-                        });
-                    }
-                });
+          // 카드를 매칭된 상태로 UI 업데이트
+          setState(() {
+            if (!cards[index1].isMatched) {
+              cards[index1].isMatched = true;
+              matchedCardCount++;
             }
+            if (!cards[index2].isMatched) {
+              cards[index2].isMatched = true;
+              matchedCardCount++;
+            }
+          });
+
+          // 게임 종료 조건 확인
+          print('상대방 매칭 후 카드 상태: $matchedCardCount / ${cards.length}');
+          if (matchedCardCount >= cards.length && !gameCompleted) {
+            print('상대방이 모든 카드를 매칭함 - 게임 종료!');
+            _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
+            return;
+          }
         }
-        _processedActionIds.add(actionId);
+      }
+      // isMatch: false 경우는 syncCardFlip을 통해 _handleCardAction에서 처리하므로 여기서 무시합니다.
+      _processedActionIds.add(actionId);
     }
   }
 
