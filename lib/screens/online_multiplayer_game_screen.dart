@@ -1364,7 +1364,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
   Widget _buildInfoPanel() {
     final p1 = playersData.values.firstWhere((p) => p.id == currentRoom.hostId, orElse: () => PlayerGameData(id: '', name: ''));
-    final p2 = currentRoom.guestId != null ? playersData.values.firstWhere((p) => p.id == currentRoom.guestId) : null;
+    final p2 = currentRoom.guestId != null ? playersData.values.firstWhere((p) => p.id == currentRoom.guestId, orElse: () => PlayerGameData(id: '', name: '')) : null;
 
     if (p1.id.isEmpty) return const SizedBox.shrink();
 

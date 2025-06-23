@@ -36,8 +36,10 @@ service cloud.firestore {
     }
     
     // game_invites: 사용자는 자신의 게임 초대만 관리할 수 있습니다.
-    match /game_invites/{userId} {
-        allow read, write: if request.auth.uid == userId;
+    match /game_invites/{inviteId} {
+        allow read, write: if request.auth != null && 
+            (request.auth.uid == resource.data.fromUserId || request.auth.uid == resource.data.toUserId);
+        allow create: if request.auth != null && request.auth.uid == resource.data.fromUserId;
     }
 
     // online_rooms 및 하위 컬렉션 규칙

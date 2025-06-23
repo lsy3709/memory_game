@@ -63,20 +63,35 @@ class MemoryCard extends StatelessWidget {
               ),
           ],
         ),
-        child: Center(
+        child: Flexible(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                content,
-                style: const TextStyle(fontSize: 32.0),
+              Expanded(
+                flex: 3,
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Text(
+                      content,
+                      style: const TextStyle(fontSize: 32.0),
+                    ),
+                  ),
+                ),
               ),
               if (!isFront && cardName != null && cardName.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  cardName,
-                  style: const TextStyle(fontSize: 12.0, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+                Expanded(
+                  flex: 1,
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: Text(
+                        cardName,
+                        style: const TextStyle(fontSize: 12.0, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
                 ),
               ]
             ],
