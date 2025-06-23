@@ -184,7 +184,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     if (firstSelectedIndex == index) return;
     if (firstSelectedIndex != null && secondSelectedIndex != null) return;
 
-    soundService.playCardFlip(); // 카드 뒤집기 사운드
+    soundService.playCardFlipSound(); // 카드 뒤집기 사운드
     setState(() {
       cards[index] = cards[index].copyWith(isFlipped: true); // 카드 뒤집기
       if (firstSelectedIndex == null) {
@@ -512,7 +512,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
       players[1].maxCombo = 0;
     });
     _setupTimer();
-    soundService.playGameStart(); // 게임 시작 사운드
+    soundService.playButtonClickSound(); // 게임 시작 사운드
     soundService.playBackgroundMusic();
   }
 

@@ -434,7 +434,7 @@ class _OnlineGameScreenState extends State<OnlineGameScreen> {
       return;
     }
     
-    soundService.playGameStartSound(); // 게임 시작 사운드
+    soundService.playButtonClickSound(); // 게임 시작 사운드
     
     // 기존 타이머 정리
     if (gameTimer?.isActive == true) {
