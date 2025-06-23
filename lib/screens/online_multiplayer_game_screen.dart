@@ -32,7 +32,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   static const int gameTimeSec = 15 * 60;
 
   // 게임 상태 변수
-  late List<CardModel> cards;
+  List<CardModel>? cards;
   int? firstSelectedIndex;
   int? secondSelectedIndex;
   bool isProcessingCardSelection = false;
@@ -190,7 +190,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       setState(() {
         cards = cardModels;
       });
-      print('호스트가 카드 생성: ${cards.length}개 카드');
+      print('호스트가 카드 생성: ${cards!.length}개 카드');
 
     } else {
       // 게스트인 경우 카드 정보를 로드할 때까지 임시로 빈 리스트 사용
@@ -201,7 +201,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           name: '로딩 중...',
         ));
       });
-      print('게스트가 임시 카드 생성: ${cards.length}개 카드');
+      print('게스트가 임시 카드 생성: ${cards!.length}개 카드');
     }
   }
   
@@ -330,13 +330,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       }
       
       // 게스트이고 카드가 아직 로드되지 않은 경우 카드 로드
-      if (!currentRoom.isHost(currentPlayerId) && cards.every((c) => c.emoji == '❓')) {
+      if (!currentRoom.isHost(currentPlayerId) && cards!.every((c) => c.emoji == '❓')) {
         final loadedCardsData = await firebaseService.loadGameCards(room.id);
         if (loadedCardsData.isNotEmpty) {
           setState(() {
             cards = loadedCardsData;
           });
-          print('카드 로드 완료: ${cards.length}개 카드');
+          print('카드 로드 완료: ${cards!.length}개 카드');
         }
       }
     });
@@ -383,7 +383,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       });
     }
     
-    print('게임 시작! 총 카드 수: ${cards.length}, 매칭해야 할 쌍: ${cards.length ~/ 2}');
+    print('게임 시작! 총 카드 수: ${cards!.length}, 매칭해야 할 쌍: ${cards!.length ~/ 2}');
   }
 
   void _updateTimer(Timer timer) {
@@ -414,8 +414,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       return;
     }
 
+    // cards가 null이거나 인덱스가 유효하지 않은 경우 처리
+    if (cards == null || index < 0 || index >= cards!.length) {
+      print('카드 데이터가 없거나 유효하지 않은 인덱스: $index');
+      return;
+    }
+
     // 이미 뒤집힌 카드나 매칭된 카드 클릭 방지
-    if (cards[index].isFlipped || cards[index].isMatched) {
+    if (cards![index].isFlipped || cards![index].isMatched) {
       print('이미 뒤집힌 카드 또는 매칭된 카드 클릭 - 무시됨');
       return;
     }
@@ -428,7 +434,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
     // 즉시 카드 뒤집기 (반응성 향상)
     setState(() {
-      cards[index].isFlipped = true;
+      cards![index].isFlipped = true;
       isProcessingCardSelection = true;
     });
     
@@ -462,7 +468,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       // 이미 두 장이 선택된 상태에서 추가 카드 클릭 시 무시
       print('이미 두 장이 선택됨 - 추가 카드 클릭 무시');
       setState(() {
-        cards[index].isFlipped = false; // 동기화 없이 로컬에서만 되돌림
+        cards![index].isFlipped = false; // 동기화 없이 로컬에서만 되돌림
         isProcessingCardSelection = false;
       });
     }
@@ -477,9 +483,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       return;
     }
 
+    // cards가 null인 경우 처리
+    if (cards == null) {
+      print('매칭 확인 실패: 카드 데이터가 없음');
+      setState(() {
+        isProcessingCardSelection = false;
+      });
+      return;
+    }
+
     // ID로 매칭 확인 (더 정확함)
-    final isMatch = cards[firstSelectedIndex!].id == cards[secondSelectedIndex!].id;
-    print('매칭 확인: ${cards[firstSelectedIndex!].emoji} vs ${cards[secondSelectedIndex!].emoji}, 결과: $isMatch');
+    final isMatch = cards![firstSelectedIndex!].id == cards![secondSelectedIndex!].id;
+    print('매칭 확인: ${cards![firstSelectedIndex!].emoji} vs ${cards![secondSelectedIndex!].emoji}, 결과: $isMatch');
 
     // 선택 상태 초기화
     final index1 = firstSelectedIndex!;
@@ -531,8 +546,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
 
     setState(() {
-      cards[index1].isMatched = true;
-      cards[index2].isMatched = true;
+      cards![index1].isMatched = true;
+      cards![index2].isMatched = true;
       isProcessingCardSelection = false;
       matchedCardCount += 2; // 매칭된 카드 수 증가
     });
@@ -562,9 +577,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
 
     // 게임 종료 조건 확인 - 매칭된 카드 수로 확인
-    print('매칭된 카드: $matchedCardCount / ${cards.length}');
+    print('매칭된 카드: $matchedCardCount / ${cards?.length ?? 0}');
     
-    if (matchedCardCount >= cards.length && !gameCompleted) {
+    if (cards != null && matchedCardCount >= cards!.length && !gameCompleted) {
       print('모든 카드가 매칭됨 - 게임 종료!');
       print('최종 게임 상태:');
       for (final player in playersData.values) {
@@ -633,11 +648,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       
-      setState(() {
-        cards[index1].isFlipped = false;
-        cards[index2].isFlipped = false;
-        isProcessingCardSelection = false;
-      });
+      if (cards != null) {
+        setState(() {
+          cards![index1].isFlipped = false;
+          cards![index2].isFlipped = false;
+          isProcessingCardSelection = false;
+        });
+      } else {
+        setState(() {
+          isProcessingCardSelection = false;
+        });
+      }
       
       // 턴 변경
       _changeTurn();
@@ -947,8 +968,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       final cardIndex = action['cardIndex'] as int;
       final isFlipped = action['isFlipped'] as bool;
       
-      if (cardIndex >= 0 && cardIndex < cards.length) {
-        final card = cards[cardIndex];
+      if (cards != null && cardIndex >= 0 && cardIndex < cards!.length) {
+        final card = cards![cardIndex];
         
         // 로컬 상태와 이벤트 상태가 다를 경우에만 처리
         if (card.isFlipped != isFlipped) {
@@ -978,25 +999,24 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
       // 매칭 성공 이벤트만 처리합니다.
       if (isMatch) {
-        if (index1 >= 0 && index1 < cards.length && index2 >= 0 && index2 < cards.length) {
+        if (cards != null && index1 >= 0 && index1 < cards!.length && index2 >= 0 && index2 < cards!.length) {
           // 카드를 매칭된 상태로 UI 업데이트
           setState(() {
-            if (!cards[index1].isMatched) {
-              cards[index1].isMatched = true;
+            if (!cards![index1].isMatched) {
+              cards![index1].isMatched = true;
               matchedCardCount++;
             }
-            if (!cards[index2].isMatched) {
-              cards[index2].isMatched = true;
+            if (!cards![index2].isMatched) {
+              cards![index2].isMatched = true;
               matchedCardCount++;
             }
           });
 
           // 게임 종료 조건 확인
-          print('상대방 매칭 후 카드 상태: $matchedCardCount / ${cards.length}');
-          if (matchedCardCount >= cards.length && !gameCompleted) {
+          print('상대방 매칭 후 카드 상태: $matchedCardCount / ${cards!.length}');
+          if (cards != null && matchedCardCount >= cards!.length && !gameCompleted) {
             print('상대방이 모든 카드를 매칭함 - 게임 종료!');
             _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
-            return;
           }
         }
       }
@@ -1186,7 +1206,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                             itemCount: totalCards,
                             itemBuilder: (context, index) {
                               // 카드가 로드되지 않은 경우 로딩 상태 표시
-                              if (index >= cards.length || cards[index].emoji == '❓') {
+                              if (cards == null || index >= cards!.length || cards![index].emoji == '❓') {
                                 return Container(
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade200,
@@ -1202,7 +1222,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                               }
                               
                               return MemoryCard(
-                                card: cards[index],
+                                card: cards![index],
                                 onTap: () => onCardPressed(index),
                               );
                             },
@@ -1343,7 +1363,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 ),
                 // 디버그 정보 추가
                 Text(
-                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: $matchedCardCount/${cards.length}',
+                  '게임 상태: ${isGameRunning ? "진행중" : "대기중"} | 매칭된 카드: $matchedCardCount/${cards?.length ?? 0}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
                     fontSize: 10,
