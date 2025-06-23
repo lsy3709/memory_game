@@ -422,7 +422,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         timeLeft--;
       });
     } else {
-      _gameOver(message: "시간 초과!");
+      print('⏰ 시간 초과 - 게임 종료');
+      soundService.playGameLose(); // 시간 초과 사운드
+      _gameOver(message: "⏰ 시간 초과!");
     }
   }
 
@@ -570,16 +572,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       if (player.combo > 1) {
         scoreMessage += ' (${player.combo}콤보!)';
       }
-      _showComboScore(scoreMessage);
+      _showComboScore(scoreMessage, isSuccess: true);
     }
 
-    setState(() {
-      cards![index1].isMatched = true;
-      cards![index2].isMatched = true;
-      isProcessingCardSelection = false;
-      matchedCardCount += 2; // 매칭된 카드 수 증가
-    });
-
+    // 매칭 성공을 Firebase에 동기화
     firebaseService.syncCardMatch(
       currentRoom.id, 
       index1, 
@@ -604,18 +600,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       });
     }
 
-    // 게임 종료 조건 확인 - 매칭된 카드 수로 확인
-    print('매칭된 카드: $matchedCardCount / ${cards?.length ?? 0}');
-    
-    if (cards != null && matchedCardCount >= cards!.length && !gameCompleted) {
-      print('모든 카드가 매칭됨 - 게임 종료!');
-      print('최종 게임 상태:');
-      for (final player in playersData.values) {
-        print('  ${player.name}: 점수=${player.score}, 콤보=${player.combo}, 성공=${player.matchCount}, 실패=${player.failCount}, 최대콤보=${player.maxCombo}');
-      }
-      _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
-      return;
+    // 매칭된 카드 상태 동기화
+    firebaseService.syncCardFlip(currentRoom.id, index1, true, currentPlayerId);
+    firebaseService.syncCardFlip(currentRoom.id, index2, true, currentPlayerId);
+
+    // 카드 상태 업데이트
+    if (cards != null) {
+      setState(() {
+        cards![index1].isMatched = true;
+        cards![index2].isMatched = true;
+        matchedCardCount += 2;
+      });
     }
+
+    // 게임 종료 조건은 플레이어 상태 스트림에서 처리하므로 여기서는 제거
+    // (중복 방지를 위해)
 
     // 매칭 성공 시 턴 유지 (즉시 다음 카드 선택 가능)
     Future.delayed(const Duration(milliseconds: 200), () {
@@ -736,21 +735,35 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   void _gameOver({String? message}) {
-    if (gameCompleted) return;
+    if (gameCompleted) {
+      print('게임이 이미 종료됨 - 중복 호출 무시');
+      return;
+    }
     gameCompleted = true;
 
-    print('게임 종료 시작: $message');
+    print('🎮 게임 종료 시작: $message');
     print('현재 플레이어 데이터:');
     for (final player in playersData.values) {
       print('  ${player.name}: 점수=${player.score}, 콤보=${player.combo}, 성공=${player.matchCount}, 실패=${player.failCount}, 최대콤보=${player.maxCombo}');
     }
 
+    // 게임 타이머 정지
     gameTimer?.cancel();
+    
+    // 배경 음악 정지
+    print('🔇 배경 음악 정지');
     soundService.stopBackgroundMusic();
-    soundService.playGameWinSound();
+    
+    // 게임 승리 사운드 재생 (더 확실하게)
+    print('🎵 게임 승리 사운드 재생 시작');
+    soundService.playGameWin().then((_) {
+      print('🎵 게임 승리 사운드 재생 완료');
+    }).catchError((e) {
+      print('❌ 게임 승리 사운드 재생 오류: $e');
+    });
 
     final winner = _getWinner();
-    print('승자: ${winner?.name ?? '무승부'}');
+    print('🏆 승자: ${winner?.name ?? '무승부'}');
     
     if (mounted) {
       showDialog(
@@ -1099,6 +1112,22 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         }
       }
     });
+    
+    // 게임 종료 조건 확인: 모든 플레이어의 성공 개수 합이 총 카드 쌍의 개수인지 확인
+    final totalMatchCount = playersData.values.fold<int>(0, (sum, player) => sum + player.matchCount);
+    final totalCards = cards?.length ?? 48; // 기본값 48개 (24쌍)
+    final totalPairs = totalCards ~/ 2; // 24쌍
+    
+    print('🎯 게임 종료 조건 확인: 총 성공 개수 $totalMatchCount, 총 카드 쌍 $totalPairs, gameCompleted: $gameCompleted');
+    
+    if (totalMatchCount >= totalPairs && !gameCompleted) {
+      print('🎉 모든 플레이어의 성공 개수 합이 $totalPairs개에 도달 - 게임 종료!');
+      print('최종 플레이어 상태:');
+      for (final player in playersData.values) {
+        print('  ${player.name}: 성공=${player.matchCount}, 실패=${player.failCount}, 점수=${player.score}');
+      }
+      _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
+    }
   }
 
   void _showErrorDialog(String message) {
