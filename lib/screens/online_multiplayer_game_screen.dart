@@ -1,35 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/card_model.dart';
+import '../models/online_room.dart';
+import '../models/player_stats.dart';
+import '../models/multiplayer_game_record.dart';
+import '../services/firebase_service.dart';
+import '../services/sound_service.dart';
+import '../widgets/memory_card.dart';
 import 'dart:async';
 import 'dart:math';
-import 'package:memory_game/models/player_stats.dart';
-import '../widgets/memory_card.dart';
-import '../models/card_model.dart';
-import '../models/score_model.dart';
-import '../models/multiplayer_game_record.dart';
-import '../models/online_room.dart';
-import '../services/sound_service.dart';
-import '../services/firebase_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flip_card/flip_card.dart';
-import 'package:flip_card/flip_card_controller.dart';
-
-/// 게임 화면에서 카드의 UI 상태와 데이터 모델을 함께 관리하기 위한 래퍼 클래스
-class GameCard {
-  final CardModel model;
-  final FlipCardController controller = FlipCardController();
-  final GlobalKey<FlipCardState> key = GlobalKey<FlipCardState>();
-
-  GameCard({required this.model});
-
-  // CardModel의 속성에 쉽게 접근하기 위한 getter
-  int get id => model.id;
-  String get emoji => model.emoji;
-  String? get name => model.name;
-  bool get isFlipped => model.isFlipped;
-  set isFlipped(bool value) => model.isFlipped = value;
-  bool get isMatched => model.isMatched;
-  set isMatched(bool value) => model.isMatched = value;
-}
 
 /// 온라인 멀티플레이어 메모리 카드 게임 화면
 class OnlineMultiplayerGameScreen extends StatefulWidget {
@@ -53,7 +32,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   static const int gameTimeSec = 15 * 60;
 
   // 게임 상태 변수
-  late List<GameCard> cards; // CardModel 대신 GameCard 사용
+  late List<CardModel> cards;
   int? firstSelectedIndex;
   int? secondSelectedIndex;
   bool isProcessingCardSelection = false;
@@ -209,19 +188,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       
       // CardModel 리스트를 GameCard 리스트로 변환
       setState(() {
-        cards = cardModels.map((model) => GameCard(model: model)).toList();
+        cards = cardModels;
       });
       print('호스트가 카드 생성: ${cards.length}개 카드');
 
     } else {
       // 게스트인 경우 카드 정보를 로드할 때까지 임시로 빈 리스트 사용
       setState(() {
-        cards = List.generate(totalCards, (index) => GameCard(
-          model: CardModel(
-            id: index,
-            emoji: '❓',
-            name: '로딩 중...',
-          ),
+        cards = List.generate(totalCards, (index) => CardModel(
+          id: index,
+          emoji: '❓',
+          name: '로딩 중...',
         ));
       });
       print('게스트가 임시 카드 생성: ${cards.length}개 카드');
@@ -357,22 +334,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         final loadedCardsData = await firebaseService.loadGameCards(room.id);
         if (loadedCardsData.isNotEmpty) {
           setState(() {
-            cards = loadedCardsData.map((data) {
-              final cardModel = CardModel.fromJson(data);
-              // name이 없거나 비어있는 경우 emoji에 따라 설정
-              if (cardModel.name == null || cardModel.name!.isEmpty) {
-                final emojiIndex = _getEmojiIndex(cardModel.emoji);
-                if (emojiIndex != -1) {
-                  final flagNames = [
-                    '대한민국', '미국', '일본', '중국', '영국', '프랑스', '독일', '이탈리아',
-                    '스페인', '캐나다', '호주', '브라질', '아르헨티나', '멕시코', '인도', '러시아',
-                    '북한', '태국', '베트남', '필리핀', '말레이시아', '싱가포르', '인도네시아', '대만'
-                  ];
-                  return GameCard(model: cardModel.copyWith(name: flagNames[emojiIndex]));
-                }
-              }
-              return GameCard(model: cardModel);
-            }).toList();
+            cards = loadedCardsData;
           });
           print('카드 로드 완료: ${cards.length}개 카드');
         }
@@ -663,12 +625,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       });
     }
 
-    // 매칭 실패 시 카드를 다시 뒤집는 동기화 (복원)
+    // 매칭 실패 시 카드를 다시 뒤집는 동기화
     firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
     firebaseService.syncCardFlip(currentRoom.id, index2, false, currentPlayerId);
 
-    // 카드 뒤집기 완료 후 턴 변경
-    Future.delayed(const Duration(milliseconds: 600), () {
+    // 카드 뒤집기와 턴 변경을 더 빠르게 처리
+    Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       
       setState(() {
@@ -677,12 +639,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         isProcessingCardSelection = false;
       });
       
-      // 추가 지연으로 카드 뒤집기 애니메이션 완료 후 턴 변경
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted) {
-          _changeTurn();
-        }
-      });
+      // 턴 변경
+      _changeTurn();
     });
   }
   
@@ -995,18 +953,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         // 로컬 상태와 이벤트 상태가 다를 경우에만 처리
         if (card.isFlipped != isFlipped) {
           if (mounted) {
-            // 1. 로컬 데이터 상태를 업데이트합니다.
             setState(() {
               card.isFlipped = isFlipped;
             });
-            
-            // 2. 컨트롤러를 사용하여 카드를 시각적으로 뒤집습니다.
-            // isFront는 카드의 앞면이 보이는지 여부를 나타냅니다.
-            // isFlipped (우리의 상태) 와 isFront (위젯의 상태)가 반대일 때 토글합니다.
-            if ((isFlipped && card.key.currentState!.isFront) || 
-                (!isFlipped && !card.key.currentState!.isFront)) {
-              card.controller.toggleCard();
-            }
           }
         }
       }
@@ -1310,9 +1259,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                               }
                               
                               return MemoryCard(
-                                key: cards[index].key, // GlobalKey 전달
-                                card: cards[index].model,
-                                controller: cards[index].controller, // 컨트롤러 전달
+                                card: cards[index],
                                 onTap: () => onCardPressed(index),
                               );
                             },
