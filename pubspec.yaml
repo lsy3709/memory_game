@@ -48,6 +48,10 @@ dependencies:
   cloud_firestore: ^4.15.8
   firebase_storage: ^11.5.6
   firebase_app_check: ^0.2.1+14 # App Check 추가
+<<<<<<< HEAD
+=======
+  flutter_launcher_icons: ^0.13.1
+>>>>>>> eb6dddd5cac1d1cb8f0d82e6c530c5fb237907f5
   provider: ^6.1.2
 
 dev_dependencies:
