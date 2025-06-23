@@ -245,16 +245,6 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   child: Column(
                     children: [
-                      // 온라인 싱글플레이어 게임 시작 버튼
-                      _buildMenuButton(
-                        icon: Icons.play_arrow,
-                        title: '온라인 싱글플레이어',
-                        subtitle: '온라인 랭킹에 기록되는 싱글 게임',
-                        color: Colors.green,
-                        onTap: () => Navigator.of(context).pushNamed('/online-game'),
-                      ),
-                      const SizedBox(height: 20),
-
                       // 온라인 멀티플레이어 게임 시작 버튼
                       _buildMenuButton(
                         icon: Icons.people,
