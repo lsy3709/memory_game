@@ -1562,12 +1562,16 @@ class FirebaseService {
 
   /// 게임 방의 카드 데이터를 Firestore에 저장
   Future<void> saveGameCards(String roomId, List<Map<String, dynamic>> cardsData) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firestore가 초기화되지 않았습니다.');
+    }
+
     try {
-      if (_firestore == null) {
-        throw Exception('Firestore가 초기화되지 않았습니다.');
-      }
-      
-      await _firestore!.collection('online_rooms').doc(roomId).update({
+      await _firestore!.collection('online_rooms').doc(roomId)
+          .collection('game_state')
+          .doc('cards')
+          .set({
         'cards': cardsData,
         'lastUpdated': FieldValue.serverTimestamp(),
       });

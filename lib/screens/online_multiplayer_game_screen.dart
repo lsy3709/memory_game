@@ -197,7 +197,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       
       // 호스트가 카드를 Firebase에 저장 (게스트가 로딩할 수 있도록)
       print('호스트가 카드를 Firebase에 저장: ${cards!.length}개');
-      firebaseService.saveGameCards(currentRoom.id, cards!.map((card) => card.toJson()).toList());
+      await firebaseService.saveGameCards(currentRoom.id, cards!.map((card) => card.toJson()).toList());
+      
+      // 카드 저장 완료 후 방 상태를 ready로 변경
+      print('카드 저장 완료, 방 상태를 ready로 변경');
+      await firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.ready);
 
     } else {
       // 게스트인 경우 카드 정보를 로드할 때까지 임시로 빈 리스트 사용
@@ -211,8 +215,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       });
       print('게스트가 임시 카드 생성: ${cards!.length}개 카드');
       
-      // 카드 로딩 시작
-      _startCardLoading();
+      // 카드 로딩 시작 (방 상태가 ready일 때만)
+      if (currentRoom.status == RoomStatus.ready) {
+        _startCardLoading();
+      }
     }
   }
   
@@ -335,6 +341,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 
         if (room.status == RoomStatus.playing && !isGameRunning) {
           _startGame();
+        } else if (room.status == RoomStatus.ready && !currentRoom.isHost(currentPlayerId) && isCardsLoading) {
+          // 방 상태가 ready로 변경되고 게스트가 카드 로딩 중인 경우 카드 로딩 시작
+          print('방 상태가 ready로 변경됨 - 게스트 카드 로딩 시작');
+          _startCardLoading();
         } else if (room.status == RoomStatus.finished || room.status == RoomStatus.cancelled) {
           _gameOver();
         }
@@ -1175,37 +1185,39 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       // 호스트가 카드를 저장했으므로 로딩 시도
       final loadedCardsData = await firebaseService.loadGameCards(currentRoom.id);
       
-      if (loadedCardsData.isNotEmpty) {
-        setState(() {
-          cards = loadedCardsData;
-          isCardsLoading = false;
-        });
-        cardLoadRetryTimer?.cancel();
-        print('카드 로딩 완료: ${cards!.length}개 카드');
+      // 카드 데이터가 비어있는지 확인
+      if (loadedCardsData.isEmpty) {
+        print('카드 데이터가 비어있음 - 재시도');
+        cardLoadRetryCount++;
         
-        // 카드 로딩 완료 후 게임이 대기 상태라면 자동 시작
-        if (currentRoom.status == RoomStatus.playing && !isGameRunning) {
-          print('카드 로딩 완료 후 게임 자동 시작');
-          _startGame();
+        if (cardLoadRetryCount >= maxCardLoadRetries) {
+          setState(() {
+            isCardsLoading = false;
+          });
+          print('카드 로딩 최대 재시도 횟수 초과 (데이터 비어있음)');
+          _showErrorDialog('카드 데이터를 불러올 수 없습니다. 방을 다시 입장해주세요.');
+          return;
         }
+        
+        // 0.5초 후 재시도
+        cardLoadRetryTimer?.cancel();
+        cardLoadRetryTimer = Timer(const Duration(milliseconds: 500), _attemptCardLoad);
         return;
       }
       
-      // 카드 로드 실패
-      cardLoadRetryCount++;
-      
-      if (cardLoadRetryCount >= maxCardLoadRetries) {
-        setState(() {
-          isCardsLoading = false;
-        });
-        print('카드 로딩 최대 재시도 횟수 초과');
-        _showErrorDialog('카드를 로드할 수 없습니다. 방을 다시 입장해주세요.');
-        return;
-      }
-      
-      // 0.5초 후 재시도 (더 빠르게)
+      // 카드 데이터가 정상적으로 로드됨
+      setState(() {
+        cards = loadedCardsData;
+        isCardsLoading = false;
+      });
       cardLoadRetryTimer?.cancel();
-      cardLoadRetryTimer = Timer(const Duration(milliseconds: 500), _attemptCardLoad);
+      print('카드 로딩 완료: ${cards!.length}개 카드');
+      
+      // 카드 로딩 완료 후 게임이 대기 상태라면 자동 시작
+      if (currentRoom.status == RoomStatus.playing && !isGameRunning) {
+        print('카드 로딩 완료 후 게임 자동 시작');
+        _startGame();
+      }
       
     } catch (e) {
       print('카드 로딩 오류: $e');

@@ -153,6 +153,7 @@ class OnlineRoom {
 /// 방 상태 열거형
 enum RoomStatus {
   waiting,    // 대기 중 (플레이어 모집)
+  ready,      // 카드 준비 완료 (게임 시작 가능)
   playing,    // 게임 진행 중
   finished,   // 게임 완료
   cancelled,  // 게임 취소
