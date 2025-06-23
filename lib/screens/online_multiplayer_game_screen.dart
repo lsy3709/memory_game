@@ -385,7 +385,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       // 호스트가 카드를 Firebase에 저장 (게스트가 로딩할 수 있도록)
       if (cards != null && cards!.isNotEmpty) {
         print('호스트가 카드를 Firebase에 저장: ${cards!.length}개');
-        firebaseService.saveGameCards(currentRoom.id, cards!);
+        firebaseService.saveGameCards(currentRoom.id, cards!.map((card) => card.toJson()).toList());
       }
     }
     
