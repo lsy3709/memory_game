@@ -1,0 +1,77 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // users: 사용자는 자신의 데이터만 접근할 수 있습니다.
+    // 친구 검색과 같은 기능은 모든 사용자 정보를 열기보다 Cloud Function을 사용하는 것이 안전합니다.
+    match /users/{userId} {
+      allow read, update, delete: if request.auth.uid == userId;
+      allow create: if request.auth != null;
+    }
+
+    // game_records: 싱글 플레이어 게임 기록.
+    match /game_records/{recordId} {
+      allow read: if request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+    }
+
+    // online_game_records, online_multiplayer_records:
+    // 모든 인증된 사용자는 랭킹을 위해 기록을 읽거나 자신의 기록을 생성할 수 있습니다.
+    match /online_game_records/{recordId} {
+        allow read, create: if request.auth != null;
+    }
+    match /online_multiplayer_records/{recordId} {
+        allow read, create: if request.auth != null;
+    }
+
+    // online_player_stats: 사용자는 자신의 통계만 접근할 수 있습니다.
+    match /online_player_stats/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+    
+    // friends: 사용자는 자신의 친구 목록만 관리할 수 있습니다.
+    match /friends/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+    
+    // game_invites: 사용자는 자신의 게임 초대만 관리할 수 있습니다.
+    match /game_invites/{userId} {
+        allow read, write: if request.auth.uid == userId;
+    }
+
+    // online_rooms 및 하위 컬렉션 규칙
+    match /online_rooms/{roomId} {
+      // 도우미 함수: 요청자가 해당 방의 참여자인지 확인합니다.
+      function isParticipant() {
+        let room = get(/databases/$(database)/documents/online_rooms/$(roomId));
+        // 방이 로드되기 전에 room이 null일 수 있으므로 방어 코드를 추가합니다.
+        return room != null && (request.auth.uid == room.data.hostId || (room.data.guestId != null && request.auth.uid == room.data.guestId));
+      }
+
+      // 도우미 함수: 사용자가 빈 게스트 슬롯에 참여하려고 하는지 확인합니다.
+      function isJoining() {
+        // 사용자가 guestId를 자신의 uid로 설정하려고 하고, 기존 guestId는 null이어야 합니다.
+        let isBecomingGuest = resource.data.guestId == null && request.resource.data.guestId == request.auth.uid;
+        // 참여 시 호스트 ID는 변경할 수 없습니다.
+        let hostIdUnchanged = request.resource.data.hostId == resource.data.hostId;
+        return isBecomingGuest && hostIdUnchanged;
+      }
+
+      // 모든 인증된 사용자는 방 목록을 보거나, 방 정보를 읽거나, 새 방을 만들 수 있습니다.
+      allow list, read, create: if request.auth.uid != null;
+      
+      // 업데이트는 기존 참여자이거나, 새로 참여하는 사용자인 경우에만 허용됩니다.
+      allow update: if request.auth.uid != null && (isParticipant() || isJoining());
+      
+      // 호스트만 방을 삭제할 수 있습니다.
+      allow delete: if request.auth.uid == resource.data.hostId;
+
+      // 방 내부의 모든 서브컬렉션(player_states, card_actions 등)에 대한 규칙입니다.
+      // 참여자만 서브컬렉션을 읽고 쓸 수 있습니다.
+      match /{subcollection}/{docId} {
+        allow read, write: if isParticipant();
+      }
+    }
+  }
+} 
