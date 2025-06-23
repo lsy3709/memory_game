@@ -71,7 +71,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   StreamSubscription? _turnChangeSubscription;
   StreamSubscription? _cardMatchesSubscription;
   StreamSubscription? _gameEndEventSubscription;
+  StreamSubscription? _playerStatesSubscription;
   final Set<String> _processedActionIds = {};
+  final Set<String> _processedStateIds = {};
 
   bool gameCompleted = false;
   int matchedCardCount = 0; // 매칭된 카드 수 추적
@@ -102,6 +104,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _turnChangeSubscription?.cancel();
     _cardMatchesSubscription?.cancel();
     _gameEndEventSubscription?.cancel();
+    _playerStatesSubscription?.cancel();
     soundService.stopBackgroundMusic();
     
     // 방에서 나가기 (화면이 종료될 때) - 안전하게 처리
@@ -364,6 +367,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     _turnChangeSubscription = firebaseService.getTurnChangeStream(currentRoom.id).listen(_handleTurnChange);
     _cardMatchesSubscription = firebaseService.getCardMatchesStream(currentRoom.id).listen(_handleCardMatch);
     _gameEndEventSubscription = firebaseService.getGameEndEventStream(currentRoom.id).listen(_handleGameEndEvent);
+    _playerStatesSubscription = firebaseService.getPlayerStatesStream(currentRoom.id).listen(_handlePlayerStates);
   }
 
   void _startGame() {
@@ -387,6 +391,18 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     // 호스트가 시작했으므로 게스트에게도 시작 알림
     if (currentRoom.isHost(currentPlayerId)) {
         firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.playing);
+    }
+    
+    // 게임 시작 시 현재 플레이어의 초기 상태를 동기화
+    final currentPlayer = playersData[currentPlayerId];
+    if (currentPlayer != null) {
+      firebaseService.syncPlayerState(currentRoom.id, currentPlayerId, {
+        'score': currentPlayer.score,
+        'combo': currentPlayer.combo,
+        'matchCount': currentPlayer.matchCount,
+        'failCount': currentPlayer.failCount,
+        'maxCombo': currentPlayer.maxCombo,
+      });
     }
     
     print('게임 시작! 총 카드 수: ${cards.length}, 매칭해야 할 쌍: ${cards.length ~/ 2}');
@@ -556,6 +572,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       player?.maxCombo,
     );
 
+    // 플레이어 상태를 별도로 동기화 (실시간 업데이트를 위해)
+    if (player != null) {
+      firebaseService.syncPlayerState(currentRoom.id, currentPlayerId, {
+        'score': player.score,
+        'combo': player.combo,
+        'matchCount': player.matchCount,
+        'failCount': player.failCount,
+        'maxCombo': player.maxCombo,
+      });
+    }
+
     // 게임 종료 조건 확인 - 매칭된 카드 수로 확인
     print('매칭된 카드: $matchedCardCount / ${cards.length}');
     
@@ -608,6 +635,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       player?.failCount,
       player?.maxCombo,
     );
+
+    // 플레이어 상태를 별도로 동기화 (실시간 업데이트를 위해)
+    if (player != null) {
+      firebaseService.syncPlayerState(currentRoom.id, currentPlayerId, {
+        'score': player.score,
+        'combo': player.combo,
+        'matchCount': player.matchCount,
+        'failCount': player.failCount,
+        'maxCombo': player.maxCombo,
+      });
+    }
 
     // 매칭 실패 시 카드를 다시 뒤집는 동기화 (복원)
     firebaseService.syncCardFlip(currentRoom.id, index1, false, currentPlayerId);
@@ -1009,11 +1047,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 final player = playersData[playerId];
                 if (player != null) {
                     // 상대방의 상세 정보로 업데이트
-                    if (score != null) player.score = score;
-                    if (combo != null) player.combo = combo;
-                    if (matchCount != null) player.matchCount = matchCount;
-                    if (failCount != null) player.failCount = failCount;
-                    if (maxCombo != null) player.maxCombo = maxCombo;
+                    setState(() {
+                        if (score != null) player.score = score;
+                        if (combo != null) player.combo = combo;
+                        if (matchCount != null) player.matchCount = matchCount;
+                        if (failCount != null) player.failCount = failCount;
+                        if (maxCombo != null) player.maxCombo = maxCombo;
+                    });
                     
                     // 콤보 점수 표시 (다른 플레이어)
                     String scoreMessage = '${player.name}: +100';
@@ -1044,11 +1084,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 final player = playersData[playerId];
                 if (player != null) {
                     // 상대방의 상세 정보로 업데이트
-                    if (score != null) player.score = score;
-                    if (combo != null) player.combo = combo;
-                    if (matchCount != null) player.matchCount = matchCount;
-                    if (failCount != null) player.failCount = failCount;
-                    if (maxCombo != null) player.maxCombo = maxCombo;
+                    setState(() {
+                        if (score != null) player.score = score;
+                        if (combo != null) player.combo = combo;
+                        if (matchCount != null) player.matchCount = matchCount;
+                        if (failCount != null) player.failCount = failCount;
+                        if (maxCombo != null) player.maxCombo = maxCombo;
+                    });
                     
                     // 실패 점수 표시 (다른 플레이어)
                     _showComboScore('${player.name}: -10 (콤보 리셋)', isSuccess: false);
@@ -1131,6 +1173,41 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
     
     _gameOver(message: message);
+  }
+
+  void _handlePlayerStates(List<Map<String, dynamic>> states) {
+    if (!mounted) return;
+    
+    for (final state in states) {
+      final stateId = state['id'] as String;
+      if (_processedStateIds.contains(stateId)) continue;
+      
+      final playerId = state['playerId'] as String;
+      if (playerId == currentPlayerId) continue; // 현재 플레이어의 상태는 무시
+      
+      final score = state['score'] as int?;
+      final combo = state['combo'] as int?;
+      final matchCount = state['matchCount'] as int?;
+      final failCount = state['failCount'] as int?;
+      final maxCombo = state['maxCombo'] as int?;
+
+      if (playersData.containsKey(playerId)) {
+        final player = playersData[playerId];
+        if (player != null) {
+          setState(() {
+            if (score != null) player.score = score;
+            if (combo != null) player.combo = combo;
+            if (matchCount != null) player.matchCount = matchCount;
+            if (failCount != null) player.failCount = failCount;
+            if (maxCombo != null) player.maxCombo = maxCombo;
+          });
+          
+          print('상대방 상태 업데이트: ${player.name} - 점수: $score, 콤보: $combo, 성공: $matchCount, 실패: $failCount');
+        }
+      }
+      
+      _processedStateIds.add(stateId);
+    }
   }
 
   void _showErrorDialog(String message) {
