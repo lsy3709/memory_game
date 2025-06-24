@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
 import '../widgets/memory_card.dart';
 import '../models/card_model.dart';
@@ -680,6 +681,13 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
             onPressed: _restartGame,
             tooltip: '다시 시작',
           ),
+          if (kDebugMode) ...[
+            IconButton(
+              icon: Icon(Icons.flash_on),
+              onPressed: _debugAutoSolveAllPairs,
+              tooltip: '자동 정답(디버그)',
+            ),
+          ],
         ],
       ),
       body: SafeArea(
@@ -842,5 +850,21 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   /// 게임 재시작
   void _restartGame() {
     _resetGame();
+  }
+
+  Future<void> _debugAutoSolveAllPairs() async {
+    if (cards.isEmpty) return;
+    Map<int, List<int>> pairMap = {};
+    for (int i = 0; i < cards.length; i++) {
+      pairMap.putIfAbsent(cards[i].id, () => []).add(i);
+    }
+    for (var pair in pairMap.values) {
+      if (pair.length == 2) {
+        _onCardTap(pair[0]);
+        await Future.delayed(const Duration(milliseconds: 200));
+        _onCardTap(pair[1]);
+        await Future.delayed(const Duration(milliseconds: 600));
+      }
+    }
   }
 } 
