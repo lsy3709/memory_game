@@ -576,13 +576,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       player.combo++;
       player.matchCount++;
       
-      // 기본 매칭 점수 100점
-      int matchScore = 100;
+      // 기본 매칭 점수 20점으로 조정 (기존 100점에서 대폭 감소)
+      int matchScore = 20;
       
-      // 콤보 보너스 점수 (2콤보부터 적용, 콤보당 10점 추가)
+      // 콤보 보너스 점수 조정 (3콤보부터 적용, 콤보당 5점 추가)
       int comboBonus = 0;
-      if (player.combo >= 2) {
-        comboBonus = (player.combo - 1) * 10;
+      if (player.combo >= 3) {
+        comboBonus = (player.combo - 2) * 5;
       }
       
       // 총 점수 계산
@@ -666,15 +666,15 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     final player = playersData[currentPlayerId];
     if(player != null) {
-      // 매칭 실패 시 -10점 (0점인 경우는 적용하지 않음)
+      // 매칭 실패 시 -2점으로 조정 (기존 -10점에서 감소)
       if (player.score > 0) {
-        player.score = (player.score - 10).clamp(0, double.infinity).toInt();
+        player.score = (player.score - 2).clamp(0, double.infinity).toInt();
       }
       player.combo = 0; // 콤보 리셋
       player.failCount++;
       
       // 실패 점수 표시
-      _showComboScore('-10 (콤보 리셋)', isSuccess: false);
+      _showComboScore('-2 (콤보 리셋)', isSuccess: false);
     }
 
     // 매칭 실패도 Firebase에 동기화
@@ -1008,8 +1008,32 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       // 현재 플레이어의 정보만 업데이트 (다른 플레이어는 각자 처리)
       final currentPlayer = playersData[currentPlayerId];
       if (currentPlayer != null && currentPlayer.id.isNotEmpty && currentPlayer.id != 'waiting') {
-        final addExp = currentPlayer.score; // 점수만큼 경험치 추가
-        print('내 정보 업데이트: ${currentPlayer.name} (${currentPlayer.id}): 점수 ${currentPlayer.score} -> 경험치 ${addExp} 추가');
+        // 경험치 계산 조정: 점수와 분리하여 더 합리적으로 계산
+        int addExp = 0;
+        
+        // 기본 경험치: 매칭 성공당 5점
+        addExp += currentPlayer.matchCount * 5;
+        
+        // 게임 완료 보너스: 50점
+        addExp += 50;
+        
+        // 승리 보너스: 승자인 경우 추가 100점
+        final winner = _getWinner();
+        if (winner?.id == currentPlayerId) {
+          addExp += 100;
+        }
+        
+        // 최대 콤보 보너스: 최대 콤보당 2점 (최대 20점)
+        addExp += (currentPlayer.maxCombo * 2).clamp(0, 20);
+        
+        print('내 정보 업데이트: ${currentPlayer.name} (${currentPlayer.id})');
+        print('  매칭 성공: ${currentPlayer.matchCount}회 × 5점 = ${currentPlayer.matchCount * 5}점');
+        print('  게임 완료 보너스: 50점');
+        if (winner?.id == currentPlayerId) {
+          print('  승리 보너스: 100점');
+        }
+        print('  최대 콤보 보너스: ${currentPlayer.maxCombo}콤보 × 2점 = ${currentPlayer.maxCombo * 2}점');
+        print('  총 경험치: $addExp점');
         
         try {
           await _updateUserExpAndLevel(addExp);
@@ -2002,7 +2026,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   int calcLevel(int exp) {
-    return (exp ~/ 1000).clamp(0, 98) + 1;
+    // 레벨 계산 공식 조정: 2000 경험치당 1레벨 (기존 1000에서 증가)
+    return (exp ~/ 2000).clamp(0, 98) + 1;
   }
 
   Future<void> _updateUserExpAndLevel(int addExp) async {

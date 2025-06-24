@@ -418,41 +418,82 @@ class FirebaseService {
     }
 
     try {
-      final doc = await _firestore!.collection('online_player_stats').doc(currentUser!.uid).get();
-      if (doc.exists) {
-        final data = doc.data()!;
-        
-        // users 컬렉션에서 레벨 정보 가져오기
-        int level = 1;
-        try {
-          final userDoc = await _firestore!.collection('users').doc(currentUser!.uid).get();
-          if (userDoc.exists) {
-            final userData = userDoc.data()!;
-            level = userData['level'] ?? 1;
-          }
-        } catch (e) {
-          print('사용자 레벨 정보 가져오기 오류: $e');
+      // 먼저 users 컬렉션에서 기본 정보 가져오기
+      Map<String, dynamic>? userData;
+      try {
+        final userDoc = await _firestore!.collection('users').doc(currentUser!.uid).get();
+        if (userDoc.exists) {
+          userData = userDoc.data()!;
         }
-        
-        return PlayerStats(
-          id: currentUser!.uid,
-          playerName: data['playerName'] ?? '',
-          email: data['email'] ?? '',
-          totalGames: data['totalGames'] ?? 0,
-          totalWins: data['totalWins'] ?? 0,
-          bestScore: data['bestScore'] ?? 0,
-          bestTime: data['bestTime'] ?? 0,
-          maxCombo: data['maxCombo'] ?? 0,
-          totalMatches: data['totalMatchCount'] ?? 0,
-          totalFails: data['totalFailCount'] ?? 0,
-          totalMatchCount: data['totalMatchCount'] ?? 0,
-          totalFailCount: data['totalFailCount'] ?? 0,
-          level: level,
-          lastPlayed: (data['lastUpdatedAt'] as Timestamp).toDate(),
-          createdAt: (data['lastUpdatedAt'] as Timestamp).toDate(),
-        );
+      } catch (e) {
+        print('사용자 기본 정보 가져오기 오류: $e');
       }
-      return null;
+
+      // online_player_stats 컬렉션에서 상세 통계 가져오기
+      Map<String, dynamic>? statsData;
+      try {
+        final statsDoc = await _firestore!.collection('online_player_stats').doc(currentUser!.uid).get();
+        if (statsDoc.exists) {
+          statsData = statsDoc.data()!;
+        }
+      } catch (e) {
+        print('온라인 플레이어 통계 가져오기 오류: $e');
+      }
+
+      // 기본값 설정
+      final playerName = userData?['playerName'] ?? statsData?['playerName'] ?? '';
+      final email = userData?['email'] ?? statsData?['email'] ?? '';
+      final level = userData?['level'] ?? 1;
+      final exp = userData?['exp'] ?? 0;
+      
+      // 통계 데이터가 있으면 사용, 없으면 기본값
+      final totalGames = statsData?['totalGames'] ?? 0;
+      final totalWins = statsData?['totalWins'] ?? 0;
+      final bestScore = statsData?['bestScore'] ?? 0;
+      final bestTime = statsData?['bestTime'] ?? 0;
+      final maxCombo = statsData?['maxCombo'] ?? 0;
+      final totalMatches = statsData?['totalMatchCount'] ?? 0;
+      final totalFails = statsData?['totalFailCount'] ?? 0;
+      final totalMatchCount = statsData?['totalMatchCount'] ?? 0;
+      final totalFailCount = statsData?['totalFailCount'] ?? 0;
+
+      // lastUpdatedAt 처리
+      DateTime lastPlayed;
+      DateTime createdAt;
+      try {
+        if (statsData?['lastUpdatedAt'] != null) {
+          lastPlayed = (statsData!['lastUpdatedAt'] as Timestamp).toDate();
+          createdAt = lastPlayed;
+        } else if (userData?['lastUpdatedAt'] != null) {
+          lastPlayed = (userData!['lastUpdatedAt'] as Timestamp).toDate();
+          createdAt = lastPlayed;
+        } else {
+          lastPlayed = DateTime.now();
+          createdAt = DateTime.now();
+        }
+      } catch (e) {
+        print('날짜 처리 오류: $e');
+        lastPlayed = DateTime.now();
+        createdAt = DateTime.now();
+      }
+
+      return PlayerStats(
+        id: currentUser!.uid,
+        playerName: playerName,
+        email: email,
+        totalGames: totalGames,
+        totalWins: totalWins,
+        bestScore: bestScore,
+        bestTime: bestTime,
+        maxCombo: maxCombo,
+        totalMatches: totalMatches,
+        totalFails: totalFails,
+        totalMatchCount: totalMatchCount,
+        totalFailCount: totalFailCount,
+        level: level,
+        lastPlayed: lastPlayed,
+        createdAt: createdAt,
+      );
     } catch (e) {
       print('온라인 플레이어 통계 가져오기 오류: $e');
       return null;

@@ -54,13 +54,13 @@ class ScoreModel {
       _maxCombo = _currentCombo;
     }
     
-    // 기본 매칭 점수 100점
-    int matchScore = 100;
+    // 기본 매칭 점수 20점으로 조정 (기존 100점에서 대폭 감소)
+    int matchScore = 20;
     
-    // 콤보 보너스 점수 (2콤보부터 적용, 콤보당 10점 추가)
+    // 콤보 보너스 점수 조정 (3콤보부터 적용, 콤보당 5점 추가)
     int comboBonus = 0;
-    if (_currentCombo >= 2) {
-      comboBonus = (_currentCombo - 1) * 10;
+    if (_currentCombo >= 3) {
+      comboBonus = (_currentCombo - 2) * 5;
     }
     
     // 총 점수 계산
@@ -76,13 +76,13 @@ class ScoreModel {
       _maxCombo = _currentCombo;
     }
     
-    // 기본 매칭 점수 100점
-    int matchScore = 100;
+    // 기본 매칭 점수 20점으로 조정 (기존 100점에서 대폭 감소)
+    int matchScore = 20;
     
-    // 콤보 보너스 점수 (2콤보부터 적용, 콤보당 10점 추가)
+    // 콤보 보너스 점수 조정 (3콤보부터 적용, 콤보당 5점 추가)
     int comboBonus = 0;
-    if (_currentCombo >= 2) {
-      comboBonus = (_currentCombo - 1) * 10;
+    if (_currentCombo >= 3) {
+      comboBonus = (_currentCombo - 2) * 5;
     }
     
     // 총 점수 계산
@@ -100,9 +100,9 @@ class ScoreModel {
   void addFailPenalty() {
     _failCount++;
     _currentCombo = 0;
-    // 미스매칭 시 -10점 (0점인 경우는 적용하지 않음)
+    // 미스매칭 시 -2점으로 조정 (기존 -10점에서 감소)
     if (_score > 0) {
-      _score = max(0, _score - 10);
+      _score = max(0, _score - 2);
     }
   }
 
