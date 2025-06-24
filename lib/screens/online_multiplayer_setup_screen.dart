@@ -18,6 +18,7 @@ class _OnlineMultiplayerSetupScreenState extends State<OnlineMultiplayerSetupScr
 
   String _currentPlayerName = '';
   String _currentPlayerEmail = '';
+  int _currentPlayerLevel = 1;
 
   @override
   void initState() {
@@ -42,6 +43,7 @@ class _OnlineMultiplayerSetupScreenState extends State<OnlineMultiplayerSetupScr
           setState(() {
             _currentPlayerName = userData['playerName'] ?? user.displayName ?? '플레이어';
             _currentPlayerEmail = userData['email'] ?? user.email ?? '';
+            _currentPlayerLevel = userData['level'] ?? 1;
           });
         }
       }
@@ -201,10 +203,17 @@ class _OnlineMultiplayerSetupScreenState extends State<OnlineMultiplayerSetupScr
                                       ),
                                     ),
                                     Text(
-                                      _currentPlayerName,
+                                      'Lv$_currentPlayerLevel $_currentPlayerName',
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      _currentPlayerEmail,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
                                       ),
                                     ),
                                   ],

@@ -366,9 +366,15 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
                   const Icon(Icons.person, size: 16, color: Colors.grey),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Text(
-                      '방장: ${room.hostName}',
-                      style: const TextStyle(fontSize: 14),
+                    child: FutureBuilder<Map<String, dynamic>?>(
+                      future: _firebaseService.getUserData(room.hostId),
+                      builder: (context, snapshot) {
+                        final hostLevel = snapshot.data?['level'] ?? 1;
+                        return Text(
+                          '방장: Lv$hostLevel ${room.hostName}',
+                          style: const TextStyle(fontSize: 14),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -386,6 +392,27 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
                   ),
                 ],
               ),
+              if (room.guestId != null && room.guestName != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.person_add, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: FutureBuilder<Map<String, dynamic>?>(
+                        future: _firebaseService.getUserData(room.guestId!),
+                        builder: (context, snapshot) {
+                          final guestLevel = snapshot.data?['level'] ?? 1;
+                          return Text(
+                            '게스트: Lv$guestLevel ${room.guestName}',
+                            style: const TextStyle(fontSize: 14),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 4),
               Row(
                 children: [

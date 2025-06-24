@@ -14,6 +14,7 @@ class PlayerStats {
   final int totalFails;         // 총 매칭 실패 수
   final int totalMatchCount;    // 총 매칭 시도 수 (성공 + 실패)
   final int totalFailCount;     // 총 실패 수
+  final int level;              // 플레이어 레벨
   final DateTime lastPlayed;    // 마지막 플레이 시간
   final DateTime createdAt;     // 계정 생성 시간
 
@@ -30,6 +31,7 @@ class PlayerStats {
     this.totalFails = 0,
     this.totalMatchCount = 0,
     this.totalFailCount = 0,
+    this.level = 1,
     required this.lastPlayed,
     required this.createdAt,
   });
@@ -49,6 +51,7 @@ class PlayerStats {
       totalFails: json['totalFails'] as int? ?? 0,
       totalMatchCount: json['totalMatchCount'] as int? ?? 0,
       totalFailCount: json['totalFailCount'] as int? ?? 0,
+      level: json['level'] as int? ?? 1,
       lastPlayed: DateTime.parse(json['lastPlayed'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -69,6 +72,7 @@ class PlayerStats {
       totalFails: map['totalFails'] as int? ?? 0,
       totalMatchCount: map['totalMatchCount'] as int? ?? 0,
       totalFailCount: map['totalFailCount'] as int? ?? 0,
+      level: map['level'] as int? ?? 1,
       lastPlayed: map['lastPlayed'] != null 
           ? (map['lastPlayed'] is Timestamp 
               ? (map['lastPlayed'] as Timestamp).toDate()
@@ -97,6 +101,7 @@ class PlayerStats {
       'totalFails': totalFails,
       'totalMatchCount': totalMatchCount,
       'totalFailCount': totalFailCount,
+      'level': level,
       'lastPlayed': lastPlayed.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
     };
@@ -157,6 +162,7 @@ class PlayerStats {
       totalFails: totalFails + failCount,
       totalMatchCount: totalMatchCount + matchCount,
       totalFailCount: totalFailCount + failCount,
+      level: level,
       lastPlayed: DateTime.now(),
       createdAt: createdAt,
     );

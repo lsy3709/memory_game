@@ -421,6 +421,19 @@ class FirebaseService {
       final doc = await _firestore!.collection('online_player_stats').doc(currentUser!.uid).get();
       if (doc.exists) {
         final data = doc.data()!;
+        
+        // users 컬렉션에서 레벨 정보 가져오기
+        int level = 1;
+        try {
+          final userDoc = await _firestore!.collection('users').doc(currentUser!.uid).get();
+          if (userDoc.exists) {
+            final userData = userDoc.data()!;
+            level = userData['level'] ?? 1;
+          }
+        } catch (e) {
+          print('사용자 레벨 정보 가져오기 오류: $e');
+        }
+        
         return PlayerStats(
           id: currentUser!.uid,
           playerName: data['playerName'] ?? '',
@@ -434,6 +447,7 @@ class FirebaseService {
           totalFails: data['totalFailCount'] ?? 0,
           totalMatchCount: data['totalMatchCount'] ?? 0,
           totalFailCount: data['totalFailCount'] ?? 0,
+          level: level,
           lastPlayed: (data['lastUpdatedAt'] as Timestamp).toDate(),
           createdAt: (data['lastUpdatedAt'] as Timestamp).toDate(),
         );
