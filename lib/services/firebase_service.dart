@@ -1869,4 +1869,43 @@ class FirebaseService {
       return Stream.value([]);
     }
   }
+
+  /// 다른 플레이어의 경험치와 레벨 업데이트 (보안상 Cloud Function을 통해 처리하는 것이 좋지만, 임시로 직접 업데이트)
+  Future<void> updatePlayerExpAndLevel(String playerId, int addExp) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      final userDoc = _firestore!.collection('users').doc(playerId);
+      final snapshot = await userDoc.get();
+      
+      if (!snapshot.exists) {
+        print('플레이어 데이터가 존재하지 않음: $playerId');
+        return;
+      }
+
+      final userData = snapshot.data()!;
+      int currentExp = (userData['exp'] ?? 0) as int;
+      int newExp = currentExp + addExp;
+      int newLevel = _calcLevel(newExp);
+
+      await userDoc.update({
+        'exp': newExp,
+        'level': newLevel,
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('플레이어 경험치/레벨 업데이트 완료: $playerId (경험치: $currentExp -> $newExp, 레벨: ${userData['level'] ?? 1} -> $newLevel)');
+    } catch (e) {
+      print('플레이어 경험치/레벨 업데이트 오류: $e');
+      throw Exception('플레이어 경험치/레벨 업데이트에 실패했습니다.');
+    }
+  }
+
+  /// 경험치를 레벨로 변환하는 함수
+  int _calcLevel(int exp) {
+    return (exp ~/ 1000).clamp(0, 98) + 1;
+  }
 }

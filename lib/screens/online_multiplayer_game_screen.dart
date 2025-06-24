@@ -988,6 +988,37 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     // 게임 종료 이벤트를 Firebase에 기록
     _recordGameEndEvent(winner?.id);
+    
+    // 각 플레이어의 경험치와 레벨 업데이트
+    _updateAllPlayersExpAndLevel();
+  }
+
+  // 모든 플레이어의 경험치와 레벨 업데이트
+  Future<void> _updateAllPlayersExpAndLevel() async {
+    try {
+      print('🎯 모든 플레이어의 경험치/레벨 업데이트 시작');
+      
+      for (final player in playersData.values) {
+        if (player.id.isNotEmpty && player.id != 'waiting') {
+          final addExp = player.score; // 점수만큼 경험치 추가
+          print('플레이어 ${player.name} (${player.id}): 점수 ${player.score} -> 경험치 ${addExp} 추가');
+          
+          // 현재 사용자라면 직접 업데이트
+          if (player.id == currentPlayerId) {
+            await _updateUserExpAndLevel(addExp);
+            print('내 경험치/레벨 업데이트 완료');
+          } else {
+            // 다른 플레이어는 Firebase 함수를 통해 업데이트 (보안상)
+            await firebaseService.updatePlayerExpAndLevel(player.id, addExp);
+            print('다른 플레이어 ${player.name} 경험치/레벨 업데이트 요청 완료');
+          }
+        }
+      }
+      
+      print('🎯 모든 플레이어의 경험치/레벨 업데이트 완료');
+    } catch (e) {
+      print('❌ 경험치/레벨 업데이트 오류: $e');
+    }
   }
 
   // 게임 종료 이벤트를 Firebase에 기록
