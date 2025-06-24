@@ -50,7 +50,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   String currentPlayerId = '';
   String currentPlayerName = '';
   
-  Map<String, PlayerGameData> playersData = {};
+  Map<String, OnlinePlayerGameData> playersData = {};
   String currentTurnPlayerId = '';
 
   bool get isMyTurn => currentTurnPlayerId == currentPlayerId;
@@ -142,12 +142,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     final hostUserData = await firebaseService.getUserData(currentRoom.hostId);
     final hostLevel = hostUserData?['level'] ?? 1;
 
-    PlayerGameData guestData;
+    OnlinePlayerGameData guestData;
     int guestLevel = 1;
     if (currentRoom.guestId != null && currentRoom.guestId!.isNotEmpty) {
       final guestUserData = await firebaseService.getUserData(currentRoom.guestId!);
       guestLevel = guestUserData?['level'] ?? 1;
-      guestData = PlayerGameData(
+      guestData = OnlinePlayerGameData(
         id: currentRoom.guestId!,
         name: currentRoom.guestName ?? '게스트',
         score: 0,
@@ -158,7 +158,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         level: guestLevel,
       );
     } else {
-      guestData = PlayerGameData(
+      guestData = OnlinePlayerGameData(
         id: 'waiting',
         name: '대기 중...',
         score: 0,
@@ -170,7 +170,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       );
     }
 
-    final hostData = PlayerGameData(
+    final hostData = OnlinePlayerGameData(
       id: currentRoom.hostId,
       name: currentRoom.hostName,
       score: 0,
@@ -1077,7 +1077,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  PlayerGameData? _getWinner() {
+  OnlinePlayerGameData? _getWinner() {
     if (playersData.length < 2) return playersData.values.firstOrNull;
     final p1 = playersData.values.first;
     final p2 = currentRoom.guestId != null ? playersData.values.firstWhere((p) => p.id == currentRoom.guestId) : null;
@@ -1647,8 +1647,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   Widget _buildInfoPanel() {
-    final p1 = playersData.values.firstWhere((p) => p.id == currentRoom.hostId, orElse: () => PlayerGameData(id: '', name: ''));
-    final p2 = currentRoom.guestId != null ? playersData.values.firstWhere((p) => p.id == currentRoom.guestId, orElse: () => PlayerGameData(id: '', name: '')) : null;
+    final p1 = playersData.values.firstWhere((p) => p.id == currentRoom.hostId, orElse: () => OnlinePlayerGameData(id: '', name: ''));
+    final p2 = currentRoom.guestId != null ? playersData.values.firstWhere((p) => p.id == currentRoom.guestId, orElse: () => OnlinePlayerGameData(id: '', name: '')) : null;
 
     if (p1.id.isEmpty) return const SizedBox.shrink();
 
@@ -1780,7 +1780,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     );
   }
 
-  Widget _buildPlayerInfo(PlayerGameData player) {
+  Widget _buildPlayerInfo(OnlinePlayerGameData player) {
     bool isTurn = player.id == currentTurnPlayerId;
     bool isMe = player.id == currentPlayerId;
     
@@ -2071,7 +2071,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 }
 
 // Helper class to manage player data within the game screen
-class PlayerGameData {
+class OnlinePlayerGameData {
   final String id;
   final String name;
   int score;
@@ -2081,7 +2081,7 @@ class PlayerGameData {
   int maxCombo;
   int level; // 추가
 
-  PlayerGameData({
+  OnlinePlayerGameData({
     required this.id,
     required this.name,
     this.score = 0,
