@@ -136,52 +136,60 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     currentPlayerId = user.uid;
     final userData = await firebaseService.getUserData(user.uid);
     currentPlayerName = userData?['playerName'] ?? user.displayName ?? '플레이어';
+    final currentPlayerLevel = userData?['level'] ?? 1;
 
-    setState(() {
-      // 호스트와 게스트 정보를 명확하게 설정
-      final hostData = PlayerGameData(
-        id: currentRoom.hostId, 
-        name: currentRoom.hostName,
+    // 호스트/게스트 각각 level도 불러오기
+    final hostUserData = await firebaseService.getUserData(currentRoom.hostId);
+    final hostLevel = hostUserData?['level'] ?? 1;
+
+    PlayerGameData guestData;
+    int guestLevel = 1;
+    if (currentRoom.guestId != null && currentRoom.guestId!.isNotEmpty) {
+      final guestUserData = await firebaseService.getUserData(currentRoom.guestId!);
+      guestLevel = guestUserData?['level'] ?? 1;
+      guestData = PlayerGameData(
+        id: currentRoom.guestId!,
+        name: currentRoom.guestName ?? '게스트',
         score: 0,
         matchCount: 0,
         failCount: 0,
         combo: 0,
         maxCombo: 0,
+        level: guestLevel,
       );
-      
-      PlayerGameData guestData;
-      if (currentRoom.guestId != null && currentRoom.guestId!.isNotEmpty) {
-        guestData = PlayerGameData(
-          id: currentRoom.guestId!, 
-          name: currentRoom.guestName ?? '게스트',
-          score: 0,
-          matchCount: 0,
-          failCount: 0,
-          combo: 0,
-          maxCombo: 0,
-        );
-      } else {
-        guestData = PlayerGameData(
-          id: 'waiting', 
-          name: '대기 중...',
-          score: 0,
-          matchCount: 0,
-          failCount: 0,
-          combo: 0,
-          maxCombo: 0,
-        );
-      }
-      
+    } else {
+      guestData = PlayerGameData(
+        id: 'waiting',
+        name: '대기 중...',
+        score: 0,
+        matchCount: 0,
+        failCount: 0,
+        combo: 0,
+        maxCombo: 0,
+        level: 1,
+      );
+    }
+
+    final hostData = PlayerGameData(
+      id: currentRoom.hostId,
+      name: currentRoom.hostName,
+      score: 0,
+      matchCount: 0,
+      failCount: 0,
+      combo: 0,
+      maxCombo: 0,
+      level: hostLevel,
+    );
+
+    setState(() {
       playersData = {
         hostData.id: hostData,
         guestData.id: guestData,
       };
-
-      // 호스트가 선공하도록 설정
       currentTurnPlayerId = currentRoom.hostId;
       print('플레이어 정보 초기화 완료:');
-      print('  호스트: ${hostData.name} (${hostData.id})');
-      print('  게스트: ${guestData.name} (${guestData.id})');
+      print('  호스트: ${hostData.name} (${hostData.id}) Lv${hostData.level}');
+      print('  게스트: ${guestData.name} (${guestData.id}) Lv${guestData.level}');
       print('  현재 플레이어: $currentPlayerName ($currentPlayerId)');
       print('  초기 턴: $currentTurnPlayerId (호스트)');
     });
@@ -1756,7 +1764,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             children: [
               Flexible(
                 child: Text(
-                  player.name,
+                  'Lv${player.level} ${player.name}', // 레벨과 이름 함께 표시
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: isTurn ? Colors.green.shade800 : Colors.black87,
@@ -1942,6 +1950,26 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       ),
     );
   }
+
+  int calcLevel(int exp) {
+    return (exp ~/ 1000).clamp(0, 98) + 1;
+  }
+
+  Future<void> _updateUserExpAndLevel(int addExp) async {
+    final user = firebaseService.currentUser;
+    if (user == null) return;
+
+    final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final snapshot = await userDoc.get();
+    int currentExp = (snapshot.data()?['exp'] ?? 0) as int;
+    int newExp = currentExp + addExp;
+    int newLevel = calcLevel(newExp);
+
+    await userDoc.update({
+      'exp': newExp,
+      'level': newLevel,
+    });
+  }
 }
 
 // Helper class to manage player data within the game screen
@@ -1953,6 +1981,7 @@ class PlayerGameData {
   int failCount;
   int combo;
   int maxCombo;
+  int level; // 추가
 
   PlayerGameData({
     required this.id,
@@ -1962,5 +1991,6 @@ class PlayerGameData {
     this.failCount = 0,
     this.combo = 0,
     this.maxCombo = 0,
+    this.level = 1, // 기본값
   });
 } 
