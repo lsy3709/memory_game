@@ -2161,7 +2161,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
 // Helper class to manage player data within the game screen
 class OnlinePlayerGameData {
   final String id;
-  final String name;
+  String name; // final 제거하여 수정 가능하도록 변경
   int score;
   int matchCount;
   int failCount;
