@@ -1130,10 +1130,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
             }
           });
 
-          // 게임 종료 조건 확인
-          print('상대방 매칭 후 카드 상태: $matchedCardCount / ${cards!.length}');
-          if (cards != null && matchedCardCount >= cards!.length && !gameCompleted) {
-            print('상대방이 모든 카드를 매칭함 - 게임 종료!');
+          // 매칭 성공 직후에만 게임 종료 조건을 체크 (중복 방지)
+          if (!gameCompleted && matchedCardCount >= (cards?.length ?? 0)) {
+            print('모든 카드를 매칭함 - 게임 종료!');
             _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
           }
         }
@@ -1984,6 +1983,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
   }
 
+  // 자동 정답 후 1초 뒤에도 게임이 안 끝나면 강제 종료 보정 유지
   Future<void> _debugAutoSolveAllPairs() async {
     if (cards == null) return;
     // id별로 인덱스 그룹핑
@@ -1999,6 +1999,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
         onCardPressed(pair[1]);
         await Future.delayed(const Duration(milliseconds: 600)); // 매칭 애니메이션 대기
       }
+    }
+    // 자동 정답 후 1초 뒤에도 게임이 안 끝나면 강제 종료
+    await Future.delayed(const Duration(seconds: 1));
+    if (!gameCompleted && matchedCardCount >= (cards?.length ?? 0)) {
+      _gameOver(message: "디버그: 강제 종료(자동 정답 후)");
     }
   }
 }
