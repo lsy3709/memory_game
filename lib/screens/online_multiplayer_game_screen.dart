@@ -1162,7 +1162,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           });
 
           // 매칭 성공 직후에만 게임 종료 조건을 체크 (중복 방지)
-          if (!gameCompleted && matchedCardCount >= (cards?.length ?? 0)) {
+          if (!gameCompleted && matchedCardCount >= totalCards - 2) {
             print('모든 카드를 매칭함 - 게임 종료!');
             _gameOver(message: "🎉 모든 카드를 맞췄습니다! 🎉");
           }
@@ -1733,7 +1733,7 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 ),
                 // 디버그 정보 추가 (축약된 버전)
                 Text(
-                  '${isGameRunning ? "진행중" : "대기중"} | ${matchedCardCount}/${cards?.length ?? 0}매칭',
+                  '${isGameRunning ? "진행중" : "대기중"} | ${(matchedCardCount / 2).round()}쌍/${numPairs}쌍',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey.shade500,
                     fontSize: 7,
@@ -2033,7 +2033,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
     // 자동 정답 후 1초 뒤에도 게임이 안 끝나면 강제 종료
     await Future.delayed(const Duration(seconds: 1));
-    if (!gameCompleted && matchedCardCount >= (cards?.length ?? 0)) {
+    // 수정: matchedCardCount는 매칭된 카드 개수이므로 totalCards - 2와 비교해야 함
+    if (!gameCompleted && matchedCardCount >= totalCards - 2) {
       _gameOver(message: "디버그: 강제 종료(자동 정답 후)");
     }
   }
