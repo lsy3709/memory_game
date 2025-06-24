@@ -491,6 +491,7 @@ class FirebaseService {
         totalMatchCount: totalMatchCount,
         totalFailCount: totalFailCount,
         level: level,
+        exp: exp,
         lastPlayed: lastPlayed,
         createdAt: createdAt,
       );

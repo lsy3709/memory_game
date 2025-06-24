@@ -15,6 +15,7 @@ class PlayerStats {
   final int totalMatchCount;    // 총 매칭 시도 수 (성공 + 실패)
   final int totalFailCount;     // 총 실패 수
   final int level;              // 플레이어 레벨
+  final int exp;                // 현재 경험치
   final DateTime lastPlayed;    // 마지막 플레이 시간
   final DateTime createdAt;     // 계정 생성 시간
 
@@ -32,6 +33,7 @@ class PlayerStats {
     this.totalMatchCount = 0,
     this.totalFailCount = 0,
     this.level = 1,
+    this.exp = 0,
     required this.lastPlayed,
     required this.createdAt,
   });
@@ -52,6 +54,7 @@ class PlayerStats {
       totalMatchCount: json['totalMatchCount'] as int? ?? 0,
       totalFailCount: json['totalFailCount'] as int? ?? 0,
       level: json['level'] as int? ?? 1,
+      exp: json['exp'] as int? ?? 0,
       lastPlayed: DateTime.parse(json['lastPlayed'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -73,6 +76,7 @@ class PlayerStats {
       totalMatchCount: map['totalMatchCount'] as int? ?? 0,
       totalFailCount: map['totalFailCount'] as int? ?? 0,
       level: map['level'] as int? ?? 1,
+      exp: map['exp'] as int? ?? 0,
       lastPlayed: map['lastPlayed'] != null 
           ? (map['lastPlayed'] is Timestamp 
               ? (map['lastPlayed'] as Timestamp).toDate()
@@ -102,9 +106,31 @@ class PlayerStats {
       'totalMatchCount': totalMatchCount,
       'totalFailCount': totalFailCount,
       'level': level,
+      'exp': exp,
       'lastPlayed': lastPlayed.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
     };
+  }
+
+  /// 현재 레벨에서 다음 레벨까지 필요한 경험치
+  int get expToNextLevel {
+    // 레벨 계산 공식: (레벨 - 1) * 2000
+    final nextLevelExp = level * 2000;
+    return nextLevelExp - exp;
+  }
+
+  /// 현재 레벨에서의 경험치 진행률 (0.0 ~ 1.0)
+  double get levelProgress {
+    // 현재 레벨에서의 경험치
+    final currentLevelExp = exp - ((level - 1) * 2000);
+    // 현재 레벨에서 다음 레벨까지 필요한 경험치
+    final expNeeded = 2000;
+    return (currentLevelExp / expNeeded).clamp(0.0, 1.0);
+  }
+
+  /// 경험치 진행률을 퍼센트로 반환
+  double get levelProgressPercent {
+    return levelProgress * 100;
   }
 
   /// 승률 계산
@@ -163,6 +189,7 @@ class PlayerStats {
       totalMatchCount: totalMatchCount + matchCount,
       totalFailCount: totalFailCount + failCount,
       level: level,
+      exp: exp,
       lastPlayed: DateTime.now(),
       createdAt: createdAt,
     );
