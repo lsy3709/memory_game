@@ -1444,6 +1444,14 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 },
                 tooltip: '턴 변경 (디버그)',
               ),
+              IconButton(
+                icon: Icon(Icons.stop),
+                onPressed: () {
+                  // 게임 강제 종료 함수 호출
+                  _gameOver(message: "디버그: 강제 종료");
+                },
+                tooltip: '강제 게임 종료(디버그)',
+              ),
             ],
             // 턴 상태 표시 버튼
             IconButton(
