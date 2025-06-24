@@ -370,6 +370,12 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           }
         }
 
+        // 게스트가 새로 참가한 경우 즉시 레벨 정보 업데이트
+        if (room.guestId != null && room.guestId!.isNotEmpty) {
+          print('🔄 게스트 참가 확인 - 레벨 정보 업데이트: ${room.guestId}');
+          await _updateGuestLevelInfo();
+        }
+
         if (room.status == RoomStatus.playing && !isGameRunning) {
           _startGame();
         } else if (room.status == RoomStatus.ready && !currentRoom.isHost(currentPlayerId) && isCardsLoading) {
@@ -983,11 +989,10 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
           actions: [
             TextButton(
               onPressed: () {
-                soundService.playButtonClickSound();
-                Navigator.of(context).pop();
-                Navigator.of(context).pop(); // 게임 화면에서 퇴장
+                Navigator.of(context).pop(); // 다이얼로그 닫기
+                Navigator.of(context).pop(gameCompleted); // 게임 화면에서 퇴장하면서 결과 전달
               },
-              child: const Text("확인"),
+              child: const Text('확인'),
             ),
           ],
         ),
@@ -1999,7 +2004,8 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
     
     if(mounted) {
-      Navigator.of(context).pop();
+      // 게임이 완료된 경우 결과를 전달하여 새로고침 트리거
+      Navigator.of(context).pop(gameCompleted);
     }
   }
 
@@ -2118,12 +2124,33 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       print('🔄 게스트 레벨 정보 업데이트: ${currentRoom.guestId}');
       final guestUserData = await firebaseService.getUserData(currentRoom.guestId!);
       final guestLevel = guestUserData?['level'] ?? 1;
+      final guestName = guestUserData?['playerName'] ?? currentRoom.guestName ?? '게스트';
       
       if (playersData.containsKey(currentRoom.guestId!)) {
         setState(() {
-          playersData[currentRoom.guestId!]!.level = guestLevel;
+          final guestPlayer = playersData[currentRoom.guestId!]!;
+          guestPlayer.level = guestLevel;
+          guestPlayer.name = guestName; // 이름도 함께 업데이트
         });
-        print('✅ 게스트 레벨 업데이트 완료: Lv$guestLevel');
+        print('✅ 게스트 레벨 업데이트 완료: ${guestName} Lv$guestLevel');
+      } else {
+        // 게스트가 playersData에 없는 경우 새로 추가
+        print('🆕 게스트 플레이어 데이터 새로 생성: ${guestName} Lv$guestLevel');
+        final newGuestData = OnlinePlayerGameData(
+          id: currentRoom.guestId!,
+          name: guestName,
+          score: 0,
+          matchCount: 0,
+          failCount: 0,
+          combo: 0,
+          maxCombo: 0,
+          level: guestLevel,
+        );
+        
+        setState(() {
+          playersData[currentRoom.guestId!] = newGuestData;
+        });
+        print('✅ 새 게스트 플레이어 데이터 생성 완료');
       }
     } catch (e) {
       print('❌ 게스트 레벨 업데이트 오류: $e');

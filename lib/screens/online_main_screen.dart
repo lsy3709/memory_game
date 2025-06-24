@@ -33,6 +33,13 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
     _setupGameInviteListener();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 화면이 다시 포커스될 때마다 사용자 정보 새로고침
+    _refreshUserInfo();
+  }
+
   /// 사용자 정보 로드
   Future<void> _loadUserInfo() async {
     try {
@@ -80,6 +87,47 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  /// 사용자 정보 새로고침 (화면 포커스 시 호출)
+  Future<void> _refreshUserInfo() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Firebase 서비스를 통해 사용자 정보 가져오기
+        Map<String, dynamic>? userData;
+        try {
+          userData = await _firebaseService.getUserData(user.uid);
+        } catch (e) {
+          print('사용자 데이터 새로고침 오류: $e');
+          return;
+        }
+        
+        // 기존 정보와 다른 경우에만 업데이트
+        final newPlayerName = userData != null && userData['playerName'] != null 
+            ? userData['playerName'] 
+            : user.displayName ?? '플레이어';
+        final newEmail = userData?['email'] ?? user.email ?? '';
+        
+        bool needsUpdate = false;
+        if (_playerName != newPlayerName || _email != newEmail) {
+          needsUpdate = true;
+        }
+        
+        if (needsUpdate) {
+          setState(() {
+            _playerName = newPlayerName;
+            _email = newEmail;
+          });
+          print('사용자 정보 업데이트: $_playerName, $_email');
+        }
+        
+        // 플레이어 통계도 새로고침
+        await _loadPlayerStats();
+      }
+    } catch (e) {
+      print('사용자 정보 새로고침 오류: $e');
     }
   }
 
@@ -170,12 +218,25 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
       final room = await _firebaseService.joinOnlineRoom(roomId);
       
       if (mounted) {
-        Navigator.pushReplacement(
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => OnlineMultiplayerGameScreen(room: room),
           ),
         );
+        
+        // 게임에서 돌아온 경우 정보 새로고침
+        if (result == true) {
+          await _refreshUserInfo();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('게임 완료! 프로필 정보가 업데이트되었습니다.'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -217,6 +278,28 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              _soundService.playButtonClickSound();
+              setState(() {
+                _isLoading = true;
+              });
+              await _refreshUserInfo();
+              setState(() {
+                _isLoading = false;
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('정보가 새로고침되었습니다.'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              }
+            },
+            tooltip: '정보 새로고침',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _signOut,
             tooltip: '로그아웃',
@@ -251,7 +334,21 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
                         title: '온라인 멀티플레이어',
                         subtitle: '실시간 멀티플레이어 게임',
                         color: Colors.orange,
-                        onTap: () => Navigator.of(context).pushNamed('/online-room-list'),
+                        onTap: () async {
+                          final result = await Navigator.of(context).pushNamed('/online-room-list');
+                          // 게임에서 돌아온 경우 정보 새로고침
+                          if (result == true) {
+                            await _refreshUserInfo();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('게임 완료! 프로필 정보가 업데이트되었습니다.'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        },
                       ),
                       const SizedBox(height: 20),
 
@@ -319,18 +416,52 @@ class _OnlineMainScreenState extends State<OnlineMainScreen> {
       ),
       child: Column(
         children: [
-          // 프로필 이미지
-          CircleAvatar(
-            radius: 40,
-            backgroundColor: Colors.blue,
-            child: Text(
-              _playerName.isNotEmpty ? _playerName[0].toUpperCase() : 'P',
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+          // 프로필 이미지와 새로고침 버튼을 함께 배치
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 프로필 이미지
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: Colors.blue,
+                child: Text(
+                  _playerName.isNotEmpty ? _playerName[0].toUpperCase() : 'P',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 16),
+              // 새로고침 버튼
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 28),
+                onPressed: () async {
+                  _soundService.playButtonClickSound();
+                  setState(() {
+                    _isLoading = true;
+                  });
+                  await _refreshUserInfo();
+                  setState(() {
+                    _isLoading = false;
+                  });
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('프로필 정보가 업데이트되었습니다.'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+                tooltip: '프로필 정보 새로고침',
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.blue.shade100,
+                  foregroundColor: Colors.blue.shade700,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
 
