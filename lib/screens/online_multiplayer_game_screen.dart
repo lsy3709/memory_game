@@ -843,7 +843,9 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     });
 
     final winner = _getWinner();
-    print('🏆 승자: ${winner?.name ?? '무승부'}');
+    print('🏆 승자: ${winner?.name ?? '무승부'} (ID: ${winner?.id ?? 'none'})');
+    print('👤 현재 플레이어: $currentPlayerName (ID: $currentPlayerId)');
+    print('🏠 호스트 여부: ${currentRoom.isHost(currentPlayerId)}');
     
     if (mounted) {
       showDialog(
@@ -980,16 +982,21 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     
     // 게임 종료 상태를 Firebase에 동기화
     if(currentRoom.isHost(currentPlayerId)) {
-        _saveGameRecord();
         firebaseService.updateRoomStatus(currentRoom.id, RoomStatus.finished).catchError((e) {
           print('게임 종료 시 방 상태 업데이트 오류: $e');
         });
     }
     
+    // 모든 플레이어가 각자 게임 기록 저장
+    print('💾 게임 기록 저장 시작');
+    _saveGameRecord();
+    
     // 게임 종료 이벤트를 Firebase에 기록
+    print('📝 게임 종료 이벤트 기록 시작');
     _recordGameEndEvent(winner?.id);
     
     // 각 플레이어의 경험치와 레벨 업데이트
+    print('🎯 경험치/레벨 업데이트 시작');
     _updateAllPlayersExpAndLevel();
   }
 
@@ -998,24 +1005,24 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     try {
       print('🎯 모든 플레이어의 경험치/레벨 업데이트 시작');
       
-      for (final player in playersData.values) {
-        if (player.id.isNotEmpty && player.id != 'waiting') {
-          final addExp = player.score; // 점수만큼 경험치 추가
-          print('플레이어 ${player.name} (${player.id}): 점수 ${player.score} -> 경험치 ${addExp} 추가');
-          
-          // 현재 사용자라면 직접 업데이트
-          if (player.id == currentPlayerId) {
-            await _updateUserExpAndLevel(addExp);
-            print('내 경험치/레벨 업데이트 완료');
-          } else {
-            // 다른 플레이어는 Firebase 함수를 통해 업데이트 (보안상)
-            await firebaseService.updatePlayerExpAndLevel(player.id, addExp);
-            print('다른 플레이어 ${player.name} 경험치/레벨 업데이트 요청 완료');
-          }
+      // 현재 플레이어의 정보만 업데이트 (다른 플레이어는 각자 처리)
+      final currentPlayer = playersData[currentPlayerId];
+      if (currentPlayer != null && currentPlayer.id.isNotEmpty && currentPlayer.id != 'waiting') {
+        final addExp = currentPlayer.score; // 점수만큼 경험치 추가
+        print('내 정보 업데이트: ${currentPlayer.name} (${currentPlayer.id}): 점수 ${currentPlayer.score} -> 경험치 ${addExp} 추가');
+        
+        try {
+          await _updateUserExpAndLevel(addExp);
+          print('✅ 내 경험치/레벨 업데이트 완료');
+        } catch (playerError) {
+          print('❌ 내 경험치/레벨 업데이트 실패: $playerError');
         }
       }
       
-      print('🎯 모든 플레이어의 경험치/레벨 업데이트 완료');
+      // 다른 플레이어들의 정보는 각자 처리하도록 알림 (실제로는 각 플레이어가 자신의 정보를 업데이트)
+      print('📢 다른 플레이어들의 경험치/레벨은 각자 처리됩니다.');
+      
+      print('🎯 경험치/레벨 업데이트 프로세스 완료');
     } catch (e) {
       print('❌ 경험치/레벨 업데이트 오류: $e');
     }
@@ -1999,19 +2006,42 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
   }
 
   Future<void> _updateUserExpAndLevel(int addExp) async {
-    final user = firebaseService.currentUser;
-    if (user == null) return;
+    try {
+      final user = firebaseService.currentUser;
+      if (user == null) {
+        print('❌ 사용자 정보가 없어 경험치/레벨 업데이트를 건너뜁니다.');
+        return;
+      }
 
-    final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    final snapshot = await userDoc.get();
-    int currentExp = (snapshot.data()?['exp'] ?? 0) as int;
-    int newExp = currentExp + addExp;
-    int newLevel = calcLevel(newExp);
+      print('🔄 경험치/레벨 업데이트 시작: 사용자 ${user.uid}, 추가 경험치: $addExp');
 
-    await userDoc.update({
-      'exp': newExp,
-      'level': newLevel,
-    });
+      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final snapshot = await userDoc.get();
+      
+      if (!snapshot.exists) {
+        print('❌ 사용자 문서가 존재하지 않습니다: ${user.uid}');
+        return;
+      }
+
+      final userData = snapshot.data()!;
+      int currentExp = (userData['exp'] ?? 0) as int;
+      int currentLevel = (userData['level'] ?? 1) as int;
+      int newExp = currentExp + addExp;
+      int newLevel = calcLevel(newExp);
+
+      print('📊 경험치/레벨 업데이트: $currentExp -> $newExp, Lv$currentLevel -> Lv$newLevel');
+
+      await userDoc.update({
+        'exp': newExp,
+        'level': newLevel,
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('✅ 경험치/레벨 업데이트 완료');
+    } catch (e) {
+      print('❌ 경험치/레벨 업데이트 오류: $e');
+      rethrow;
+    }
   }
 
   // 자동 정답 후 1초 뒤에도 게임이 안 끝나면 강제 종료 보정 유지
