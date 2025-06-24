@@ -1474,6 +1474,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
                 });
               },
             ),
+            IconButton(
+              icon: Icon(Icons.flash_on),
+              onPressed: _debugAutoSolveAllPairs,
+              tooltip: '자동 정답(디버그)',
+            ),
           ],
         ),
         body: SafeArea(
@@ -1977,6 +1982,24 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       'exp': newExp,
       'level': newLevel,
     });
+  }
+
+  Future<void> _debugAutoSolveAllPairs() async {
+    if (cards == null) return;
+    // id별로 인덱스 그룹핑
+    Map<int, List<int>> pairMap = {};
+    for (int i = 0; i < cards!.length; i++) {
+      pairMap.putIfAbsent(cards![i].id, () => []).add(i);
+    }
+    // 모든 쌍에 대해 순서대로 클릭
+    for (var pair in pairMap.values) {
+      if (pair.length == 2) {
+        onCardPressed(pair[0]);
+        await Future.delayed(const Duration(milliseconds: 200));
+        onCardPressed(pair[1]);
+        await Future.delayed(const Duration(milliseconds: 600)); // 매칭 애니메이션 대기
+      }
+    }
   }
 }
 
