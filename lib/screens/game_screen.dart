@@ -11,6 +11,8 @@ import '../models/game_record.dart';
 import '../models/player_stats.dart';
 import '../services/sound_service.dart';
 import '../services/storage_service.dart';
+import '../services/hive_database_service.dart';
+import '../models/hive_models.dart';
 import 'package:memory_game/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -50,6 +52,7 @@ class _GameScreenState extends State<GameScreen> {
   final SoundService soundService = SoundService.instance; // 사운드 관리
   late ScoreModel scoreModel;             // 점수 관리
   final StorageService storageService = StorageService.instance; // 저장소 관리
+  final HiveDatabaseService hiveService = HiveDatabaseService(); // Hive 데이터베이스 서비스
   
   // 기록 관련 변수
   String currentPlayerName = '게스트';     // 현재 플레이어 이름
@@ -302,9 +305,13 @@ class _GameScreenState extends State<GameScreen> {
         isCompleted: isCompleted,
       );
 
-      // 게임 기록 저장
+      // Hive 데이터베이스에 로컬 게임 기록 저장
+      await hiveService.saveLocalGameRecord(gameRecord);
+      print('Hive 데이터베이스에 로컬 게임 기록 저장 완료');
+
+      // 기존 SharedPreferences 저장소에도 저장 (호환성 유지)
       await storageService.saveGameRecord(gameRecord);
-      print('게임 기록 저장 완료');
+      print('SharedPreferences에 게임 기록 저장 완료');
 
       // 플레이어 통계 업데이트 (등록된 플레이어인 경우)
       if (currentPlayerEmail.isNotEmpty) {

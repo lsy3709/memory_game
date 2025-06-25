@@ -9,6 +9,8 @@ import '../models/score_model.dart';
 import '../models/multiplayer_game_record.dart';
 import '../services/sound_service.dart';
 import '../services/storage_service.dart';
+import '../services/hive_database_service.dart';
+import '../models/hive_models.dart';
 import 'multiplayer_comparison_screen.dart';
 
 /// 멀티플레이어 메모리 카드 게임 화면
@@ -49,6 +51,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   Timer? gameTimer;                       // 게임 타이머 (nullable로 변경)
   final SoundService soundService = SoundService.instance; // 사운드 관리
   final StorageService storageService = StorageService.instance; // 저장소 관리
+  final HiveDatabaseService hiveService = HiveDatabaseService(); // Hive 데이터베이스 서비스
   
   // 플레이어 관련 변수
   int currentPlayerIndex = 0;             // 현재 플레이어 인덱스 (0: 플레이어1, 1: 플레이어2)
@@ -321,8 +324,11 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
         timeLeft: timeLeft,
       );
 
-      // 멀티플레이어 게임 기록 저장 (간단한 구현)
-      // 실제로는 storageService에 멀티플레이어 기록 저장 메서드 추가 필요
+      // Hive 데이터베이스에 로컬 멀티플레이어 게임 기록 저장
+      await hiveService.saveLocalMultiplayerRecord(multiplayerRecord);
+      print('Hive 데이터베이스에 로컬 멀티플레이어 게임 기록 저장 완료');
+
+      // 기존 SharedPreferences 저장소에도 저장 (호환성 유지)
       print('멀티플레이어 게임 기록 저장: ${multiplayerRecord.toJson()}');
     } catch (e) {
       print('멀티플레이어 게임 기록 저장 오류: $e');
