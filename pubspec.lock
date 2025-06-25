@@ -629,6 +629,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.15.0"
+    
   mime:
     dependency: transitive
     description:
@@ -637,6 +638,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
+
   nested:
     dependency: transitive
     description:
@@ -645,14 +647,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"
-  package_config:
-    dependency: transitive
-    description:
-      name: package_config
-      sha256: f096c55ebb7deb7e384101542bfba8c52696c1b56fca2eb62827989ef2353bbc
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.0"
+
   path:
     dependency: transitive
     description:
@@ -757,22 +752,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5"
-  pub_semver:
-    dependency: transitive
-    description:
-      name: pub_semver
-      sha256: "5bfcf68ca79ef689f8990d1160781b4bad40a3bd5e5218ad4076ddb7f4081585"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.0"
-  pubspec_parse:
-    dependency: transitive
-    description:
-      name: pubspec_parse
-      sha256: "0560ba233314abbed0a48a2956f7f022cce7c3e1e73df540277da7544cad4082"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.5.0"
+
   shared_preferences:
     dependency: "direct main"
     description:
@@ -994,22 +974,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.5.1"
-  web_socket:
-    dependency: transitive
-    description:
-      name: web_socket
-      sha256: "34d64019aa8e36bf9842ac014bb5d2f5586ca73df5e4d9bf5c936975cae6982c"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
-  web_socket_channel:
-    dependency: transitive
-    description:
-      name: web_socket_channel
-      sha256: d645757fb0f4773d602444000a8131ff5d48c9e47adfe9772652dd1a4f2d45c8
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.3"
+
   xdg_directories:
     dependency: transitive
     description:
