@@ -1,3 +1,4 @@
+
 import 'package:hive/hive.dart';
 
 part 'game_record.g.dart';
@@ -34,6 +35,9 @@ class MultiplayerGameRecord extends HiveObject {
   MultiplayerGameRecord({required this.players, required this.playedAt});
 }
 /// 게임 기록을 저장하는 모델 클래스
+
+/// 게임 기록을 저장하는 모델 클래스2
+
 class GameRecord {
   final String id;           // 고유 식별자
   final String playerName;   // 플레이어 이름
