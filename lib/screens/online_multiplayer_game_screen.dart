@@ -144,12 +144,11 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     print('🔍 플레이어 정보 로드 시작:');
     print('  현재 플레이어: $currentPlayerName (${user.uid}) Lv$currentPlayerLevel');
 
-    // 호스트 정보 가져오기
+    // 호스트 정보 가져오기 (방 데이터에서 직접)
     print('  호스트 ID: ${currentRoom.hostId}');
-    final hostUserData = await firebaseService.getUserData(currentRoom.hostId);
-    final hostLevel = hostUserData?['level'] ?? 1;
-    final hostName = hostUserData?['playerName'] ?? currentRoom.hostName;
-    print('  호스트 레벨 정보: $hostLevel (데이터: ${hostUserData?.toString() ?? 'null'})');
+    final hostLevel = currentRoom.hostLevel;
+    final hostName = currentRoom.hostName;
+    print('  호스트 레벨 정보: $hostLevel (방 데이터에서)');
 
     // 호스트 데이터 생성
     final hostData = OnlinePlayerGameData(
@@ -163,14 +162,13 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
       level: hostLevel,
     );
 
-    // 게스트 정보 처리
+    // 게스트 정보 처리 (방 데이터에서 직접)
     OnlinePlayerGameData guestData;
     if (currentRoom.guestId != null && currentRoom.guestId!.isNotEmpty) {
       print('  게스트 ID: ${currentRoom.guestId}');
-      final guestUserData = await firebaseService.getUserData(currentRoom.guestId!);
-      final guestLevel = guestUserData?['level'] ?? 1;
-      final guestName = guestUserData?['playerName'] ?? currentRoom.guestName ?? '게스트';
-      print('  게스트 레벨 정보: $guestLevel (데이터: ${guestUserData?.toString() ?? 'null'})');
+      final guestLevel = currentRoom.guestLevel ?? 1;
+      final guestName = currentRoom.guestName ?? '게스트';
+      print('  게스트 레벨 정보: $guestLevel (방 데이터에서)');
       
       guestData = OnlinePlayerGameData(
         id: currentRoom.guestId!,
@@ -2165,18 +2163,17 @@ class _OnlineMultiplayerGameScreenState extends State<OnlineMultiplayerGameScree
     }
 
     try {
-      print('🔄 게스트 레벨 정보 최초 업데이트 시작: ${currentRoom.guestId}');
+      print('🔄 게스트 레벨 정보 업데이트 시작: ${currentRoom.guestId}');
       print('📊 현재 playersData 상태:');
       for (final entry in playersData.entries) {
         print('  ${entry.key}: ${entry.value.name} Lv${entry.value.level}');
       }
       
-      final guestUserData = await firebaseService.getUserData(currentRoom.guestId!);
-      final guestLevel = guestUserData?['level'] ?? 1;
-      final guestName = guestUserData?['playerName'] ?? currentRoom.guestName ?? '게스트';
+      // 방 데이터에서 직접 게스트 정보 가져오기
+      final guestLevel = currentRoom.guestLevel ?? 1;
+      final guestName = currentRoom.guestName ?? '게스트';
       
-      print('📊 게스트 정보 조회 결과: $guestName Lv$guestLevel');
-      print('📊 Firebase에서 가져온 데이터: ${guestUserData?.toString() ?? 'null'}');
+      print('📊 게스트 정보 (방 데이터에서): $guestName Lv$guestLevel');
       
       if (playersData.containsKey(currentRoom.guestId!)) {
         final guestPlayer = playersData[currentRoom.guestId!]!;

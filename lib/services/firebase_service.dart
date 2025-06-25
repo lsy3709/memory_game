@@ -786,6 +786,7 @@ class FirebaseService {
       final userData = await getUserData(currentUser!.uid);
       final playerName = userData?['playerName'] ?? currentUser!.displayName ?? '플레이어';
       final email = userData?['email'] ?? currentUser!.email ?? '';
+      final playerLevel = userData?['level'] ?? 1;
 
       final roomId = _firestore!.collection('online_rooms').doc().id;
       
@@ -823,6 +824,7 @@ class FirebaseService {
         hostId: currentUser!.uid,
         hostName: playerName,
         hostEmail: email,
+        hostLevel: playerLevel,
         // guestId는 설정하지 않음 (초대받은 친구가 참가할 때 설정)
         status: RoomStatus.waiting,
         createdAt: DateTime.now(),
@@ -914,6 +916,7 @@ class FirebaseService {
       final userData = await getUserData(currentUser!.uid);
       final playerName = userData?['playerName'] ?? currentUser!.displayName ?? '플레이어';
       final email = userData?['email'] ?? currentUser!.email ?? '';
+      final playerLevel = userData?['level'] ?? 1;
 
       final roomRef = _firestore!.collection('online_rooms').doc(roomId);
       
@@ -933,6 +936,7 @@ class FirebaseService {
           guestId: currentUser!.uid,
           guestName: playerName,
           guestEmail: email,
+          guestLevel: playerLevel,
         );
 
         transaction.update(roomRef, updatedRoom.toJson());

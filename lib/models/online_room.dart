@@ -7,9 +7,11 @@ class OnlineRoom {
   final String hostId;                // 방장 ID
   final String hostName;              // 방장 이름
   final String hostEmail;             // 방장 이메일
+  final int hostLevel;                // 방장 레벨
   final String? guestId;              // 게스트 ID (참가자)
   final String? guestName;            // 게스트 이름
   final String? guestEmail;           // 게스트 이메일
+  final int? guestLevel;              // 게스트 레벨
   final RoomStatus status;            // 방 상태
   final DateTime createdAt;           // 생성 시간
   final DateTime? gameStartedAt;      // 게임 시작 시간
@@ -23,9 +25,11 @@ class OnlineRoom {
     required this.hostId,
     required this.hostName,
     required this.hostEmail,
+    this.hostLevel = 1,
     this.guestId,
     this.guestName,
     this.guestEmail,
+    this.guestLevel,
     required this.status,
     required this.createdAt,
     this.gameStartedAt,
@@ -42,9 +46,11 @@ class OnlineRoom {
       hostId: json['hostId'] as String,
       hostName: json['hostName'] as String,
       hostEmail: json['hostEmail'] as String,
+      hostLevel: json['hostLevel'] as int? ?? 1,
       guestId: json['guestId'] as String?,
       guestName: json['guestName'] as String?,
       guestEmail: json['guestEmail'] as String?,
+      guestLevel: json['guestLevel'] as int?,
       status: RoomStatus.values.firstWhere(
         (e) => e.toString() == 'RoomStatus.${json['status']}',
         orElse: () => RoomStatus.waiting,
@@ -67,9 +73,11 @@ class OnlineRoom {
       'hostId': hostId,
       'hostName': hostName,
       'hostEmail': hostEmail,
+      'hostLevel': hostLevel,
       'guestId': guestId,
       'guestName': guestName,
       'guestEmail': guestEmail,
+      'guestLevel': guestLevel,
       'status': status.toString().split('.').last,
       'createdAt': Timestamp.fromDate(createdAt),
       'gameStartedAt': gameStartedAt != null ? Timestamp.fromDate(gameStartedAt!) : null,
@@ -121,9 +129,11 @@ class OnlineRoom {
     String? hostId,
     String? hostName,
     String? hostEmail,
+    int? hostLevel,
     String? guestId,
     String? guestName,
     String? guestEmail,
+    int? guestLevel,
     RoomStatus? status,
     DateTime? createdAt,
     DateTime? gameStartedAt,
@@ -137,9 +147,11 @@ class OnlineRoom {
       hostId: hostId ?? this.hostId,
       hostName: hostName ?? this.hostName,
       hostEmail: hostEmail ?? this.hostEmail,
+      hostLevel: hostLevel ?? this.hostLevel,
       guestId: guestId ?? this.guestId,
       guestName: guestName ?? this.guestName,
       guestEmail: guestEmail ?? this.guestEmail,
+      guestLevel: guestLevel ?? this.guestLevel,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       gameStartedAt: gameStartedAt ?? this.gameStartedAt,

@@ -366,15 +366,9 @@ class _OnlineRoomListScreenState extends State<OnlineRoomListScreen> {
                   const Icon(Icons.person, size: 16, color: Colors.grey),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: FutureBuilder<Map<String, dynamic>?>(
-                      future: _firebaseService.getUserData(room.hostId),
-                      builder: (context, snapshot) {
-                        final hostLevel = snapshot.data?['level'] ?? 1;
-                        return Text(
-                          '방장: Lv$hostLevel ${room.hostName}',
-                          style: const TextStyle(fontSize: 14),
-                        );
-                      },
+                    child: Text(
+                      '방장: Lv${room.hostLevel} ${room.hostName}',
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
                 ],
