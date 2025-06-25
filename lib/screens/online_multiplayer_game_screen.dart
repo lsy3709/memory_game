@@ -10,6 +10,43 @@ import '../services/sound_service.dart';
 import '../widgets/memory_card.dart';
 import 'dart:async';
 import 'dart:math';
+import 'package:hive/hive.dart';
+
+part 'game_record.g.dart';
+
+@HiveType(typeId: 0)
+class GameRecord extends HiveObject {
+  @HiveField(0)
+  String playerName;
+
+  @HiveField(1)
+  int score;
+
+  @HiveField(2)
+  DateTime playedAt;
+
+  // ...필요한 필드 추가
+
+  GameRecord({required this.playerName, required this.score, required this.playedAt});
+}
+
+@HiveType(typeId: 1)
+class PlayerGameResult extends HiveObject {
+  @HiveField(0)
+  String playerName;
+  @HiveField(1)
+  int score;
+  // ...필요한 필드 추가
+}
+
+@HiveType(typeId: 2)
+class MultiplayerGameRecord extends HiveObject {
+  @HiveField(0)
+  List<PlayerGameResult> players;
+  @HiveField(1)
+  DateTime playedAt;
+  // ...필요한 필드 추가
+}
 
 /// 온라인 멀티플레이어 메모리 카드 게임 화면
 class OnlineMultiplayerGameScreen extends StatefulWidget {
