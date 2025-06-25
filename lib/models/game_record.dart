@@ -1,4 +1,4 @@
-/// 게임 기록을 저장하는 모델 클래스
+/// 게임 기록을 저장하는 모델 클래스, 잠시 롤백
 class GameRecord {
   final String id;           // 고유 식별자
   final String playerName;   // 플레이어 이름
