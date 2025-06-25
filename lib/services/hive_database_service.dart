@@ -246,7 +246,7 @@ class HiveDatabaseService {
       final firebaseService = FirebaseService.instance;
       
       // Firebase에서 온라인 방 목록 가져오기
-      final onlineRooms = await firebaseService.getOnlineRooms();
+      final onlineRooms = await firebaseService.getOnlineRoomsList();
       
       // 기존 로컬 방 데이터 삭제
       await _onlineRoomsBox.clear();

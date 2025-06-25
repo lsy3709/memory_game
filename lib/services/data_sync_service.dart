@@ -221,7 +221,7 @@ class DataSyncService {
   Future<void> _syncOnlineRooms() async {
     try {
       // Firebase에서 온라인 방 목록 가져오기
-      final onlineRooms = await _firebaseService.getOnlineRooms();
+      final onlineRooms = await _firebaseService.getOnlineRoomsList();
       
       // 기존 로컬 방 데이터 삭제 (Hive 서비스에서 처리)
       // await _hiveService._onlineRoomsBox.clear();

@@ -875,7 +875,7 @@ class FirebaseService {
     }
   }
 
-  /// 온라인 게임 방 목록 가져오기
+  /// 온라인 게임 방 목록 가져오기 (Stream)
   Stream<List<OnlineRoom>> getOnlineRooms() {
     if (!_isInitialized || _firestore == null) {
       return Stream.value([]);
@@ -899,6 +899,30 @@ class FirebaseService {
           
           return rooms;
         });
+  }
+
+  /// 온라인 게임 방 목록 가져오기 (Future)
+  Future<List<Map<String, dynamic>>> getOnlineRoomsList() async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      final snapshot = await _firestore!.collection('online_rooms')
+          .where('status', isEqualTo: 'waiting')
+          .orderBy('createdAt', descending: true)
+          .limit(50) // 최대 50개 방만 가져오기
+          .get();
+
+      return snapshot.docs.map((doc) => {
+        'id': doc.id,
+        ...doc.data(),
+      }).toList();
+    } catch (e) {
+      print('온라인 방 목록 가져오기 오류: $e');
+      throw Exception('온라인 방 목록을 가져오는데 실패했습니다.');
+    }
   }
 
   /// 온라인 게임 방 참가
