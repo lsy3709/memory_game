@@ -24,10 +24,13 @@ import 'screens/online_room_list_screen.dart';
 import 'screens/online_room_creation_screen.dart';
 import 'screens/online_multiplayer_game_screen.dart';
 import 'screens/friend_management_screen.dart';
+import 'screens/data_sync_screen.dart';
 import 'models/card_model.dart';
 import 'models/online_room.dart';
 import 'services/sound_service.dart';
 import 'services/firebase_service.dart';
+import 'services/hive_database_service.dart';
+import 'services/data_sync_service.dart';
 import 'firebase_options.dart'; // Firebase 옵션 파일
 
 void main() async {
@@ -55,6 +58,22 @@ void main() async {
     appleProvider: AppleProvider.debug,
   );
   
+  // Hive 데이터베이스 초기화
+  try {
+    await HiveDatabaseService().initialize();
+    print('Hive 데이터베이스 초기화 완료');
+  } catch (e) {
+    print('Hive 데이터베이스 초기화 오류: $e');
+  }
+  
+  // 데이터 동기화 서비스 초기화
+  try {
+    await DataSyncService().initialize();
+    print('데이터 동기화 서비스 초기화 완료');
+  } catch (e) {
+    print('데이터 동기화 서비스 초기화 오류: $e');
+  }
+  
   // 사운드 서비스 초기화 및 배경음악 시작
   try {
     await SoundService.instance.initialize();
@@ -77,8 +96,10 @@ class MemoryGameApp extends StatefulWidget {
 class _MemoryGameAppState extends State<MemoryGameApp> {
   @override
   void dispose() {
-    // 앱 종료 시 사운드 리소스 정리
+    // 앱 종료 시 리소스 정리
     SoundService.instance.dispose();
+    HiveDatabaseService().close();
+    DataSyncService().dispose();
     super.dispose();
   }
 
@@ -131,6 +152,7 @@ class _MemoryGameAppState extends State<MemoryGameApp> {
         '/online-room-list': (context) => const OnlineRoomListScreen(),
         '/online-room-creation': (context) => const OnlineRoomCreationScreen(),
         '/friend-management': (context) => const FriendManagementScreen(),
+        '/data-sync': (context) => const DataSyncScreen(),
       },
       onGenerateRoute: (settings) {
         // 싱글 플레이어 게임 화면 - 동적 라우팅
