@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../models/hive_models.dart';
 import '../models/game_record.dart';
 import '../models/multiplayer_game_record.dart';
-import '../models/online_room.dart';
+import '../models/online_room.dart' as online_room;
 import 'firebase_service.dart';
 
 /// Hive 데이터베이스 서비스
@@ -13,10 +13,10 @@ class HiveDatabaseService {
   factory HiveDatabaseService() => _instance;
   HiveDatabaseService._internal();
 
-  static const String _gameRecordsBox = 'game_records';
-  static const String _multiplayerRecordsBox = 'multiplayer_records';
-  static const String _onlineRoomsBox = 'online_rooms';
-  static const String _syncStatusBox = 'sync_status';
+  static const String _gameRecordsBoxName = 'game_records';
+  static const String _multiplayerRecordsBoxName = 'multiplayer_records';
+  static const String _onlineRoomsBoxName = 'online_rooms';
+  static const String _syncStatusBoxName = 'sync_status';
 
   late Box<HiveGameRecord> _gameRecordsBox;
   late Box<HiveMultiplayerGameRecord> _multiplayerRecordsBox;
@@ -38,10 +38,10 @@ class HiveDatabaseService {
     Hive.registerAdapter(RoomStatusAdapter());
 
     // 박스 열기
-    _gameRecordsBox = await Hive.openBox<HiveGameRecord>(_gameRecordsBox);
-    _multiplayerRecordsBox = await Hive.openBox<HiveMultiplayerGameRecord>(_multiplayerRecordsBox);
-    _onlineRoomsBox = await Hive.openBox<HiveOnlineRoom>(_onlineRoomsBox);
-    _syncStatusBox = await Hive.openBox<String>(_syncStatusBox);
+    _gameRecordsBox = await Hive.openBox<HiveGameRecord>(_gameRecordsBoxName);
+    _multiplayerRecordsBox = await Hive.openBox<HiveMultiplayerGameRecord>(_multiplayerRecordsBoxName);
+    _onlineRoomsBox = await Hive.openBox<HiveOnlineRoom>(_onlineRoomsBoxName);
+    _syncStatusBox = await Hive.openBox<String>(_syncStatusBoxName);
 
     print('Hive 데이터베이스 초기화 완료');
   }
@@ -146,7 +146,7 @@ class HiveDatabaseService {
   // ==================== 온라인 방 관리 ====================
 
   /// 온라인 방 저장
-  Future<void> saveOnlineRoom(OnlineRoom room) async {
+  Future<void> saveOnlineRoom(online_room.OnlineRoom room) async {
     final hiveRoom = HiveOnlineRoom.fromOnlineRoom(room);
     await _onlineRoomsBox.put(hiveRoom.id, hiveRoom);
     print('온라인 방 저장: ${hiveRoom.id}');
@@ -181,12 +181,12 @@ class HiveDatabaseService {
   /// 로컬 데이터를 Firebase에 동기화
   Future<void> syncLocalDataToFirebase() async {
     try {
-      final firebaseService = FirebaseService();
+      final firebaseService = FirebaseService.instance;
       
       // 동기화되지 않은 로컬 게임 기록 업로드
       final unsyncedRecords = getUnsyncedLocalRecords();
       for (final record in unsyncedRecords) {
-        await firebaseService.uploadGameRecord(record.toJson());
+        await firebaseService.saveGameRecord(record.toJson());
         record.isSynced = true;
         await _gameRecordsBox.put(record.id, record);
         print('게임 기록 동기화 완료: ${record.id}');
@@ -195,7 +195,7 @@ class HiveDatabaseService {
       // 동기화되지 않은 로컬 멀티플레이어 기록 업로드
       final unsyncedMultiplayerRecords = getUnsyncedLocalMultiplayerRecords();
       for (final record in unsyncedMultiplayerRecords) {
-        await firebaseService.uploadMultiplayerGameRecord(record.toJson());
+        await firebaseService.saveMultiplayerGameRecord(record.toJson());
         record.isSynced = true;
         await _multiplayerRecordsBox.put(record.id, record);
         print('멀티플레이어 기록 동기화 완료: ${record.id}');
@@ -211,7 +211,7 @@ class HiveDatabaseService {
   /// Firebase 데이터를 로컬로 동기화
   Future<void> syncFirebaseDataToLocal() async {
     try {
-      final firebaseService = FirebaseService();
+      final firebaseService = FirebaseService.instance;
       
       // Firebase에서 게임 기록 가져오기
       final onlineRecords = await firebaseService.getGameRecords();
@@ -243,7 +243,7 @@ class HiveDatabaseService {
   /// 온라인 방 데이터 동기화
   Future<void> syncOnlineRooms() async {
     try {
-      final firebaseService = FirebaseService();
+      final firebaseService = FirebaseService.instance;
       
       // Firebase에서 온라인 방 목록 가져오기
       final onlineRooms = await firebaseService.getOnlineRooms();
@@ -254,7 +254,7 @@ class HiveDatabaseService {
       // 새로운 방 데이터 저장
       for (final roomData in onlineRooms) {
         final hiveRoom = HiveOnlineRoom.fromOnlineRoom(
-          OnlineRoom.fromJson(roomData)
+          online_room.OnlineRoom.fromJson(roomData)
         );
         await _onlineRoomsBox.put(hiveRoom.id, hiveRoom);
       }

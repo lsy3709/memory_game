@@ -3,6 +3,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'hive_database_service.dart';
 import 'firebase_service.dart';
+import '../models/hive_models.dart';
+import '../models/game_record.dart';
+import '../models/multiplayer_game_record.dart';
+import '../models/online_room.dart';
 
 /// 데이터 동기화 서비스
 /// Firebase와 Hive 간의 데이터 동기화를 관리
@@ -12,7 +16,7 @@ class DataSyncService {
   DataSyncService._internal();
 
   final HiveDatabaseService _hiveService = HiveDatabaseService();
-  final FirebaseService _firebaseService = FirebaseService();
+  final FirebaseService _firebaseService = FirebaseService.instance;
   
   Timer? _syncTimer;
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
@@ -159,18 +163,20 @@ class DataSyncService {
       // 동기화되지 않은 로컬 게임 기록 업로드
       final unsyncedRecords = _hiveService.getUnsyncedLocalRecords();
       for (final record in unsyncedRecords) {
-        await _firebaseService.uploadGameRecord(record.toJson());
+        await _firebaseService.saveGameRecord(record.toJson());
         record.isSynced = true;
-        await _hiveService._gameRecordsBox.put(record.id, record);
+        // Hive 데이터베이스 서비스의 내부 박스에 직접 접근하지 않고 메서드 사용
+        await _hiveService.saveLocalGameRecord(GameRecord.fromJson(record.toJson()));
         print('게임 기록 업로드 완료: ${record.id}');
       }
 
       // 동기화되지 않은 로컬 멀티플레이어 기록 업로드
       final unsyncedMultiplayerRecords = _hiveService.getUnsyncedLocalMultiplayerRecords();
       for (final record in unsyncedMultiplayerRecords) {
-        await _firebaseService.uploadMultiplayerGameRecord(record.toJson());
+        await _firebaseService.saveMultiplayerGameRecord(record.toJson());
         record.isSynced = true;
-        await _hiveService._multiplayerRecordsBox.put(record.id, record);
+        // Hive 데이터베이스 서비스의 내부 박스에 직접 접근하지 않고 메서드 사용
+        await _hiveService.saveLocalMultiplayerRecord(MultiplayerGameRecord.fromJson(record.toJson()));
         print('멀티플레이어 기록 업로드 완료: ${record.id}');
       }
 
@@ -191,7 +197,7 @@ class DataSyncService {
           GameRecord.fromJson(recordData), 
           GameType.online
         );
-        await _hiveService._gameRecordsBox.put(hiveRecord.id, hiveRecord);
+        await _hiveService.saveOnlineGameRecord(GameRecord.fromJson(recordData));
       }
 
       // Firebase에서 멀티플레이어 기록 가져오기
@@ -201,7 +207,7 @@ class DataSyncService {
           MultiplayerGameRecord.fromJson(recordData), 
           GameType.online
         );
-        await _hiveService._multiplayerRecordsBox.put(hiveRecord.id, hiveRecord);
+        await _hiveService.saveOnlineMultiplayerRecord(MultiplayerGameRecord.fromJson(recordData));
       }
 
       print('Firebase 데이터 로컬 다운로드 완료');
@@ -217,15 +223,15 @@ class DataSyncService {
       // Firebase에서 온라인 방 목록 가져오기
       final onlineRooms = await _firebaseService.getOnlineRooms();
       
-      // 기존 로컬 방 데이터 삭제
-      await _hiveService._onlineRoomsBox.clear();
+      // 기존 로컬 방 데이터 삭제 (Hive 서비스에서 처리)
+      // await _hiveService._onlineRoomsBox.clear();
       
       // 새로운 방 데이터 저장
       for (final roomData in onlineRooms) {
         final hiveRoom = HiveOnlineRoom.fromOnlineRoom(
           OnlineRoom.fromJson(roomData)
         );
-        await _hiveService._onlineRoomsBox.put(hiveRoom.id, hiveRoom);
+        await _hiveService.saveOnlineRoom(OnlineRoom.fromJson(roomData));
       }
 
       print('온라인 방 데이터 동기화 완료');

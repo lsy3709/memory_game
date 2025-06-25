@@ -1769,6 +1769,84 @@ class FirebaseService {
     }
   }
 
+  /// 멀티플레이어 게임 기록 저장
+  Future<void> saveMultiplayerGameRecord(dynamic multiplayerRecord) async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      if (currentUser == null) {
+        throw Exception('로그인된 사용자가 없습니다.');
+      }
+
+      final recordData = {
+        'gameTitle': multiplayerRecord.gameTitle,
+        'players': multiplayerRecord.players,
+        'createdAt': multiplayerRecord.createdAt.toIso8601String(),
+        'isCompleted': multiplayerRecord.isCompleted,
+        'totalTime': multiplayerRecord.totalTime,
+        'timeLeft': multiplayerRecord.timeLeft,
+        'userId': currentUser!.uid,
+        'userEmail': currentUser!.email,
+        'firebaseCreatedAt': FieldValue.serverTimestamp(),
+      };
+
+      await _firestore!.collection('multiplayer_game_records').add(recordData);
+      print('멀티플레이어 게임 기록 저장 완료: ${multiplayerRecord.gameTitle}');
+    } catch (e) {
+      print('멀티플레이어 게임 기록 저장 오류: $e');
+      throw Exception('멀티플레이어 게임 기록 저장에 실패했습니다.');
+    }
+  }
+
+  /// 게임 기록 목록 가져오기
+  Future<List<Map<String, dynamic>>> getGameRecords() async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      final snapshot = await _firestore!.collection('game_records')
+          .orderBy('createdAt', descending: true)
+          .limit(100) // 최근 100개만 가져오기
+          .get();
+
+      return snapshot.docs.map((doc) => {
+        'id': doc.id,
+        ...doc.data(),
+      }).toList();
+    } catch (e) {
+      print('게임 기록 목록 가져오기 오류: $e');
+      throw Exception('게임 기록 목록을 가져오는데 실패했습니다.');
+    }
+  }
+
+  /// 멀티플레이어 게임 기록 목록 가져오기
+  Future<List<Map<String, dynamic>>> getMultiplayerGameRecords() async {
+    await _initialize();
+    if (!_isInitialized || _firestore == null) {
+      throw Exception('Firebase가 초기화되지 않았습니다.');
+    }
+
+    try {
+      final snapshot = await _firestore!.collection('multiplayer_game_records')
+          .orderBy('firebaseCreatedAt', descending: true)
+          .limit(100) // 최근 100개만 가져오기
+          .get();
+
+      return snapshot.docs.map((doc) => {
+        'id': doc.id,
+        ...doc.data(),
+      }).toList();
+    } catch (e) {
+      print('멀티플레이어 게임 기록 목록 가져오기 오류: $e');
+      throw Exception('멀티플레이어 게임 기록 목록을 가져오는데 실패했습니다.');
+    }
+  }
+
   /// 개선된 이메일 중복체크 (유효한 임시 비밀번호로 회원가입 시도)
   Future<bool> checkEmailDuplicateImproved(String email) async {
     await _initialize();
