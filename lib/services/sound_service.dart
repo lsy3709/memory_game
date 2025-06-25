@@ -142,15 +142,27 @@ class SoundService {
     await _playSound('sounds/effect/card_match.wav');
   }
 
-  /// 카드 매치 사운드 (기존 메서드명 호환성)
-  Future<void> playCardMatch() async {
-    await playMatchSound();
+  /// 카드 매치 성공 사운드 (새로운 메서드)
+  Future<void> playMatchSuccessSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/effect/card_match.wav');
   }
 
   /// 카드 매치 실패 사운드
   Future<void> playMismatchSound() async {
     if (!_isSoundEnabled) return;
     await _playSound('sounds/effect/card_mismatch.wav');
+  }
+
+  /// 카드 매치 실패 사운드 (새로운 메서드)
+  Future<void> playMatchFailureSound() async {
+    if (!_isSoundEnabled) return;
+    await _playSound('sounds/effect/card_mismatch.wav');
+  }
+
+  /// 카드 매치 사운드 (기존 메서드명 호환성)
+  Future<void> playCardMatch() async {
+    await playMatchSound();
   }
 
   /// 카드 매치 실패 사운드 (기존 메서드명 호환성)

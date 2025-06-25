@@ -196,6 +196,15 @@ class _MainScreenState extends State<MainScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.sync),
+              title: const Text('데이터 동기화'),
+              onTap: () {
+                _soundService.playButtonClickSound();
+                Navigator.of(context).pop();
+                Navigator.of(context).pushNamed('/data-sync');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.info),
               title: const Text('앱 정보'),
               onTap: () {
